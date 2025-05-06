@@ -25,7 +25,7 @@ export function getFileExtension(filename: string): string {
 }
 
 export function validatePdfFile(file: File): boolean {
-  const validExtensions = ['pdf'];
+  const validExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
   const fileExtension = getFileExtension(file.name).toLowerCase();
   
   if (!validExtensions.includes(fileExtension)) {

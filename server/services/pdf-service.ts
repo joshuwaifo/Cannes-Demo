@@ -11,92 +11,53 @@ interface ScriptParsingResult {
   scenes: ExtractedScene[];
 }
 
-// Implementation with mock data for testing
+import pdfParse from './pdf-parse-wrapper';
+
+// Implementation for real PDF parsing
 export async function extractScriptFromPdf(pdfBuffer: Buffer): Promise<ScriptParsingResult> {
   try {
-    console.log('Processing script with sample script data for testing');
+    console.log('Processing uploaded PDF file...');
     
-    // Sample script for testing
-    const mockContent = `
-TITLE: PROJECT AURORA
-
-INT. TECH STARTUP OFFICE - DAY
-
-ALEX (35), focused and ambitious, stares at multiple screens displaying code. The office is modern but cluttered with gadgets and empty coffee cups.
-
-JORDAN (28) enters, carrying a tablet.
-
-JORDAN
-The investors are waiting in the conference room.
-
-ALEX
-(not looking away from screens)
-Tell them I'm finalizing the demo. Five more minutes.
-
-JORDAN
-That's what you said half an hour ago. They're getting impatient.
-
-Alex sighs, stands up and grabs a sleek prototype device from the desk.
-
-ALEX
-Fine. Let's go wow them.
-
-INT. CONFERENCE ROOM - DAY
-
-Five INVESTORS in business attire sit around a large table. Alex connects the prototype to a large display.
-
-ALEX
-Project Aurora isn't just another smart device. It's the first AI assistant that truly understands human emotion.
-
-Alex activates the device. A soft blue light pulses.
-
-DEVICE
-Hello Alex. Your stress levels are elevated. Would you like me to play your relaxation playlist?
-
-The investors look impressed.
-
-EXT. COFFEE SHOP - LATER
-
-Alex and Jordan sit at an outdoor table, celebratory coffees in hand.
-
-JORDAN
-They loved it! Two million in seed funding!
-
-ALEX
-(smiling)
-Now the real work begins.
-
-A sleek ELECTRIC CAR drives by, catching Alex's attention.
-
-INT. ALEX'S APARTMENT - NIGHT
-
-Alex works on the prototype at a home desk. The device glows.
-
-DEVICE
-You've been working for six hours straight, Alex. May I suggest ordering dinner?
-
-ALEX
-Good call. Order from that Thai place I like.
-
-Alex continues typing as the device processes the request.
-
-EXT. CITY PARK - DAY
-
-Alex jogs through the park wearing SMART RUNNING SHOES that glow with each step. The prototype device is strapped to Alex's arm like a fitness tracker.
-
-DEVICE
-Your pace is 15% faster than yesterday. Great improvement!
-
-Alex smiles and picks up the pace as modern music plays through wireless earbuds.
-`;
-
-    const scenes = extractScenes(mockContent);
-    console.log(`Created ${scenes.length} test scenes for demo purposes`);
+    // Use the PDF parse wrapper to extract text
+    const pdfData = await pdfParse(pdfBuffer);
+    const extractedText = pdfData.text;
+    
+    // Extract a title from the first few lines
+    const lines = extractedText.split('\n').filter(line => line.trim() !== '');
+    let title = "Untitled Script";
+    
+    // Look for a line that might be a title (all caps, early in document)
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
+      const line = lines[i].trim();
+      if (line.toUpperCase() === line && line.length > 3 && !line.includes('EXT.') && !line.includes('INT.')) {
+        title = line;
+        break;
+      }
+    }
+    
+    // Get the sentences from the extracted text
+    const sentences = extractedText
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
+      .split(/[.!?]+/)
+      .filter(sentence => sentence.trim().length > 0);
+    
+    // Log the last sentence
+    if (sentences.length > 0) {
+      const lastSentence = sentences[sentences.length - 1].trim();
+      console.log('Last sentence extracted from PDF:', lastSentence);
+    } else {
+      console.log('No complete sentences found in the PDF');
+    }
+    
+    // Extract scenes from the document
+    const scenes = extractScenes(extractedText);
+    console.log(`Extracted ${scenes.length} scenes from the uploaded PDF`);
     
     return {
-      title: "PROJECT AURORA",
-      content: mockContent,
-      scenes
+      title,
+      content: extractedText,
+      scenes: scenes.length > 0 ? scenes : createFallbackScenes(extractedText)
     };
   } catch (error) {
     console.error('Script processing error:', error);

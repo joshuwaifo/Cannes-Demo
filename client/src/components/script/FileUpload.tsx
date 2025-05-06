@@ -40,7 +40,7 @@ export default function FileUpload({ onFileUpload, isLoading }: FileUploadProps)
       toast({
         variant: "destructive",
         title: "Invalid file",
-        description: "Please upload a PDF file under 10MB in size.",
+        description: "Please upload a PDF or image file (jpg/png) under 10MB in size.",
       });
       return;
     }
@@ -78,7 +78,7 @@ export default function FileUpload({ onFileUpload, isLoading }: FileUploadProps)
               <p className="mb-2 text-sm text-gray-500">
                 <span className="font-semibold">Click to upload</span> or drag and drop
               </p>
-              <p className="text-xs text-gray-500">PDF script file (MAX. 10MB)</p>
+              <p className="text-xs text-gray-500">PDF or image file (MAX. 10MB)</p>
             </>
           )}
         </div>
@@ -86,7 +86,7 @@ export default function FileUpload({ onFileUpload, isLoading }: FileUploadProps)
           id="script-upload" 
           type="file" 
           className="hidden" 
-          accept=".pdf" 
+          accept=".pdf,.jpg,.jpeg,.png" 
           onChange={handleChange}
           disabled={isLoading}
         />

@@ -157,12 +157,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'No file uploaded' });
       }
       
-      // Validate file type
-      if (!req.file.mimetype.includes('pdf')) {
-        return res.status(400).json({ message: 'Uploaded file must be a PDF' });
+      console.log(`Processing uploaded file: ${req.file.originalname}, MIME type: ${req.file.mimetype}`);
+      
+      // Validate file type - now supporting PDF and various image formats
+      const supportedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      const fileType = req.file.mimetype;
+      
+      if (!supportedTypes.some(type => fileType.includes(type))) {
+        return res.status(400).json({ 
+          message: 'Uploaded file must be a PDF or an image (JPEG/PNG)' 
+        });
       }
       
-      // Extract script content from PDF
+      // Extract script content from the file
       const parsedScript = await extractScriptFromPdf(req.file.buffer);
       
       // Save script to database
