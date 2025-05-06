@@ -45,8 +45,8 @@ export default function ProductDatabase() {
     },
     onSuccess: () => {
       toast({
-        title: "Product added",
-        description: "The product has been added successfully.",
+        title: "Brand added",
+        description: "The brand has been added successfully.",
       });
       setIsAddModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
@@ -54,8 +54,8 @@ export default function ProductDatabase() {
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Failed to add product",
-        description: error.message || "There was an error adding the product.",
+        title: "Failed to add brand",
+        description: error.message || "There was an error adding the brand.",
       });
     },
   });
@@ -67,8 +67,8 @@ export default function ProductDatabase() {
     },
     onSuccess: () => {
       toast({
-        title: "Product updated",
-        description: "The product has been updated successfully.",
+        title: "Brand updated",
+        description: "The brand has been updated successfully.",
       });
       setIsEditModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
@@ -76,8 +76,8 @@ export default function ProductDatabase() {
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Failed to update product",
-        description: error.message || "There was an error updating the product.",
+        title: "Failed to update brand",
+        description: error.message || "There was an error updating the brand.",
       });
     },
   });
@@ -89,8 +89,8 @@ export default function ProductDatabase() {
     },
     onSuccess: () => {
       toast({
-        title: "Product deleted",
-        description: "The product has been deleted successfully.",
+        title: "Brand deleted",
+        description: "The brand has been deleted successfully.",
       });
       setIsDeleteDialogOpen(false);
       queryClient.invalidateQueries({ queryKey: ['/api/products'] });
@@ -98,8 +98,8 @@ export default function ProductDatabase() {
     onError: (error: Error) => {
       toast({
         variant: "destructive",
-        title: "Failed to delete product",
-        description: error.message || "There was an error deleting the product.",
+        title: "Failed to delete brand",
+        description: error.message || "There was an error deleting the brand.",
       });
     },
   });
