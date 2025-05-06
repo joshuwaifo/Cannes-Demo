@@ -31,10 +31,10 @@ export async function getProducts(
 
   let query = db.select().from(products);
   
-  // Apply search filter
+  // Apply search filter - case insensitive
   if (search) {
     query = query.where(
-      sql`(${products.name} LIKE ${'%' + search + '%'} OR ${products.companyName} LIKE ${'%' + search + '%'})`
+      sql`(LOWER(${products.name}) LIKE LOWER(${'%' + search + '%'}) OR LOWER(${products.companyName}) LIKE LOWER(${'%' + search + '%'}))`
     );
   }
   
