@@ -21,6 +21,15 @@ export default function ScriptEditor() {
   } = useQuery<Script | null>({
     queryKey: ['/api/scripts/current'],
     refetchOnWindowFocus: false,
+    retry: 1, // Limit retry attempts
+    onError: (error) => {
+      console.error("Error fetching script:", error);
+      toast({
+        variant: "destructive",
+        title: "Error loading script",
+        description: "Could not load the script data. Please try uploading a script first.",
+      });
+    }
   });
 
   // Fetch scenes
@@ -32,6 +41,10 @@ export default function ScriptEditor() {
     queryKey: ['/api/scripts/scenes'],
     refetchOnWindowFocus: false,
     enabled: !!script,
+    retry: 1, // Limit retry attempts
+    onError: (error) => {
+      console.error("Error fetching scenes:", error);
+    }
   });
 
   // Fetch brandable scenes
@@ -43,6 +56,10 @@ export default function ScriptEditor() {
     queryKey: ['/api/scripts/brandable-scenes'],
     refetchOnWindowFocus: false,
     enabled: !!script && scenes.length > 0,
+    retry: 1, // Limit retry attempts
+    onError: (error) => {
+      console.error("Error fetching brandable scenes:", error);
+    }
   });
 
   // Fetch scene variations
