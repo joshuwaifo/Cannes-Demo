@@ -14,12 +14,12 @@ export default function ScriptEditor() {
   const { toast } = useToast();
 
   // Fetch script data
-  const { 
+  const {
     data: script,
     isLoading: isLoadingScript,
-    refetch: refetchScript
+    refetch: refetchScript,
   } = useQuery<Script | null>({
-    queryKey: ['/api/scripts/current'],
+    queryKey: ["/api/scripts/current"],
     refetchOnWindowFocus: false,
     retry: 1, // Limit retry attempts
     onError: (error) => {
@@ -27,69 +27,72 @@ export default function ScriptEditor() {
       toast({
         variant: "destructive",
         title: "Error loading script",
-        description: "Could not load the script data. Please try uploading a script first.",
+        description:
+          "Could not load the script data. Please try uploading a script first.",
       });
-    }
+    },
   });
 
   // Fetch scenes
   const {
     data: scenes = [],
     isLoading: isLoadingScenes,
-    refetch: refetchScenes
+    refetch: refetchScenes,
   } = useQuery<Scene[]>({
-    queryKey: ['/api/scripts/scenes'],
+    queryKey: ["/api/scripts/scenes"],
     refetchOnWindowFocus: false,
     enabled: !!script,
     retry: 1, // Limit retry attempts
     onError: (error) => {
       console.error("Error fetching scenes:", error);
-    }
+    },
   });
 
   // Fetch brandable scenes
   const {
     data: brandableScenes = [],
     isLoading: isLoadingBrandable,
-    refetch: refetchBrandable
+    refetch: refetchBrandable,
   } = useQuery<Scene[]>({
-    queryKey: ['/api/scripts/brandable-scenes'],
+    queryKey: ["/api/scripts/brandable-scenes"],
     refetchOnWindowFocus: false,
     enabled: !!script && scenes.length > 0,
     retry: 1, // Limit retry attempts
     onError: (error) => {
       console.error("Error fetching brandable scenes:", error);
-    }
+    },
   });
 
   // Fetch scene variations
   const {
     data: sceneVariations = [],
     isLoading: isLoadingVariations,
-    refetch: refetchVariations
+    refetch: refetchVariations,
   } = useQuery<SceneVariation[]>({
-    queryKey: ['/api/scripts/scene-variations', activeSceneId],
+    queryKey: ["/api/scripts/scene-variations", activeSceneId],
     refetchOnWindowFocus: false,
-    enabled: !!activeSceneId && brandableScenes.some(scene => scene.id === activeSceneId),
+    enabled:
+      !!activeSceneId &&
+      brandableScenes.some((scene) => scene.id === activeSceneId),
   });
 
   // Upload script mutation
   const uploadScriptMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
-      formData.append('script', file);
-      
-      const response = await fetch('/api/scripts/upload', {
-        method: 'POST',
+      formData.append("script", file);
+
+      const response = await fetch("/api/scripts/upload", {
+        method: "POST",
         body: formData,
-        credentials: 'include',
+        credentials: "include",
       });
-      
+
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(error || 'Failed to upload script');
+        throw new Error(error || "Failed to upload script");
       }
-      
+
       return await response.json();
     },
     onSuccess: () => {
@@ -105,7 +108,8 @@ export default function ScriptEditor() {
       toast({
         variant: "destructive",
         title: "Upload failed",
-        description: error.message || "There was an error uploading your script.",
+        description:
+          error.message || "There was an error uploading your script.",
       });
     },
   });
@@ -113,7 +117,7 @@ export default function ScriptEditor() {
   // Save script mutation
   const saveScriptMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('PUT', '/api/scripts/save', {
+      return await apiRequest("PUT", "/api/scripts/save", {
         scriptId: script?.id,
       });
     },
@@ -125,7 +129,7 @@ export default function ScriptEditor() {
   // Reanalyze script mutation
   const reanalyzeScriptMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest('POST', '/api/scripts/analyze', {
+      return await apiRequest("POST", "/api/scripts/analyze", {
         scriptId: script?.id,
       });
     },
@@ -148,7 +152,7 @@ export default function ScriptEditor() {
   // Select variation mutation
   const selectVariationMutation = useMutation({
     mutationFn: async (variationId: number) => {
-      return await apiRequest('PUT', '/api/scripts/variations/select', {
+      return await apiRequest("PUT", "/api/scripts/variations/select", {
         variationId,
       });
     },
@@ -168,9 +172,9 @@ export default function ScriptEditor() {
 
   const handleSceneSelect = (sceneId: number) => {
     setActiveSceneId(sceneId);
-    
+
     // If the selected scene is a brandable scene, load variations
-    if (brandableScenes.some(scene => scene.id === sceneId)) {
+    if (brandableScenes.some((scene) => scene.id === sceneId)) {
       refetchVariations();
     }
   };
@@ -188,9 +192,11 @@ export default function ScriptEditor() {
   };
 
   const isScriptLoaded = !!script && !isLoadingScript;
-  const activeScene = scenes.find(scene => scene.id === activeSceneId) || null;
-  const brandableSceneIds = brandableScenes.map(scene => scene.id);
-  const isLoading = isLoadingScript || isLoadingScenes || uploadScriptMutation.isPending;
+  const activeScene =
+    scenes.find((scene) => scene.id === activeSceneId) || null;
+  const brandableSceneIds = brandableScenes.map((scene) => scene.id);
+  const isLoading =
+    isLoadingScript || isLoadingScenes || uploadScriptMutation.isPending;
 
   return (
     <div>
@@ -199,36 +205,37 @@ export default function ScriptEditor() {
           <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
             <h2 className="text-2xl font-semibold mb-6">Upload a Script</h2>
             <p className="text-gray-600 mb-6">
-              Please upload a screenplay PDF file to begin analyzing it for product placement opportunities.
+              Please upload a screenplay PDF file to begin analyzing it for
+              product placement opportunities.
             </p>
-            <FileUpload 
-              onFileUpload={handleFileUpload} 
-              isLoading={uploadScriptMutation.isPending} 
+            <FileUpload
+              onFileUpload={handleFileUpload}
+              isLoading={uploadScriptMutation.isPending}
             />
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <SceneBreakdown 
+          <SceneBreakdown
             scenes={scenes}
             activeSceneId={activeSceneId}
             brandableSceneIds={brandableSceneIds}
             isLoading={isLoadingScenes}
             onSceneSelect={handleSceneSelect}
           />
-          
+
           <div className="lg:col-span-3">
             <div className="bg-white rounded-lg shadow p-4 mb-6">
-              <ScriptDisplay 
+              <ScriptDisplay
                 script={script}
                 isLoading={isLoading}
                 onSave={handleSaveScript}
                 onReanalyze={handleReanalyzeScript}
                 activeScene={activeScene}
               />
-              
+
               <div className="mt-6">
-                <BrandableScenes 
+                <BrandableScenes
                   brandableScenes={brandableScenes}
                   productVariations={sceneVariations}
                   isLoading={isLoadingVariations}
