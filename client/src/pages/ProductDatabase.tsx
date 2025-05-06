@@ -34,7 +34,7 @@ export default function ProductDatabase() {
     totalPages: number,
     currentPage: number
   }>({
-    queryKey: ['/api/products', { searchQuery, categoryFilter, page: currentPage }],
+    queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: currentPage }],
     refetchOnWindowFocus: false,
   });
 
@@ -49,7 +49,9 @@ export default function ProductDatabase() {
         description: "The brand has been added successfully.",
       });
       setIsAddModalOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: currentPage }] 
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -71,7 +73,9 @@ export default function ProductDatabase() {
         description: "The brand has been updated successfully.",
       });
       setIsEditModalOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: currentPage }] 
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -93,7 +97,9 @@ export default function ProductDatabase() {
         description: "The brand has been deleted successfully.",
       });
       setIsDeleteDialogOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: currentPage }] 
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -107,13 +113,17 @@ export default function ProductDatabase() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setCurrentPage(1); // Reset to first page on new search
-    queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+    queryClient.invalidateQueries({ 
+      queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: 1 }] 
+    });
   };
 
   const handleCategoryChange = (value: string) => {
     setCategoryFilter(value);
     setCurrentPage(1); // Reset to first page on filter change
-    queryClient.invalidateQueries({ queryKey: ['/api/products'] });
+    queryClient.invalidateQueries({ 
+      queryKey: ['/api/products', { search: searchQuery, category: value, page: 1 }] 
+    });
   };
 
   const handleAddProduct = async (data: ProductFormData) => {
