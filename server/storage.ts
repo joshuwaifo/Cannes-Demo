@@ -42,9 +42,8 @@ export async function getProducts(
   }
   
   // Get total count for pagination
-  const countQuery = db.select({ count: count() }).from(products).as("count");
-  let countResult = await db.select().from(countQuery);
-  const total = Number(countResult[0].count);
+  const countResult = await db.select({ count: count() }).from(products);
+  const total = Number(countResult[0].count || 0);
   
   // Get paginated products
   const result = await query
