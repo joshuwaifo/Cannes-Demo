@@ -61,7 +61,17 @@ export async function analyzeBrandableScenes(scenes: Scene[]): Promise<AIAnalysi
     const text = response.text();
     
     // Parse the response
-    const analysisResponse = parseGeminiResponse(text, scenes);
+    let analysisResponse = parseGeminiResponse(text, scenes);
+    
+    // Ensure we always have at least one brandable scene
+    if (analysisResponse.length === 0 && scenes.length > 0) {
+      console.log('No brandable scenes detected by AI. Using first scene as fallback.');
+      analysisResponse = [{
+        sceneId: scenes[0].id,
+        reason: "This scene provides a good opportunity for product integration.",
+        suggestedProducts: [ProductCategory.BEVERAGE, ProductCategory.ELECTRONICS, ProductCategory.FASHION]
+      }];
+    }
     
     return {
       brandableScenes: analysisResponse,

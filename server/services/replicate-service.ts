@@ -28,19 +28,52 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     const prompt = createProductPlacementPrompt(request);
     
     // Generate image using Replicate's flux-1.1-pro model
-    const output = await replicate.run(
-      "black-forest-labs/flux-1.1-pro",
-      {
-        input: {
-          prompt: prompt,
-          prompt_upsampling: true,
-          width: 864,
-          height: 480,
-          guidance_scale: 7.5,
-          negative_prompt: "poor quality, bad quality, blurry, low resolution, distorted, deformed, unrealistic",
+    let output;
+    
+    try {
+      output = await replicate.run(
+        "black-forest-labs/flux-1.1-pro",
+        {
+          input: {
+            prompt: prompt,
+            prompt_upsampling: true,
+            width: 864,
+            height: 480,
+            guidance_scale: 7.5,
+            negative_prompt: "poor quality, bad quality, blurry, low resolution, distorted, deformed, unrealistic",
+          }
+        }
+      );
+      
+      // Handle ReadableStream output (common in newer Replicate API responses)
+      if (output instanceof ReadableStream) {
+        console.log('Got ReadableStream from Replicate, processing stream...');
+        const reader = output.getReader();
+        let result = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          // Convert Uint8Array to string
+          if (value) {
+            const chunk = new TextDecoder().decode(value);
+            result += chunk;
+          }
+        }
+        
+        // Try to parse the result as JSON
+        try {
+          output = JSON.parse(result);
+        } catch (e) {
+          console.log('Stream output is not JSON, using as direct URL:', result);
+          output = [result.trim()];
         }
       }
-    );
+    } catch (error) {
+      console.error('Error running Replicate model:', error);
+      throw error;
+    }
     
     // Create a description of the product placement
     const description = createPlacementDescription(request);
