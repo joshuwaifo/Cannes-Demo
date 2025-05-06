@@ -78,7 +78,7 @@ export async function extractTextFromImage(imageBuffer: Buffer, mimeType: string
     
     // Use Gemini to extract text from the image
     const model = genAI.getGenerativeModel({
-      model: "gemini-pro-vision",  // Use the stable gemini-pro-vision model
+      model: "gemini-2.5-flash-preview-04-17",  // Use the flash preview model as requested
       safetySettings
     });
     
@@ -134,7 +134,7 @@ export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
     
     // Use text-only model for PDF content
     const model = genAI.getGenerativeModel({
-      model: "gemini-pro",  // Use stable text model
+      model: "gemini-2.5-flash-preview-04-17",  // Use the flash preview model as requested
       safetySettings
     });
     
