@@ -8,6 +8,13 @@ import { generateProductPlacement } from "./services/replicate-service";
 import { z } from "zod";
 import { insertProductSchema } from "@shared/schema";
 
+// Utility function to sanitize strings for database storage
+const sanitizeString = (str: string): string => {
+  if (!str) return "";
+  // Replace null bytes and other invalid UTF-8 characters
+  return str.replace(/\u0000/g, '').replace(/[^\x20-\x7E\u0080-\uFFFF]/g, '');
+};
+
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
