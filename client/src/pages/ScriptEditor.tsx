@@ -148,6 +148,28 @@ export default function ScriptEditor() {
       });
     },
   });
+  
+  // Generate product placements mutation
+  const generatePlacementsMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/scripts/generate-placements", {});
+    },
+    onSuccess: (data) => {
+      refetchBrandable();
+      refetchVariations();
+      toast({
+        title: "Product placements generated",
+        description: `Generated ${data.brandableScenesCount} brandable scenes with product placement variations.`,
+      });
+    },
+    onError: () => {
+      toast({
+        variant: "destructive",
+        title: "Generation failed",
+        description: "Failed to generate product placements. Please try again.",
+      });
+    },
+  });
 
   // Select variation mutation
   const selectVariationMutation = useMutation({

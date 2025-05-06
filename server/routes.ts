@@ -316,6 +316,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Identify brandable scenes and generate product placements
+  app.post(`${apiPrefix}/scripts/generate-placements`, async (req, res) => {
+    try {
+      // Step 1: Get the current script
+      const script = await storage.getCurrentScript();
+      if (!script) {
+        return res.status(404).json({ message: 'No script found' });
+      }
+      
+      // Step 2: Get all scenes
+      const scenes = await storage.getScenesByScriptId(script.id);
+      
+      // Step 3: Reset brandable status for all scenes
+      for (const scene of scenes) {
+        await storage.updateScene(scene.id, {
+          isBrandable: false,
+          brandableReason: null,
+          suggestedCategories: null
+        });
+      }
+      
+      // Step 4: Analyze scenes with Gemini to identify brandable opportunities
+      console.log('Analyzing scenes with Gemini AI...');
+      const brandableScenes = await analyzeBrandableScenes(scenes);
+      
+      // Step 5: Update scenes with brandable information
+      const brandableSceneIds = [];
+      for (const brandable of brandableScenes.brandableScenes) {
+        await storage.updateScene(brandable.sceneId, {
+          isBrandable: true,
+          brandableReason: brandable.reason,
+          suggestedCategories: brandable.suggestedProducts
+        });
+        brandableSceneIds.push(brandable.sceneId);
+      }
+      
+      console.log(`Identified ${brandableSceneIds.length} brandable scenes`);
+      
+      // Step 6: Get all products
+      const products = await storage.getProducts();
+      if (products.products.length === 0) {
+        return res.status(404).json({ message: 'No products found in database' });
+      }
+      
+      const generatedVariations = [];
+      
+      // Step 7: Generate up to 3 product placement variations for each brandable scene
+      for (const sceneId of brandableSceneIds) {
+        const scene = await storage.getSceneById(sceneId);
+        if (!scene) continue;
+        
+        // Filter products by suggested categories
+        const eligibleProducts = scene.suggestedCategories && scene.suggestedCategories.length > 0
+          ? products.products.filter(p => scene.suggestedCategories?.includes(p.category))
+          : products.products;
+        
+        // Select up to 3 products for variations
+        const selectedProducts = eligibleProducts.slice(0, 3);
+        
+        if (selectedProducts.length === 0) {
+          console.log(`No suitable products found for scene ${scene.sceneNumber}`);
+          continue;
+        }
+        
+        const sceneVariations = [];
+        
+        // Generate variations for each product
+        for (let i = 0; i < selectedProducts.length; i++) {
+          const product = selectedProducts[i];
+          const variationNumber = i + 1;
+          
+          try {
+            console.log(`Generating variation ${variationNumber} for scene ${scene.sceneNumber} with product ${product.name}...`);
+            
+            // Generate image and description using Replicate
+            const generation = await generateProductPlacement({
+              scene,
+              product,
+              variationNumber
+            });
+            
+            // Save variation to database
+            const variation = await storage.createSceneVariation({
+              sceneId,
+              productId: product.id,
+              variationNumber,
+              description: generation.description,
+              imageUrl: generation.imageUrl,
+              isSelected: false
+            });
+            
+            // Add product information to variation
+            sceneVariations.push({
+              ...variation,
+              productName: product.name,
+              productCategory: product.category,
+              productImageUrl: product.imageUrl
+            });
+          } catch (error) {
+            console.error(`Error generating variation ${variationNumber} for scene ${scene.sceneNumber}:`, error);
+            // Continue with other variations
+          }
+        }
+        
+        generatedVariations.push({
+          sceneId,
+          sceneNumber: scene.sceneNumber,
+          heading: scene.heading,
+          variations: sceneVariations
+        });
+      }
+      
+      res.json({
+        success: true,
+        brandableScenesCount: brandableSceneIds.length,
+        generatedVariations
+      });
+    } catch (error) {
+      console.error('Error generating placements:', error);
+      res.status(500).json({ message: 'Failed to generate product placements' });
+    }
+  });
+  
   // Get scene variations
   app.get(`${apiPrefix}/scripts/scene-variations`, async (req, res) => {
     try {
