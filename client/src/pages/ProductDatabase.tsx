@@ -36,6 +36,15 @@ export default function ProductDatabase() {
   }>({
     queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: currentPage }],
     refetchOnWindowFocus: false,
+    onSuccess: (data) => {
+      // If we're on a page that no longer exists after data changes (like deletion)
+      if (data.totalPages > 0 && currentPage > data.totalPages) {
+        setCurrentPage(data.totalPages);
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: data.totalPages }] 
+        });
+      }
+    }
   });
 
   // Add product mutation
@@ -97,9 +106,19 @@ export default function ProductDatabase() {
         description: "The brand has been deleted successfully.",
       });
       setIsDeleteDialogOpen(false);
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: currentPage }] 
-      });
+      
+      // Check if we need to go to the previous page
+      // This happens when we've deleted the last item on a page (other than the first page)
+      if (currentPage > 1 && products.length === 1) {
+        setCurrentPage(currentPage - 1);
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: currentPage - 1 }] 
+        });
+      } else {
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/products', { search: searchQuery, category: categoryFilter, page: currentPage }] 
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
