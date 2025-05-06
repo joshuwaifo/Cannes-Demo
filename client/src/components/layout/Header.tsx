@@ -35,11 +35,6 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 Products
               </button>
             </li>
-            <li>
-              <Link href="#" className="hover:text-primary transition-colors duration-200 font-medium">
-                Help
-              </Link>
-            </li>
           </ul>
         </nav>
       </div>
