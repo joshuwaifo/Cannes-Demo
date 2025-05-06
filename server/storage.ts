@@ -33,7 +33,9 @@ export async function getProducts(
   
   // Apply search filter
   if (search) {
-    query = query.where(like(products.name, `%${search}%`));
+    query = query.where(
+      sql`(${products.name} LIKE ${'%' + search + '%'} OR ${products.companyName} LIKE ${'%' + search + '%'})`
+    );
   }
   
   // Apply category filter
