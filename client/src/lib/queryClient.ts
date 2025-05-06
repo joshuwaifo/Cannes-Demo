@@ -29,7 +29,23 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    // Handle array query keys by building URL with params
+    let url = queryKey[0] as string;
+    let params = new URLSearchParams();
+    
+    // If queryKey has more than one element, treat the second element as a parameter
+    if (Array.isArray(queryKey) && queryKey.length > 1) {
+      // In this app we're using ['/api/endpoint', paramId] pattern
+      // So we need to map the second element as a query param based on route
+      if (url.includes('scene-variations') && queryKey[1]) {
+        params.append('sceneId', String(queryKey[1]));
+      }
+    }
+    
+    // Add params to URL if any exist
+    const finalUrl = params.toString() ? `${url}?${params.toString()}` : url;
+    
+    const res = await fetch(finalUrl, {
       credentials: "include",
     });
 
