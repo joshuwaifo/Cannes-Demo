@@ -35,10 +35,19 @@ export const getQueryFn: <T>(options: {
     
     // If queryKey has more than one element, treat the second element as a parameter
     if (Array.isArray(queryKey) && queryKey.length > 1) {
-      // In this app we're using ['/api/endpoint', paramId] pattern
-      // So we need to map the second element as a query param based on route
-      if (url.includes('scene-variations') && queryKey[1]) {
-        params.append('sceneId', String(queryKey[1]));
+      const paramsObj = queryKey[1];
+      
+      // Handle specific routes that use simple ID parameters
+      if (url.includes('scene-variations') && typeof paramsObj === 'number') {
+        params.append('sceneId', String(paramsObj));
+      } 
+      // Handle parameter objects for search and filtering
+      else if (typeof paramsObj === 'object' && paramsObj !== null) {
+        Object.entries(paramsObj).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            params.append(key, String(value));
+          }
+        });
       }
     }
     
