@@ -61,3 +61,28 @@ export function extractSceneLocation(sceneHeader: string): string {
 export function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+export function isValidUrl(url: string): boolean {
+  try {
+    // Check if the input is a valid URL by creating a URL object
+    new URL(url);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function getSafeImageUrl(url: string, fallbackUrl: string = "https://placehold.co/600x400/gray/white?text=Image+Unavailable"): string {
+  if (!url || typeof url !== 'string') {
+    return fallbackUrl;
+  }
+  
+  try {
+    // Check if the URL is valid
+    new URL(url);
+    return url;
+  } catch (error) {
+    console.error("Invalid image URL:", url);
+    return fallbackUrl;
+  }
+}

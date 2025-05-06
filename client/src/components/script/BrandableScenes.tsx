@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { useState, useEffect } from "react";
+import { getSafeImageUrl } from "@/lib/utils";
 
 export default function BrandableScenes({ 
   brandableScenes,
@@ -11,8 +13,15 @@ export default function BrandableScenes({
   selectedSceneId,
   onOptionSelect
 }: BrandableScenesProps) {
+  // Process and validate all URLs in variations
+  const sanitizedVariations = productVariations.map(variation => ({
+    ...variation,
+    imageUrl: getSafeImageUrl(variation.imageUrl),
+    productImageUrl: getSafeImageUrl(variation.productImageUrl || '')
+  }));
+  
   // Filter variations for current scene
-  const currentSceneVariations = productVariations.filter(
+  const currentSceneVariations = sanitizedVariations.filter(
     variation => variation.sceneId === selectedSceneId
   );
 
