@@ -18,7 +18,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
   const [processingStatus, setProcessingStatus] = useState("Uploading script file...");
   const [checkCount, setCheckCount] = useState(0);
 
-  // Query to check if script data is available
+  // Query to check if script data is available - only enabled after upload
   const { 
     data: script,
     refetch: refetchScript,
@@ -26,10 +26,12 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
   } = useQuery<Script | null>({
     queryKey: ['/api/scripts/current'],
     refetchOnWindowFocus: false,
-    enabled: false, // Initially disabled
+    enabled: false, // Only enabled explicitly via refetch after upload
+    staleTime: 0, // We want a fresh result each time
+    cacheTime: 0, // Don't cache previous results
   });
 
-  // Query to check if scenes have been processed
+  // Query to check if scenes have been processed - only enabled after upload
   const {
     data: scenes = [],
     refetch: refetchScenes,
@@ -37,7 +39,9 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
   } = useQuery<Scene[]>({
     queryKey: ['/api/scripts/scenes'],
     refetchOnWindowFocus: false,
-    enabled: false, // Initially disabled
+    enabled: false, // Only enabled explicitly via refetch after upload
+    staleTime: 0, // We want a fresh result each time
+    cacheTime: 0, // Don't cache previous results
   });
 
   // Upload script mutation
@@ -121,9 +125,10 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
     };
   }, [uploadScriptMutation.isSuccess, checkCount, refetchScript, refetchScenes]);
 
-  // Effect to monitor when both script and scenes are available
+  // Effect to monitor when both script and scenes are available after a new upload
   useEffect(() => {
-    if (isScriptAvailable && areScenesAvailable && script && scenes.length > 0) {
+    // Only redirect if we're actively uploading a script (not on initial page load)
+    if (uploadScriptMutation.isSuccess && isScriptAvailable && areScenesAvailable && script && scenes.length > 0) {
       // Update progress to 100%
       setProcessingProgress(100);
       setProcessingStatus("Analysis complete! Redirecting to Script Editor...");
@@ -138,7 +143,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
       
       return () => clearTimeout(redirectTimer);
     }
-  }, [isScriptAvailable, areScenesAvailable, script, scenes, onTabChange]);
+  }, [uploadScriptMutation.isSuccess, isScriptAvailable, areScenesAvailable, script, scenes, onTabChange]);
 
   // Loading state while processing script data
   const isProcessingScript = uploadScriptMutation.isSuccess && (!isScriptAvailable || !areScenesAvailable || !script || scenes.length === 0);

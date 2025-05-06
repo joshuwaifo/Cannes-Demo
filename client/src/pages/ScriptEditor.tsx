@@ -195,10 +195,18 @@ export default function ScriptEditor() {
   return (
     <div>
       {!isScriptLoaded ? (
-        <FileUpload 
-          onFileUpload={handleFileUpload} 
-          isLoading={uploadScriptMutation.isPending} 
-        />
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
+            <h2 className="text-2xl font-semibold mb-6">Upload a Script</h2>
+            <p className="text-gray-600 mb-6">
+              Please upload a screenplay PDF file to begin analyzing it for product placement opportunities.
+            </p>
+            <FileUpload 
+              onFileUpload={handleFileUpload} 
+              isLoading={uploadScriptMutation.isPending} 
+            />
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <SceneBreakdown 
