@@ -46,7 +46,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 )}
               >
                 <ShoppingBag className="mr-1 h-4 w-4" />
-                Products
+                Brands
               </button>
             </li>
           </ul>

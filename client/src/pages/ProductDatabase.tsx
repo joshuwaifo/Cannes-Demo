@@ -144,13 +144,13 @@ export default function ProductDatabase() {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold text-secondary">Product Database</h2>
+        <h2 className="text-lg font-semibold text-secondary">Brand Database</h2>
         <Button 
           onClick={() => setIsAddModalOpen(true)}
           className="bg-primary text-white"
         >
           <Plus className="h-5 w-5 mr-1" />
-          Add New Product
+          Add New Brand
         </Button>
       </div>
 
@@ -164,7 +164,7 @@ export default function ProductDatabase() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <Input 
               type="text" 
-              placeholder="Search products..." 
+              placeholder="Search brands..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -199,7 +199,7 @@ export default function ProductDatabase() {
         </div>
       </form>
 
-      {/* Products Grid */}
+      {/* Brands Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -218,11 +218,11 @@ export default function ProductDatabase() {
         </div>
       ) : products.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-medium mb-2">No products found</h3>
+          <h3 className="text-lg font-medium mb-2">No brands found</h3>
           <p className="text-muted-foreground">
             {searchQuery || categoryFilter !== "ALL" 
               ? "Try adjusting your search or filter criteria." 
-              : "Add your first product to get started."}
+              : "Add your first brand to get started."}
           </p>
           <Button 
             variant="default" 
@@ -230,7 +230,7 @@ export default function ProductDatabase() {
             onClick={() => setIsAddModalOpen(true)}
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add New Product
+            Add New Brand
           </Button>
         </div>
       ) : (
