@@ -9,7 +9,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <Film className="h-8 w-8 text-primary" />
-          <h1 className="text-xl font-bold">ScriptBrand</h1>
+          <h1 className="text-xl font-bold">VadisMedia</h1>
         </div>
         <nav>
           <ul className="flex space-x-6">
