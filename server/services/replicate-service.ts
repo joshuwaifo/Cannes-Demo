@@ -105,6 +105,16 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     
     if (Array.isArray(output) && output.length > 0) {
       console.log('Output is an array, using first element as image URL');
+      
+      // Check if we have empty object in array
+      if (output[0] && typeof output[0] === 'object' && Object.keys(output[0]).length === 0) {
+        console.log('Empty object returned, using fallback image URL');
+        return {
+          imageUrl: "https://placehold.co/864x480/333/white?text=Image+Generation+Failed",
+          description,
+        };
+      }
+      
       const imageUrl = typeof output[0] === 'string' ? sanitizeUrl(output[0]) : '';
       return {
         imageUrl,

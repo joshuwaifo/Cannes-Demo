@@ -367,6 +367,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'No products found in database' });
       }
       
+      // Step 6.5: Clear existing variations for all brandable scenes to avoid accumulation
+      console.log('Clearing existing scene variations...');
+      for (const sceneId of brandableSceneIds) {
+        const existingVariations = await storage.getSceneVariations(sceneId);
+        for (const variation of existingVariations) {
+          await storage.deleteSceneVariation(variation.id);
+        }
+        console.log(`Cleared ${existingVariations.length} existing variations for scene ${sceneId}`);
+      }
+      
       const generatedVariations = [];
       
       // Step 7: Generate up to 3 product placement variations for each brandable scene
