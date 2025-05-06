@@ -22,6 +22,17 @@ async function bufferToTempFile(buffer: Buffer, extension: string): Promise<stri
   });
 }
 
+// Convert file to base64 for Gemini's FileData
+function fileToGenerativePart(filePath: string, mimeType: string) {
+  const fileData = fs.readFileSync(filePath);
+  return {
+    inlineData: {
+      data: fileData.toString('base64'),
+      mimeType
+    }
+  };
+}
+
 // Initialize Gemini client with safety settings
 function initializeGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -65,38 +76,23 @@ export async function extractTextFromImage(imageBuffer: Buffer, mimeType: string
     // Initialize Gemini client
     const { genAI, safetySettings } = initializeGeminiClient();
     
-    // Upload the file to Google Generative AI
-    const fileModel = genAI.files;
-    const uploadedFile = await fileModel.upload({
-      file: imagePath,
-      config: { mimeType }
-    });
-    
-    console.log("Successfully uploaded image file to Google AI");
-    
     // Use Gemini to extract text from the image
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.0-pro-vision",
       safetySettings
     });
     
-    // Create content parts for the model
-    const createUserContent = model.startContentChat().createUserContent;
-    const createPartFromUri = model.startContentChat().createPartFromUri;
+    // Create a generative part from the file
+    const imagePart = fileToGenerativePart(imagePath, mimeType);
     
-    const result = await model.generateContent({
-      contents: [
-        createUserContent([
-          createPartFromUri(uploadedFile.uri, uploadedFile.mimeType),
-          "\n\n",
-          "Please extract all text content from this image. If this is a film script or screenplay, please format it properly with scene headings, action, and dialogue. If there's no text visible, describe what you see in the image."
-        ])
-      ]
-    });
+    // Generate content from the image
+    const prompt = "Please extract all text content from this image. If this is a film script or screenplay, please format it properly with scene headings, action, and dialogue. If there's no text visible, describe what you see in the image.";
     
-    // Extract text from response
+    const result = await model.generateContent([imagePart, prompt]);
     const response = await result.response;
     const extractedText = response.text();
+    
+    console.log("Successfully extracted text from image using Gemini AI");
     
     // Clean up the temporary file
     try {
@@ -133,55 +129,36 @@ export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
       console.log('Falling back to Gemini AI for PDF processing...');
     }
     
-    // Create a temporary file for the PDF
-    const pdfPath = await bufferToTempFile(pdfBuffer, '.pdf');
-    
-    // Initialize Gemini client
+    // For PDFs, we'll use the text-based model since Gemini's PDF handling is limited
     const { genAI, safetySettings } = initializeGeminiClient();
     
-    // Upload the file to Google Generative AI
-    const fileModel = genAI.files;
-    const uploadedFile = await fileModel.upload({
-      file: pdfPath,
-      config: { mimeType: 'application/pdf' }
-    });
-    
-    console.log("Successfully uploaded PDF file to Google AI");
-    
-    // Use Gemini to extract and enhance text from the PDF
+    // Use text-only model for PDF content
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash-preview-04-17",
       safetySettings
     });
     
-    // Create content parts for the model
-    const createUserContent = model.startContentChat().createUserContent;
-    const createPartFromUri = model.startContentChat().createPartFromUri;
+    // Extract some text with pdf-parse even if it's not perfect
+    const basicPdfText = pdfData?.text || "Unable to extract text from PDF";
     
-    const result = await model.generateContent({
-      contents: [
-        createUserContent([
-          createPartFromUri(uploadedFile.uri, uploadedFile.mimeType),
-          "\n\n",
-          "Please extract the text content from this PDF. If this is a film script or screenplay, please format it properly with scene headings, action, and dialogue. Preserve the proper script format as much as possible."
-        ])
-      ]
-    });
+    // Enhance the extracted text with Gemini
+    const prompt = `This is text extracted from a PDF document, but it may have formatting issues. 
+    Please process this text and format it properly as a screenplay or film script if that's what it appears to be. 
+    Add appropriate scene headings (INT/EXT), action descriptions, character names, and dialogue formatting.
+    If it doesn't appear to be a screenplay, just clean up the formatting to be more readable.
+    Here's the extracted text:
     
-    // Extract text from response
+    ${basicPdfText.substring(0, 12000)}`; // Limit to avoid token limits
+    
+    const result = await model.generateContent(prompt);
     const response = await result.response;
-    const extractedText = response.text();
+    const enhancedText = response.text();
     
-    // Clean up the temporary file
-    try {
-      fs.unlinkSync(pdfPath);
-    } catch (cleanupErr) {
-      console.warn('Failed to clean up temporary PDF file:', cleanupErr);
-    }
+    console.log("Successfully enhanced PDF text using Gemini AI");
     
-    return extractedText;
+    return enhancedText;
   } catch (error) {
-    console.error('Error extracting text from PDF with Gemini:', error);
+    console.error('Error processing PDF with Gemini:', error);
     
     // Try one more time with pdf-parse as a fallback
     try {
