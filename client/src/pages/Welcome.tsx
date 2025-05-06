@@ -2,8 +2,13 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import FileUpload from "@/components/script/FileUpload";
 import { Film, Upload, PlaySquare } from "lucide-react";
+import { TabType } from "@/lib/types";
 
-export default function Welcome() {
+interface WelcomeProps {
+  onTabChange?: (tab: TabType) => void;
+}
+
+export default function Welcome({ onTabChange }: WelcomeProps) {
   const { toast } = useToast();
 
   // Upload script mutation
@@ -30,6 +35,13 @@ export default function Welcome() {
         title: "Script uploaded successfully",
         description: "Your script has been processed and analyzed.",
       });
+      
+      // Automatically navigate to the Script Editor tab after successful upload
+      if (onTabChange) {
+        setTimeout(() => {
+          onTabChange("script");
+        }, 1000); // Small delay to allow the toast to be seen
+      }
     },
     onError: (error: Error) => {
       toast({

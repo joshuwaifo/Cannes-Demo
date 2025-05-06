@@ -22,13 +22,13 @@ function App() {
   const renderActiveComponent = () => {
     switch (activeTab) {
       case "welcome":
-        return <Welcome />;
+        return <Welcome onTabChange={handleTabChange} />;
       case "script":
         return <ScriptEditor />;
       case "products":
         return <ProductDatabase />;
       default:
-        return <Welcome />;
+        return <Welcome onTabChange={handleTabChange} />;
     }
   };
 
