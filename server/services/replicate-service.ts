@@ -35,19 +35,23 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     try {
       console.log('Calling Replicate API with model: black-forest-labs/flux-schnell');
       output = await replicate.run(
-        "black-forest-labs/flux-schnell",
+        "black-forest-labs/flux-schnell:0cd26e7eda1e36be3a2bc7f47d500f253c7c34ec91ea18a0fcf0ec4c3a096528",
         {
           input: {
             prompt: prompt,
             prompt_upsampling: true,
             width: 864,
             height: 480,
+            num_outputs: 1,
+            scheduler: "K_EULER", 
+            steps: 25,
             guidance_scale: 7.5,
-            negative_prompt: "poor quality, bad quality, blurry, low resolution, distorted, deformed, unrealistic",
+            negative_prompt: "poor quality, bad quality, blurry, low resolution, distorted, deformed, unrealistic, disfigured",
           }
         }
       );
       console.log('Replicate API response type:', typeof output);
+      console.log('Replicate API raw response:', JSON.stringify(output, null, 2));
       
       // Handle ReadableStream output (common in newer Replicate API responses)
       if (output instanceof ReadableStream) {

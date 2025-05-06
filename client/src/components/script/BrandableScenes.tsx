@@ -78,14 +78,26 @@ export default function BrandableScenes({
         {currentSceneVariations.map((variation) => (
           <Card key={variation.id} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="relative">
-              <img 
-                src={variation.imageUrl} 
-                alt={`${variation.productName} product placement option`}
-                className="w-full h-48 object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
-                <span className="text-white text-sm font-bold">Option {variation.variationNumber}: {variation.productName}</span>
-              </div>
+              {variation.imageUrl ? (
+                <>
+                  <img 
+                    src={variation.imageUrl} 
+                    alt={`${variation.productName} product placement option`}
+                    className="w-full h-48 object-cover"
+                    onError={(e) => {
+                      // Set a fallback image if loading fails
+                      e.currentTarget.src = "https://placehold.co/864x480/333/white?text=Image+Unavailable";
+                    }}
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                    <span className="text-white text-sm font-bold">Option {variation.variationNumber}: {variation.productName}</span>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full h-48 bg-gray-300 flex items-center justify-center">
+                  <span className="text-gray-600">Image Generation Failed</span>
+                </div>
+              )}
             </div>
             <CardContent className="p-3">
               <div className="flex items-center space-x-2 mb-2">
