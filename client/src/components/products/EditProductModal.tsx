@@ -24,6 +24,7 @@ export default function EditProductModal({
   const form = useForm<FormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
+      companyName: "",
       name: "",
       category: "BEVERAGE",
       imageUrl: ""
@@ -33,6 +34,7 @@ export default function EditProductModal({
   useEffect(() => {
     if (product) {
       form.reset({
+        companyName: product.companyName || "",
         name: product.name,
         category: product.category,
         imageUrl: product.imageUrl
@@ -68,6 +70,20 @@ export default function EditProductModal({
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="companyName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter company name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
             <FormField
               control={form.control}
               name="name"

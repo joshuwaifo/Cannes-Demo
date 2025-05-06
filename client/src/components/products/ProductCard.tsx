@@ -19,7 +19,10 @@ export default function ProductCard({ product, onEdit, onDelete }: ProductCardPr
       </div>
       <CardContent className="p-4">
         <div className="flex justify-between items-start">
-          <h3 className="font-medium line-clamp-1">{product.name}</h3>
+          <div>
+            <p className="text-xs text-gray-500 mb-1">{product.companyName || "Unknown Company"}</p>
+            <h3 className="font-medium line-clamp-1">{product.name}</h3>
+          </div>
           <Badge variant="secondary" className="ml-2 shrink-0">
             {product.category}
           </Badge>

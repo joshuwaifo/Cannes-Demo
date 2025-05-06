@@ -19,6 +19,7 @@ async function seed() {
     // Sample product data based on the design
     const productsData = [
       {
+        companyName: "Starbucks",
         name: "Starbucks Coffee",
         category: "BEVERAGE",
         imageUrl: "https://images.unsplash.com/photo-1577590835286-1cdd24c08fd7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -26,6 +27,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Apple",
         name: "Apple MacBook",
         category: "ELECTRONICS",
         imageUrl: "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -33,6 +35,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Godiva",
         name: "Godiva Chocolate",
         category: "FOOD",
         imageUrl: "https://pixabay.com/get/g019557ea5a868fc7b6a061116435d92cb542c700e53c1c6d346ec4788cd236162754a6972e833c18688ad9d4cbe468383638fbbb8c2adee77141514db1c6a25a_1280.jpg",
@@ -40,6 +43,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Tesla",
         name: "Tesla Model 3",
         category: "AUTOMOTIVE",
         imageUrl: "https://images.unsplash.com/photo-1617788138017-80ad40651399?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -47,6 +51,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Ray-Ban",
         name: "Ray-Ban Sunglasses",
         category: "FASHION",
         imageUrl: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -54,6 +59,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "The Coca-Cola Company",
         name: "Coca-Cola",
         category: "BEVERAGE",
         imageUrl: "https://images.unsplash.com/photo-1554866585-cd94860890b7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -61,6 +67,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Samsung",
         name: "Samsung Galaxy S22",
         category: "ELECTRONICS",
         imageUrl: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -68,6 +75,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Mars Inc.",
         name: "Snickers",
         category: "FOOD",
         imageUrl: "https://images.unsplash.com/photo-1634913940786-58ce67cf72a7?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -75,6 +83,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "BMW",
         name: "BMW i8",
         category: "AUTOMOTIVE",
         imageUrl: "https://images.unsplash.com/photo-1556800572-1b8aeef2c54f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -82,6 +91,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Nike",
         name: "Nike Air Jordan",
         category: "FASHION",
         imageUrl: "https://images.unsplash.com/photo-1556906781-9a412961c28c?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -89,6 +99,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Monster Beverage",
         name: "Monster Energy",
         category: "BEVERAGE",
         imageUrl: "https://images.unsplash.com/photo-1622543925917-763c34d1a86e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
@@ -96,6 +107,7 @@ async function seed() {
         updatedAt: new Date()
       },
       {
+        companyName: "Sony",
         name: "Sony PlayStation 5",
         category: "ELECTRONICS",
         imageUrl: "https://images.unsplash.com/photo-1607853202273-797f1c22a38e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=300&h=160",
