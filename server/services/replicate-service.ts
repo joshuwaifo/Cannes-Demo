@@ -27,15 +27,15 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     // Create a prompt describing the scene and product placement
     const prompt = createProductPlacementPrompt(request);
     
-    // Generate image using Replicate's flux-1.1-pro model
+    // Generate image using Replicate's stability-ai/sdxl model
     const output = await replicate.run(
-      "black-forest-labs/flux-1.1-pro:b2bdd6246aeaed7cb417a389ea23f5f1b4db7b16c9ff90a1f2806a39d167b76f",
+      "stability-ai/sdxl:8beff3369e81422112d93b89ca01426147c99f3fafb8076ca0c1a6227bafc3b9",
       {
         input: {
           prompt: prompt,
-          width: 864,
-          height: 480,
-          num_inference_steps: 50,
+          width: 896,
+          height: 512,
+          num_inference_steps: 30,
           guidance_scale: 7.5,
           negative_prompt: "poor quality, bad quality, blurry, low resolution, distorted, deformed, unrealistic",
         }
@@ -51,9 +51,20 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
         imageUrl: output[0],
         description,
       };
-    } else {
-      throw new Error('No image was generated');
+    } else if (output && typeof output === 'object' && output.output) {
+      // Handle stability-ai/sdxl output format
+      const imageUrls = Array.isArray(output.output) ? output.output : [output.output];
+      if (imageUrls.length > 0) {
+        return {
+          imageUrl: imageUrls[0],
+          description,
+        };
+      }
     }
+    
+    // If we reach here, no valid image URL was found
+    console.error('Unexpected output format from Replicate:', output);
+    throw new Error('No image was generated');
   } catch (error) {
     console.error('Replicate API error:', error);
     throw new Error('Failed to generate product placement image');
