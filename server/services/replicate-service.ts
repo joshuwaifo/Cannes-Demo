@@ -27,15 +27,15 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     // Create a prompt describing the scene and product placement
     const prompt = createProductPlacementPrompt(request);
     
-    // Generate image using Replicate's flux-1.1-pro model
+    // Generate image using Replicate's flux-schnell model
     console.log('Generating image with Replicate...');
     console.log('Prompt:', prompt);
     let output;
     
     try {
-      console.log('Calling Replicate API with model: black-forest-labs/flux-1.1-pro');
+      console.log('Calling Replicate API with model: black-forest-labs/flux-schnell');
       output = await replicate.run(
-        "black-forest-labs/flux-1.1-pro",
+        "black-forest-labs/flux-schnell",
         {
           input: {
             prompt: prompt,
@@ -128,7 +128,7 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
         }
       } 
       
-      // For flux-1.1-pro which might return a direct URL string
+      // For flux-schnell which might return a direct URL string
       if (typeof anyOutput === 'string' && anyOutput.startsWith('http')) {
         console.log('Output is a direct URL string:', anyOutput);
         return {
