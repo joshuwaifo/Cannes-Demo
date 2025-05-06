@@ -23,6 +23,7 @@ export default function AddProductModal({
   const form = useForm<FormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
+      companyName: "",
       name: "",
       category: "BEVERAGE",
       imageUrl: ""
@@ -57,6 +58,20 @@ export default function AddProductModal({
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="companyName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter company name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
             <FormField
               control={form.control}
               name="name"

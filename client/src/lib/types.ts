@@ -73,13 +73,15 @@ export type DeleteProductDialogProps = {
 }
 
 export type ProductFormData = {
+  companyName: string;
   name: string;
   category: ProductCategory;
   imageUrl: string;
 }
 
 export const productFormSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
+  companyName: z.string().min(2, "Company name must be at least 2 characters"),
+  name: z.string().min(2, "Product name must be at least 2 characters"),
   category: z.enum(["BEVERAGE", "ELECTRONICS", "FOOD", "AUTOMOTIVE", "FASHION", "OTHER"]),
   imageUrl: z.string().url("Please enter a valid URL")
 });

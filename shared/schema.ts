@@ -33,6 +33,7 @@ export type ProductCategory = keyof typeof ProductCategory;
 // Products table
 export const products = pgTable("products", {
   id: serial("id").primaryKey(),
+  companyName: text("company_name").notNull(),
   name: text("name").notNull(),
   category: text("category").notNull().$type<ProductCategory>(),
   imageUrl: text("image_url").notNull(),
@@ -45,7 +46,8 @@ export const productsRelations = relations(products, ({ many }) => ({
 }));
 
 export const insertProductSchema = createInsertSchema(products, {
-  name: (schema) => schema.min(2, "Name must be at least 2 characters"),
+  companyName: (schema) => schema.min(2, "Company name must be at least 2 characters"),
+  name: (schema) => schema.min(2, "Product name must be at least 2 characters"),
   category: (schema) => schema.refine(
     (val) => Object.keys(ProductCategory).includes(val),
     "Invalid product category"
