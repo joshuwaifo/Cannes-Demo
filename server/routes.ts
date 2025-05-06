@@ -169,8 +169,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Extract script content from the file
-      const parsedScript = await extractScriptFromPdf(req.file.buffer);
+      // Extract script content from the file - pass the mime type to handle differently
+      const parsedScript = await extractScriptFromPdf(req.file.buffer, req.file.mimetype);
       
       // Save script to database
       const script = await storage.createScript({
