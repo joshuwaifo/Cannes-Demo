@@ -28,9 +28,12 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     const prompt = createProductPlacementPrompt(request);
     
     // Generate image using Replicate's flux-1.1-pro model
+    console.log('Generating image with Replicate...');
+    console.log('Prompt:', prompt);
     let output;
     
     try {
+      console.log('Calling Replicate API with model: black-forest-labs/flux-1.1-pro');
       output = await replicate.run(
         "black-forest-labs/flux-1.1-pro",
         {
@@ -44,6 +47,7 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
           }
         }
       );
+      console.log('Replicate API response type:', typeof output);
       
       // Handle ReadableStream output (common in newer Replicate API responses)
       if (output instanceof ReadableStream) {
@@ -79,28 +83,67 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     const description = createPlacementDescription(request);
     
     // Return image URL and description
+    console.log('Processing Replicate output:', JSON.stringify(output));
+    
     if (Array.isArray(output) && output.length > 0) {
+      console.log('Output is an array, using first element as image URL');
       return {
         imageUrl: output[0],
         description,
       };
     } else if (output && typeof output === 'object') {
       // Handle other output formats
-      // For stability-ai/sdxl style outputs with output property
+      console.log('Output is an object, looking for image URL');
       const anyOutput = output as any;
+      
+      // For stability-ai/sdxl style outputs with output property
       if (anyOutput.output) {
+        console.log('Found output property:', anyOutput.output);
         const imageUrls = Array.isArray(anyOutput.output) ? anyOutput.output : [anyOutput.output];
         if (imageUrls.length > 0) {
+          console.log('Using output[0] as image URL:', imageUrls[0]);
           return {
             imageUrl: imageUrls[0],
             description,
           };
         }
+      } 
+      
+      // For flux-1.1-pro which might return a direct URL string
+      if (typeof anyOutput === 'string' && anyOutput.startsWith('http')) {
+        console.log('Output is a direct URL string:', anyOutput);
+        return {
+          imageUrl: anyOutput,
+          description,
+        };
+      }
+      
+      // For other possibilities
+      console.log('Checking all object properties for URLs');
+      for (const key in anyOutput) {
+        const value = anyOutput[key];
+        if (typeof value === 'string' && value.startsWith('http')) {
+          console.log(`Found URL in property ${key}:`, value);
+          return {
+            imageUrl: value,
+            description,
+          };
+        }
+        if (Array.isArray(value)) {
+          const urls = value.filter(item => typeof item === 'string' && item.startsWith('http'));
+          if (urls.length > 0) {
+            console.log(`Found URL in array property ${key}[0]:`, urls[0]);
+            return {
+              imageUrl: urls[0],
+              description,
+            };
+          }
+        }
       }
     }
     
     // If we reach here, no valid image URL was found
-    console.error('Unexpected output format from Replicate:', output);
+    console.error('Unexpected output format from Replicate:', JSON.stringify(output, null, 2));
     throw new Error('No image was generated');
   } catch (error) {
     console.error('Replicate API error:', error);
