@@ -7,7 +7,7 @@ import {
   SceneVariation 
 } from "@shared/schema";
 
-export type TabType = "script" | "products";
+export type TabType = "welcome" | "script" | "products";
 
 export type FileUploadProps = {
   onFileUpload: (file: File) => Promise<void>;

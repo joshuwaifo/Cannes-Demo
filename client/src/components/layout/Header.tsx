@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Film } from "lucide-react";
+import { Film, Home, FileText, ShoppingBag } from "lucide-react";
 import { HeaderProps } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -15,12 +15,25 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
           <ul className="flex space-x-6">
             <li>
               <button 
+                onClick={() => onTabChange("welcome")}
+                className={cn(
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center",
+                  activeTab === "welcome" && "text-primary"
+                )}
+              >
+                <Home className="mr-1 h-4 w-4" />
+                Welcome
+              </button>
+            </li>
+            <li>
+              <button 
                 onClick={() => onTabChange("script")}
                 className={cn(
-                  "hover:text-primary transition-colors duration-200 font-medium",
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center",
                   activeTab === "script" && "text-primary"
                 )}
               >
+                <FileText className="mr-1 h-4 w-4" />
                 Script Editor
               </button>
             </li>
@@ -28,10 +41,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               <button 
                 onClick={() => onTabChange("products")}
                 className={cn(
-                  "hover:text-primary transition-colors duration-200 font-medium",
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center",
                   activeTab === "products" && "text-primary"
                 )}
               >
+                <ShoppingBag className="mr-1 h-4 w-4" />
                 Products
               </button>
             </li>
