@@ -208,6 +208,10 @@ export default function ScriptEditor() {
   const handleReanalyzeScript = async () => {
     await reanalyzeScriptMutation.mutateAsync();
   };
+  
+  const handleGeneratePlacements = async () => {
+    await generatePlacementsMutation.mutateAsync();
+  };
 
   const handleOptionSelect = async (variationId: number) => {
     await selectVariationMutation.mutateAsync(variationId);
@@ -253,6 +257,7 @@ export default function ScriptEditor() {
                 isLoading={isLoading}
                 onSave={handleSaveScript}
                 onReanalyze={handleReanalyzeScript}
+                onGeneratePlacements={handleGeneratePlacements}
                 activeScene={activeScene}
               />
 

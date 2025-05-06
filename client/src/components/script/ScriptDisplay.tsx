@@ -2,7 +2,7 @@ import { ScriptDisplayProps } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Save, RefreshCw } from "lucide-react";
+import { Save, RefreshCw, Wand2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -11,11 +11,13 @@ export default function ScriptDisplay({
   isLoading,
   onSave,
   onReanalyze,
+  onGeneratePlacements,
   activeScene
 }: ScriptDisplayProps) {
   const [editorContent, setEditorContent] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -61,6 +63,27 @@ export default function ScriptDisplay({
       });
     } finally {
       setIsReanalyzing(false);
+    }
+  };
+  
+  const handleGeneratePlacements = async () => {
+    if (!onGeneratePlacements) return;
+    
+    try {
+      setIsGenerating(true);
+      await onGeneratePlacements();
+      toast({
+        title: "Generation complete",
+        description: "We've generated product placements for brandable scenes.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Generation failed",
+        description: "There was an error generating product placements.",
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -114,6 +137,23 @@ export default function ScriptDisplay({
             )}
             Re-analyze
           </Button>
+          
+          {onGeneratePlacements && (
+            <Button 
+              variant="default" 
+              className="bg-green-600 hover:bg-green-700 text-white"
+              size="sm"
+              onClick={handleGeneratePlacements}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Wand2 className="h-4 w-4 mr-1" />
+              )}
+              Generate Placements
+            </Button>
+          )}
         </div>
       </div>
 

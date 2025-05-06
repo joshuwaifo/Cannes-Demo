@@ -24,6 +24,7 @@ export type ScriptDisplayProps = {
   isLoading: boolean;
   onSave: () => void;
   onReanalyze: () => void;
+  onGeneratePlacements?: () => void;
   activeScene: Scene | null;
 }
 
