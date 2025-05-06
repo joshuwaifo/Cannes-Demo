@@ -11,71 +11,114 @@ interface ScriptParsingResult {
   scenes: ExtractedScene[];
 }
 
-// Mocked function for PDF processing - to be replaced with real implementation later
+// Real implementation for PDF processing
 export async function extractScriptFromPdf(pdfBuffer: Buffer): Promise<ScriptParsingResult> {
   try {
-    // Create a sample script result instead of processing the PDF for now
-    // This is a temporary solution until PDF.js issues are resolved
-    const mockContent = `
-INT. COFFEE SHOP - DAY
-
-SARAH (28) sits by the window, typing on her laptop. The coffee shop is moderately busy.
-
-MICHAEL (30) enters, spots Sarah, and approaches her table.
-
-MICHAEL
-Hey, sorry I'm late. Traffic was a nightmare.
-
-SARAH
-(looking up)
-No worries, I just got here.
-
-EXT. STREET - DAY
-
-Michael and Sarah walk along a busy downtown street.
-
-SARAH
-So what did you think of the proposal?
-
-MICHAEL
-It has potential, but I think we need more market research.
-
-INT. OFFICE BUILDING - LATER
-
-Michael presents to a room full of EXECUTIVES.
-
-MICHAEL
-As you can see from these numbers, the opportunity is significant.
-    `;
+    // Load pdf.js
+    const pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
     
-    // Extract scenes
-    const scenes = extractScenes(mockContent);
+    // Load PDF document from buffer
+    const loadingTask = pdfjsLib.getDocument({ data: pdfBuffer });
+    const pdf = await loadingTask.promise;
+    
+    console.log(`PDF loaded with ${pdf.numPages} pages`);
+    
+    // Extract text from all pages
+    let fullText = '';
+    let title = 'Untitled Script';
+    
+    // Process each page
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      
+      // Extract text items
+      const pageText = textContent.items.map((item: any) => 
+        item.str
+      ).join(' ').replace(/\s+/g, ' ');
+      
+      fullText += pageText + '\n\n';
+      
+      // Try to extract title from the first page
+      if (i === 1) {
+        // Attempt to find title (usually in all caps near the top of the first page)
+        const titleMatch = pageText.match(/^[\s\n]*([A-Z][A-Z\s]+)[\s\n]/);
+        if (titleMatch && titleMatch[1]) {
+          title = titleMatch[1].trim();
+        }
+      }
+    }
+    
+    // Clean up the text
+    fullText = fullText
+      .replace(/\r\n/g, '\n')                 // Normalize line endings
+      .replace(/\n{3,}/g, '\n\n')             // Remove excessive line breaks
+      .replace(/\s{2,}/g, ' ')                // Remove excessive spaces
+      .trim();
+    
+    console.log(`Extracted ${fullText.length} characters of text`);
+    
+    // Extract scenes from the text
+    const scenes = extractScenes(fullText);
+    console.log(`Identified ${scenes.length} scenes`);
     
     return {
-      title: "SAMPLE SCRIPT",
-      content: mockContent,
+      title,
+      content: fullText,
       scenes
     };
   } catch (error) {
     console.error('Script processing error:', error);
-    throw new Error('Failed to process script');
+    throw new Error('Failed to process script: ' + (error instanceof Error ? error.message : String(error)));
   }
 }
 
 function extractScenes(scriptText: string): ExtractedScene[] {
   // Regular expression to find scene headings (INT./EXT. patterns)
-  const sceneHeadingRegex = /(INT\.|EXT\.|INT\/EXT\.)[^\n]+/gi;
+  // This pattern better captures standard screenplay format scene headings:
+  // They are usually all caps, start with INT/EXT, and sometimes include time of day
+  const sceneHeadingRegex = /\b(INT\.?|EXT\.?|INT\.?\/EXT\.?|I\/E\.?)[\s\.\-]+(.*?)(?:\s*-\s*|\s+)(DAY|NIGHT|MORNING|EVENING|AFTERNOON|DAWN|DUSK|LATER|CONTINUOUS|MOMENTS LATER|SAME TIME)(?:\b|$)/gi;
+  
+  // For PDFs that don't have standard formatting, also look for numbered scenes
+  const numberedSceneRegex = /\bSCENE\s+(\d+)[:\.\s]+(.+?)$/gim;
+  
   const scenes: ExtractedScene[] = [];
   
   // Find potential scene headings
   let match;
   let lastIndex = 0;
   let sceneNumber = 1;
+  let allMatches: {index: number, heading: string}[] = [];
   
+  // Collect all matches from both regexes
   while ((match = sceneHeadingRegex.exec(scriptText)) !== null) {
-    // Get the heading
-    const heading = match[0].trim();
-    const headingIndex = match.index;
+    const fullMatch = match[0].trim();
+    allMatches.push({
+      index: match.index,
+      heading: fullMatch
+    });
+  }
+  
+  // Reset regex lastIndex
+  sceneHeadingRegex.lastIndex = 0;
+  
+  // Check for numbered scenes as well
+  while ((match = numberedSceneRegex.exec(scriptText)) !== null) {
+    const fullMatch = match[0].trim();
+    allMatches.push({
+      index: match.index,
+      heading: fullMatch
+    });
+  }
+  
+  // Sort matches by their position in the text
+  allMatches.sort((a, b) => a.index - b.index);
+  
+  // Now process matches in order
+  for (const matchInfo of allMatches) {
+    const heading = matchInfo.heading;
+    const headingIndex = matchInfo.index;
     
     // If not the first scene, extract content of previous scene
     if (scenes.length > 0) {
@@ -102,6 +145,15 @@ function extractScenes(scriptText: string): ExtractedScene[] {
     lastScene.content = scriptText
       .substring(lastIndex)
       .trim();
+  }
+  
+  // If no scenes were found using the regex, create at least one scene with the entire content
+  if (scenes.length === 0) {
+    scenes.push({
+      sceneNumber: 1,
+      heading: "UNTITLED SCENE",
+      content: scriptText.trim()
+    });
   }
   
   return scenes;
