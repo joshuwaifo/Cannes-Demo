@@ -178,7 +178,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sceneNumber: scene.sceneNumber,
           heading: scene.heading,
           content: scene.content,
-          isBrandable: false
+          isBrandable: false,
+          brandableReason: null,
+          suggestedCategories: null
         })
       );
       
@@ -247,9 +249,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Script ID is required' });
       }
       
-      const script = await storage.updateScript(scriptId, {
-        updatedAt: new Date()
-      });
+      // We don't need to pass updatedAt as it's added automatically in the storage function
+      const script = await storage.updateScript(scriptId, {});
       
       if (!script) {
         return res.status(404).json({ message: 'Script not found' });
