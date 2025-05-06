@@ -85,10 +85,29 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     // Return image URL and description
     console.log('Processing Replicate output:', JSON.stringify(output));
     
+    // Helper function to sanitize URLs
+    const sanitizeUrl = (url: string): string => {
+      try {
+        // Remove any whitespace or newline characters
+        url = url.trim();
+        
+        // Validate if it's a proper URL by creating a URL object
+        new URL(url);
+        
+        // Return the sanitized URL
+        return url;
+      } catch (error) {
+        console.error('Invalid URL format:', url, error);
+        // Return a placeholder image if URL is invalid
+        return "https://placehold.co/600x400/gray/white?text=Image+Generation+Failed";
+      }
+    };
+    
     if (Array.isArray(output) && output.length > 0) {
       console.log('Output is an array, using first element as image URL');
+      const imageUrl = typeof output[0] === 'string' ? sanitizeUrl(output[0]) : '';
       return {
-        imageUrl: output[0],
+        imageUrl,
         description,
       };
     } else if (output && typeof output === 'object') {
@@ -100,10 +119,10 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
       if (anyOutput.output) {
         console.log('Found output property:', anyOutput.output);
         const imageUrls = Array.isArray(anyOutput.output) ? anyOutput.output : [anyOutput.output];
-        if (imageUrls.length > 0) {
+        if (imageUrls.length > 0 && typeof imageUrls[0] === 'string') {
           console.log('Using output[0] as image URL:', imageUrls[0]);
           return {
-            imageUrl: imageUrls[0],
+            imageUrl: sanitizeUrl(imageUrls[0]),
             description,
           };
         }
@@ -113,7 +132,7 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
       if (typeof anyOutput === 'string' && anyOutput.startsWith('http')) {
         console.log('Output is a direct URL string:', anyOutput);
         return {
-          imageUrl: anyOutput,
+          imageUrl: sanitizeUrl(anyOutput),
           description,
         };
       }
@@ -125,7 +144,7 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
         if (typeof value === 'string' && value.startsWith('http')) {
           console.log(`Found URL in property ${key}:`, value);
           return {
-            imageUrl: value,
+            imageUrl: sanitizeUrl(value),
             description,
           };
         }
@@ -134,7 +153,7 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
           if (urls.length > 0) {
             console.log(`Found URL in array property ${key}[0]:`, urls[0]);
             return {
-              imageUrl: urls[0],
+              imageUrl: sanitizeUrl(urls[0]),
               description,
             };
           }
