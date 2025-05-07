@@ -57,7 +57,7 @@ export async function generateProductPlacement(
 
     // flux-1.1-pro model expects input like this
     const output = await replicate.run(
-      "black-forest-labs/flux-1.1-pro:e1c1e646358567a901416b5c7988466a041060115a56513a3176f97648145859", // Using specific version
+      "black-forest-labs/flux-1.1-pro", // Using specific version
       {
         input: {
           prompt: prompt,
