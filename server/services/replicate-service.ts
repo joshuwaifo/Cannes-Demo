@@ -79,18 +79,28 @@ export async function generateProductPlacement(
 
     let imageUrl: string | undefined;
 
-    if (
-      Array.isArray(output) &&
-      output.length > 0 &&
-      typeof output[0] === "string"
-    ) {
-      imageUrl = output[0];
+    // Handle ReadableStream response
+    if (Array.isArray(output) && output.length > 0) {
+      if (output[0] instanceof ReadableStream) {
+        const reader = output[0].getReader();
+        const chunks = [];
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        const result = JSON.parse(Buffer.concat(chunks).toString());
+        imageUrl = result.url || result.image || result[0];
+      } else if (typeof output[0] === "string") {
+        imageUrl = output[0];
+      }
     } else if (typeof output === "string" && output.startsWith("http")) {
-      // Some models might return direct string URL
       imageUrl = output;
-    } else {
+    }
+
+    if (!imageUrl) {
       console.error(
-        `Unexpected output format from Replicate for S${scene.sceneNumber}V${variationNumber}. Output:`,
+        `No valid image URL found for S${scene.sceneNumber}V${variationNumber}. Output:`,
         output,
       );
       return { imageUrl: FALLBACK_IMAGE_URL, description, success: false };
