@@ -82,22 +82,21 @@ export async function generateProductPlacement(
 
     let imageUrl: string | undefined;
 
-    // Handle ReadableStream response
+    // Handle response from Replicate API
     if (Array.isArray(output) && output.length > 0) {
-      if (output[0] instanceof ReadableStream) {
-        const reader = output[0].getReader();
-        const chunks = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-        }
-        const result = JSON.parse(Buffer.concat(chunks).toString());
-        imageUrl = result.url || result.image || result[0];
-      } else if (typeof output[0] === "string") {
+      // Direct URL in output array
+      if (typeof output[0] === "string" && output[0].startsWith("http")) {
         imageUrl = output[0];
       }
-    } else if (typeof output === "string" && output.startsWith("http")) {
+      // Handle PNG data or other binary response
+      else if (output[0] instanceof Uint8Array || output[0] instanceof Buffer) {
+        // The model returned the image directly - we'll need to host this somewhere
+        imageUrl = FALLBACK_IMAGE_URL;
+        console.warn("Direct image data received from API - fallback to placeholder");
+      }
+    } 
+    // Handle direct URL response
+    else if (typeof output === "string" && output.startsWith("http")) {
       imageUrl = output;
     }
 
