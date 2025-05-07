@@ -5,17 +5,20 @@ import {
   scenes,
   sceneVariations,
   actors,
+  locations,
   insertProductSchema,
   insertScriptSchema,
   insertSceneSchema,
   insertSceneVariationSchema,
   insertActorSchema,
+  insertLocationSchema,
   Product,
   ProductCategory,
   Script,
   Scene,
   SceneVariation,
   Actor,
+  Location,
 } from "@shared/schema";
 import { eq, and, like, desc, sql, count, asc, not } from "drizzle-orm";
 import { ZodError } from "zod";
@@ -566,6 +569,138 @@ export async function deleteActor(id: number): Promise<boolean> {
   const result = await db
     .delete(actors)
     .where(eq(actors.id, id))
+    .returning();
+  return result.length > 0;
+}
+
+// Location-related storage functions
+export async function getLocations(
+  options: {
+    search?: string;
+    country?: string;
+    page?: number;
+    pageSize?: number;
+  } = {},
+): Promise<{
+  locations: Location[];
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+}> {
+  const { search = "", country = "", page = 1, pageSize = 10 } = options;
+  const offset = (page - 1) * pageSize;
+
+  let query = db.select().from(locations);
+
+  // Apply search filter - case insensitive for name
+  if (search) {
+    query = query.where(
+      sql`(LOWER(${locations.country}) LIKE LOWER(${"%" + search + "%"}) OR 
+           LOWER(${locations.region}) LIKE LOWER(${"%" + search + "%"}) OR
+           LOWER(${locations.incentiveProgram}) LIKE LOWER(${"%" + search + "%"}))`,
+    );
+  }
+
+  // Apply country filter
+  if (country) {
+    query = query.where(
+      sql`(LOWER(${locations.country}) = LOWER(${country}))`,
+    );
+  }
+
+  // Get total count for pagination - Apply the same filters to count query
+  let countQuery = db.select({ count: count() }).from(locations);
+  if (search) {
+    countQuery = countQuery.where(
+      sql`(LOWER(${locations.country}) LIKE LOWER(${"%" + search + "%"}) OR 
+           LOWER(${locations.region}) LIKE LOWER(${"%" + search + "%"}) OR
+           LOWER(${locations.incentiveProgram}) LIKE LOWER(${"%" + search + "%"}))`,
+    );
+  }
+  if (country) {
+    countQuery = countQuery.where(
+      sql`(LOWER(${locations.country}) = LOWER(${country}))`,
+    );
+  }
+
+  const countResult = await countQuery;
+  const total = Number(countResult[0].count || 0);
+
+  // Get paginated locations
+  const result = await query
+    .orderBy(asc(locations.country), asc(locations.region))
+    .limit(pageSize)
+    .offset(offset);
+
+  return {
+    locations: result,
+    totalCount: total,
+    currentPage: page,
+    totalPages: Math.ceil(total / pageSize),
+    pageSize,
+  };
+}
+
+export async function getLocationById(id: number): Promise<Location | null> {
+  const result = await db
+    .select()
+    .from(locations)
+    .where(eq(locations.id, id))
+    .limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function createLocation(
+  data: Omit<Location, "id" | "createdAt" | "updatedAt">,
+): Promise<Location> {
+  try {
+    const validatedData = insertLocationSchema.parse({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await db.insert(locations).values(validatedData).returning();
+    return result[0];
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      throw new Error(
+        `Validation error: ${error.errors.map((e: any) => e.message).join(", ")}`,
+      );
+    }
+    console.error("Error in createLocation:", error);
+    throw error;
+  }
+}
+
+export async function updateLocation(
+  id: number,
+  data: Partial<Omit<Location, "id" | "createdAt" | "updatedAt">>,
+): Promise<Location | null> {
+  try {
+    const result = await db
+      .update(locations)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(locations.id, id))
+      .returning();
+
+    return result.length > 0 ? result[0] : null;
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      throw new Error(
+        `Validation error: ${error.errors.map((e: any) => e.message).join(", ")}`,
+      );
+    }
+    console.error(`Error in updateLocation for ID ${id}:`, error);
+    throw error;
+  }
+}
+
+export async function deleteLocation(id: number): Promise<boolean> {
+  const result = await db
+    .delete(locations)
+    .where(eq(locations.id, id))
     .returning();
   return result.length > 0;
 }

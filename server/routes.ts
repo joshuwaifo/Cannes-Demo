@@ -5,7 +5,7 @@ import multer from "multer";
 import { extractScriptFromPdf } from "./services/pdf-service";
 import { generateProductPlacement } from "./services/replicate-service";
 import { z } from "zod";
-import { insertProductSchema, insertActorSchema, ProductCategory } from "@shared/schema";
+import { insertProductSchema, insertActorSchema, insertLocationSchema, ProductCategory } from "@shared/schema";
 
 // Define a type for scene variations with product details
 interface BaseSceneVariation {
