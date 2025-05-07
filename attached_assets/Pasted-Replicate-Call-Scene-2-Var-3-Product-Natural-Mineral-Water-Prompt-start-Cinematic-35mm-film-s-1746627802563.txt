@@ -1,0 +1,50 @@
+Replicate Call: Scene 2, Var 3, Product Natural Mineral Water. Prompt (start): Cinematic 35mm film still, ultra photorealistic, extremely detailed. Scene: INT. '74 CHEVY (MOVING) ...
+Replicate Raw Output (S2V1): [
+  {}
+]...
+Failed to parse ReadableStream: SyntaxError: Unexpected token '�', "�PNG
+
+"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at generateProductPlacement (/home/runner/workspace/server/services/replicate-service.ts:100:31)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:140:32)
+    at async Promise.all (index 0)
+    at async _generateAndSaveSceneVariationsForRoute (/home/runner/workspace/server/routes.ts:180:19)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:709:22)
+Generated Image URL (S2V1): https://placehold.co/864x480/grey/white?text=Image+Gen+Failed
+Image generation failed for S2V1, P:Model Y. Using fallback.
+Replicate Raw Output (S2V3): [
+  {}
+]...
+Failed to parse ReadableStream: SyntaxError: Unexpected token '�', "�PNG
+
+"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at generateProductPlacement (/home/runner/workspace/server/services/replicate-service.ts:100:31)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:140:32)
+    at async Promise.all (index 2)
+    at async _generateAndSaveSceneVariationsForRoute (/home/runner/workspace/server/routes.ts:180:19)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:709:22)
+Generated Image URL (S2V3): https://placehold.co/864x480/grey/white?text=Image+Gen+Failed
+Image generation failed for S2V3, P:Natural Mineral Water. Using fallback.
+Replicate Raw Output (S2V2): [
+  {}
+]...
+Failed to parse ReadableStream: SyntaxError: Unexpected token '�', "�PNG
+
+"... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at generateProductPlacement (/home/runner/workspace/server/services/replicate-service.ts:100:31)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:140:32)
+    at async Promise.all (index 1)
+    at async _generateAndSaveSceneVariationsForRoute (/home/runner/workspace/server/routes.ts:180:19)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:709:22)
+Generated Image URL (S2V2): https://placehold.co/864x480/grey/white?text=Image+Gen+Failed
+Image generation failed for S2V2, P:Tesla Model 3. Using fallback.
+Successfully generated 3 variations for scene 2.
+on-demand-variation-generation: 52.476s
+Generated 3 variations on-demand for scene 2
+2:22:54 PM [express] GET /api/scripts/scene-variations 200 in 52586ms :: [{"id":191,"sceneId":3632,"…
