@@ -9,13 +9,13 @@ export default function Footer() {
             <p className="text-sm">&copy; {new Date().getFullYear()} VadisMedia. All rights reserved.</p>
           </div>
           <div className="flex space-x-4">
-            <Link href="#" className="text-sm text-gray-300 hover:text-white transition-colors">
+            <Link href="/privacy-policy" className="text-sm text-gray-300 hover:text-white transition-colors">
               Privacy Policy
             </Link>
-            <Link href="#" className="text-sm text-gray-300 hover:text-white transition-colors">
+            <Link href="/terms-of-service" className="text-sm text-gray-300 hover:text-white transition-colors">
               Terms of Service
             </Link>
-            <Link href="#" className="text-sm text-gray-300 hover:text-white transition-colors">
+            <Link href="/contact" className="text-sm text-gray-300 hover:text-white transition-colors">
               Contact
             </Link>
           </div>

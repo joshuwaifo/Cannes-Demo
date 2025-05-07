@@ -8,6 +8,9 @@ import ScriptEditor from "@/pages/ScriptEditor";
 import ProductDatabase from "@/pages/ProductDatabase";
 import ActorsDatabase from "@/pages/ActorsDatabase";
 import LocationsDatabase from "@/pages/LocationsDatabase";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
+import Contact from "@/pages/Contact";
 import NotFound from "@/pages/not-found";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -46,6 +49,9 @@ function App() {
         <main className="flex-grow container mx-auto px-4 py-6">
           <Switch>
             <Route path="/" component={() => renderActiveComponent()} />
+            <Route path="/privacy-policy" component={PrivacyPolicy} />
+            <Route path="/terms-of-service" component={TermsOfService} />
+            <Route path="/contact" component={Contact} />
             <Route component={NotFound} />
           </Switch>
         </main>
