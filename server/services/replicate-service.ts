@@ -128,28 +128,39 @@ export async function generateProductPlacement(
 function createProductPlacementPrompt(request: GenerationRequest): string {
   const { scene, product } = request;
   const sceneLocation = scene.heading || "A dynamic film scene";
+  const sceneContext = scene.content?.substring(0, 500) || "";
 
-  // More descriptive prompt focusing on visual elements
-  let prompt = `Cinematic film still, high detail, photorealistic. Scene: ${sceneLocation}. `;
-  prompt += `Featuring a ${product.category.toLowerCase()} product: ${product.name}. `;
+  // Base prompt incorporating scene details
+  let prompt = `Cinematic film still, photorealistic, high detail. Scene: ${sceneLocation}. `;
+  prompt += `Scene context: ${sceneContext}. `;
+  
+  // Detailed product placement instructions
+  prompt += `Integrate ${product.name} (${product.category.toLowerCase()}) naturally into the scene. `;
 
-  // Add specific placement details based on product category and variation number (conceptual)
-  // This part would need more sophisticated logic based on scene content analysis
+  // Category-specific placement strategies
   if (product.category === ProductCategory.BEVERAGE) {
-    prompt += `The ${product.name} is clearly visible, perhaps on a table or held by a character.`;
+    prompt += `Show the ${product.name} in a natural drinking/serving moment - on a table, in someone's hand, or being poured. The product should be clearly identifiable but not feel forced.`;
   } else if (product.category === ProductCategory.ELECTRONICS) {
-    prompt += `A character is interacting with the ${product.name}, or it's prominently displayed on a desk.`;
+    prompt += `Show the ${product.name} being used naturally within the scene - integrated into the action, not just placed as a prop. Ensure the brand is recognizable.`;
   } else if (product.category === ProductCategory.AUTOMOTIVE) {
-    prompt += `The ${product.name} vehicle is a key visual element, maybe in motion or stylishly parked.`;
+    prompt += `Feature the ${product.name} as part of the scene's environment - whether parked, driving by, or as a key story element. Show the distinctive design features of the vehicle.`;
+  } else if (product.category === ProductCategory.FASHION) {
+    prompt += `Have a character wearing or interacting with the ${product.name} in a way that fits the scene's context. The brand should be visible but not overly prominent.`;
+  } else if (product.category === ProductCategory.FOOD) {
+    prompt += `Include the ${product.name} in a natural eating/dining scenario within the scene. The packaging or presentation should be clearly visible but feel organic to the moment.`;
   } else {
-    prompt += `The ${product.name} is naturally integrated into the scene.`;
+    prompt += `Integrate the ${product.name} naturally into the scene's environment, making it visible but not distracting from the scene's narrative.`;
   }
 
-  prompt += ` Focus on realism and brand visibility. ${scene.brandableReason || ""}.`;
-  prompt +=
-    " Shot on 35mm film, professional lighting, sharp focus, vivid colors.";
+  // Add scene-specific context from brandable reason
+  if (scene.brandableReason) {
+    prompt += ` ${scene.brandableReason}`;
+  }
 
-  return prompt.substring(0, 1000); // Ensure prompt length is within limits
+  // Technical specifications for quality
+  prompt += ` Create a high-quality cinematic shot with professional lighting, sharp focus, and natural color grading. Make the product integration feel authentic to the scene.`;
+
+  return prompt.substring(0, 1000);
 }
 
 function createPlacementDescription(request: GenerationRequest): string {
