@@ -1,18 +1,25 @@
+// server/routes.ts
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import * as storage from "./storage";
 import multer from "multer";
 import { extractScriptFromPdf } from "./services/pdf-service";
-import { generateProductPlacement } from "./services/replicate-service"; // Assuming this is the correct path
+import { generateProductPlacement } from "./services/replicate-service"; // Corrected import
+import {
+  identifyBrandableScenesWithGemini,
+  AIAnalysisResponseForRoutes,
+} from "./services/file-upload-service"; // Import new Gemini function
 import { z } from "zod";
 import {
   insertProductSchema,
   insertActorSchema,
   insertLocationSchema,
-  ProductCategory, // Import ProductCategory
-  Product as DbProduct, // Alias to avoid conflict if needed
-  Scene as DbScene, // Alias
-  SceneVariation as DbSceneVariation, // Alias
+  ProductCategory,
+  Product as DbProduct,
+  Scene as DbScene,
+  Actor as DbActor, // Import DbActor for consistency
+  Location as DbLocation, // Import DbLocation for consistency
+  // SceneVariation as DbSceneVariation // Not strictly needed here if SceneVariationWithProductInfo is used
 } from "@shared/schema";
 
 // Define a type for scene variations with product details
@@ -28,22 +35,21 @@ interface BaseSceneVariation {
 
 interface SceneVariationWithProductInfo extends BaseSceneVariation {
   productName: string;
-  productCategory: string;
+  productCategory: string; // This should align with ProductCategory enum
   productImageUrl?: string | null;
 }
 
-// Basic Product interface for typing within the helper
-interface Product {
+// Local Product interface for temporary use if DbProduct from schema has issues or needs aliasing
+interface ProductLocal {
   id: number;
   name: string;
-  category: string; // Can be string or ProductCategory, depends on source
+  category: string; // Could be ProductCategory if data source is consistent
   imageUrl?: string | null;
 }
 
 // Utility function to sanitize strings for database storage
 const sanitizeString = (str: string): string => {
   if (!str) return "";
-  // Replace null bytes and other invalid UTF-8 characters
   return str.replace(/\u0000/g, "").replace(/[^\x20-\x7E\u0080-\uFFFF]/g, "");
 };
 
@@ -54,74 +60,6 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB max file size
   },
 });
-
-// Simple analyzer function for brandable scenes
-interface AIAnalysisResult {
-  brandableScenes: {
-    sceneId: number;
-    reason: string;
-    suggestedProducts: ProductCategory[];
-  }[];
-}
-
-// Analyzes scenes for brandable opportunities - simplified implementation
-function analyzeBrandableScenes(scenes: any[]): AIAnalysisResult {
-  // Consider using DbScene[] for better typing
-  const result: AIAnalysisResult = {
-    brandableScenes: [],
-  };
-
-  // For each scene, check if it contains certain keywords that indicate it might be brandable
-  for (const scene of scenes) {
-    const content = scene.content.toLowerCase();
-
-    // Very simple keyword-based analysis
-    if (
-      content.includes("restaurant") ||
-      content.includes("cafe") ||
-      content.includes("coffee") ||
-      content.includes("drink")
-    ) {
-      result.brandableScenes.push({
-        sceneId: scene.id,
-        reason: "Scene contains food or beverage references",
-        suggestedProducts: [ProductCategory.BEVERAGE, ProductCategory.FOOD],
-      });
-    } else if (
-      content.includes("car") ||
-      content.includes("drive") ||
-      content.includes("vehicle")
-    ) {
-      result.brandableScenes.push({
-        sceneId: scene.id,
-        reason: "Scene contains automotive references",
-        suggestedProducts: [ProductCategory.AUTOMOTIVE],
-      });
-    } else if (
-      content.includes("phone") ||
-      content.includes("computer") ||
-      content.includes("laptop")
-    ) {
-      result.brandableScenes.push({
-        sceneId: scene.id,
-        reason: "Scene contains technology references",
-        suggestedProducts: [ProductCategory.ELECTRONICS],
-      });
-    } else if (
-      content.includes("clothes") ||
-      content.includes("wear") ||
-      content.includes("dress")
-    ) {
-      result.brandableScenes.push({
-        sceneId: scene.id,
-        reason: "Scene contains fashion references",
-        suggestedProducts: [ProductCategory.FASHION],
-      });
-    }
-  }
-
-  return result;
-}
 
 // Helper function to generate and save scene variations
 async function _generateAndSaveSceneVariationsForRoute(
@@ -137,8 +75,8 @@ async function _generateAndSaveSceneVariationsForRoute(
     return [];
   }
 
-  const productsResult = await storageModule.getProducts(); // Fetch all products initially
-  const allProducts: Product[] = productsResult.products; // Product here is the local interface
+  const productsResult = await storageModule.getProducts({ pageSize: 1000 }); // Fetch a good number of products
+  const allProducts: DbProduct[] = productsResult.products;
 
   if (allProducts.length === 0) {
     console.log(
@@ -147,25 +85,20 @@ async function _generateAndSaveSceneVariationsForRoute(
     return [];
   }
 
-  // Filter products based on suggested categories or use all if none suggested
   const eligibleProducts =
     scene.suggestedCategories && scene.suggestedCategories.length > 0
-      ? allProducts.filter(
-          (
-            p: Product, // Product is local interface
-          ) =>
-            (scene.suggestedCategories as ProductCategory[]).includes(
-              p.category as ProductCategory,
-            ),
+      ? allProducts.filter((p: DbProduct) =>
+          (scene.suggestedCategories as ProductCategory[]).includes(p.category),
         )
       : allProducts;
 
-  // Select up to 3 products (or fewer if not enough eligible)
-  const selectedProducts = eligibleProducts.slice(0, 3);
+  const selectedProducts = eligibleProducts
+    .sort(() => 0.5 - Math.random())
+    .slice(0, 3); // Pick 3 random eligible products
 
   if (selectedProducts.length === 0) {
     console.log(
-      `No suitable products found for scene ${scene.sceneNumber} (ID: ${sceneId}).`,
+      `No suitable products found for scene ${scene.sceneNumber} (ID: ${sceneId}). This scene might not have suggested categories matching available products.`,
     );
     return [];
   }
@@ -176,41 +109,51 @@ async function _generateAndSaveSceneVariationsForRoute(
       console.log(
         `Generating variation ${variationNumber} for scene ${scene.sceneNumber} (ID: ${sceneId}) with product ${product.name}...`,
       );
-      const generation = await generateProductPlacementFn({
-        scene, // This is DbScene
-        product: product as DbProduct, // Cast local Product to DbProduct if structures are compatible for the function
+      const generationResult = await generateProductPlacementFn({
+        scene,
+        product,
         variationNumber,
       });
+
+      if (!generationResult.success) {
+        console.warn(
+          `Image generation failed for S${scene.sceneNumber}V${variationNumber}, P:${product.name}. Using fallback.`,
+        );
+        // Fallback image URL is already handled inside generateProductPlacementFn
+      }
 
       const variation = await storageModule.createSceneVariation({
         sceneId,
         productId: product.id,
         variationNumber,
-        description: sanitizeString(generation.description),
-        imageUrl: sanitizeString(generation.imageUrl),
+        description: sanitizeString(generationResult.description),
+        imageUrl: sanitizeString(generationResult.imageUrl), // This will be the Replicate URL or fallback
         isSelected: false,
       });
 
       return {
-        ...(variation as BaseSceneVariation), // Assuming BaseSceneVariation is correctly defined
+        ...(variation as BaseSceneVariation),
         productName: product.name,
         productCategory: product.category,
         productImageUrl: product.imageUrl,
       };
     } catch (error) {
       console.error(
-        `Error generating variation ${variationNumber} for scene ${scene.sceneNumber} (ID: ${sceneId}) with product ${product.name}:`,
+        `Error in variation generation promise for S${scene.sceneNumber}V${variationNumber} (Product: ${product.name}):`,
         error,
       );
-      return null; // Return null for failed generations to filter out later
+      return null;
     }
   });
 
   const results = await Promise.all(variationPromises);
   const generatedVariations = results.filter(
     Boolean,
-  ) as SceneVariationWithProductInfo[]; // Filter out nulls and assert type
+  ) as SceneVariationWithProductInfo[];
 
+  console.log(
+    `Finished generating ${generatedVariations.length} variations for scene ${sceneId}.`,
+  );
   return generatedVariations;
 }
 
@@ -218,8 +161,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const apiPrefix = "/api";
 
   // --- Actor Routes ---
-
-  // Get actors (with pagination and filtering)
   app.get(`${apiPrefix}/actors`, async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
@@ -237,32 +178,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         page,
         pageSize,
       });
-
-      res.json({
-        actors: result.actors,
-        totalPages: result.totalPages,
-        currentPage: result.currentPage,
-        totalCount: result.totalCount,
-      });
+      res.json(result);
     } catch (error) {
       console.error("Error fetching actors:", error);
       res.status(500).json({ message: "Failed to fetch actors" });
     }
   });
 
-  // Get actor by ID
+  app.get(`${apiPrefix}/actors/distinct-nationalities`, async (_req, res) => {
+    try {
+      const nationalities = await storage.getDistinctActorNationalities();
+      res.json(nationalities);
+    } catch (error) {
+      console.error("Error fetching distinct actor nationalities:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to fetch distinct actor nationalities" });
+    }
+  });
+
   app.get(`${apiPrefix}/actors/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid actor ID" });
-      }
-
       const actor = await storage.getActorById(id);
-      if (!actor) {
-        return res.status(404).json({ message: "Actor not found" });
-      }
-
+      if (!actor) return res.status(404).json({ message: "Actor not found" });
       res.json(actor);
     } catch (error) {
       console.error("Error fetching actor:", error);
@@ -270,24 +211,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create actor
   app.post(`${apiPrefix}/actors`, async (req, res) => {
     try {
-      console.log("Received actor data:", req.body);
-
       const validation = insertActorSchema.safeParse(req.body);
-
       if (!validation.success) {
-        console.log("Validation failed:", validation.error.errors);
-        return res.status(400).json({
-          message: "Invalid actor data",
-          errors: validation.error.errors,
-        });
+        return res
+          .status(400)
+          .json({
+            message: "Invalid actor data",
+            errors: validation.error.errors,
+          });
       }
-
-      console.log("Validation passed, creating actor");
-      const actor = await storage.createActor(validation.data); // Use validated data
-      console.log("Actor created:", actor);
+      const actor = await storage.createActor(validation.data);
       res.status(201).json(actor);
     } catch (error) {
       console.error("Error creating actor:", error);
@@ -295,19 +230,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update actor
   app.put(`${apiPrefix}/actors/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid actor ID" });
-      }
-      // Consider validating req.body against a partial schema for updates
+      // Add validation for update if necessary, e.g., using a partial schema
       const actor = await storage.updateActor(id, req.body);
-      if (!actor) {
-        return res.status(404).json({ message: "Actor not found" });
-      }
-
+      if (!actor) return res.status(404).json({ message: "Actor not found" });
       res.json(actor);
     } catch (error) {
       console.error("Error updating actor:", error);
@@ -315,19 +245,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete actor
   app.delete(`${apiPrefix}/actors/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid actor ID" });
-      }
-
       const success = await storage.deleteActor(id);
-      if (!success) {
-        return res.status(404).json({ message: "Actor not found" });
-      }
-
+      if (!success) return res.status(404).json({ message: "Actor not found" });
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting actor:", error);
@@ -336,8 +260,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Product Routes ---
-
-  // Get products (with pagination and filtering)
   app.get(`${apiPrefix}/products`, async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
@@ -353,32 +275,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         page,
         pageSize,
       });
-
-      res.json({
-        products: result.products,
-        totalPages: result.totalPages,
-        currentPage: result.currentPage,
-        totalCount: result.totalCount,
-      });
+      res.json(result);
     } catch (error) {
       console.error("Error fetching products:", error);
       res.status(500).json({ message: "Failed to fetch products" });
     }
   });
 
-  // Get product by ID
   app.get(`${apiPrefix}/products/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid product ID" });
-      }
-
       const product = await storage.getProductById(id);
-      if (!product) {
+      if (!product)
         return res.status(404).json({ message: "Product not found" });
-      }
-
       res.json(product);
     } catch (error) {
       console.error("Error fetching product:", error);
@@ -386,24 +297,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create product
   app.post(`${apiPrefix}/products`, async (req, res) => {
     try {
-      console.log("Received product data:", req.body);
-
       const validation = insertProductSchema.safeParse(req.body);
-
       if (!validation.success) {
-        console.log("Validation failed:", validation.error.errors);
-        return res.status(400).json({
-          message: "Invalid product data",
-          errors: validation.error.errors,
-        });
+        return res
+          .status(400)
+          .json({
+            message: "Invalid product data",
+            errors: validation.error.errors,
+          });
       }
-
-      console.log("Validation passed, creating product");
-      const product = await storage.createProduct(validation.data); // Use validated data
-      console.log("Product created:", product);
+      const product = await storage.createProduct(validation.data);
       res.status(201).json(product);
     } catch (error) {
       console.error("Error creating product:", error);
@@ -411,19 +316,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update product
   app.put(`${apiPrefix}/products/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid product ID" });
-      }
-      // Consider validating req.body against a partial schema for updates
       const product = await storage.updateProduct(id, req.body);
-      if (!product) {
+      if (!product)
         return res.status(404).json({ message: "Product not found" });
-      }
-
       res.json(product);
     } catch (error) {
       console.error("Error updating product:", error);
@@ -431,19 +331,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete product
   app.delete(`${apiPrefix}/products/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid product ID" });
-      }
-
       const success = await storage.deleteProduct(id);
-      if (!success) {
+      if (!success)
         return res.status(404).json({ message: "Product not found" });
-      }
-
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting product:", error);
@@ -452,110 +347,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Script Routes ---
-
-  // Get current script
-  app.get(`${apiPrefix}/scripts/current`, async (req, res) => {
+  app.get(`${apiPrefix}/scripts/current`, async (_req, res) => {
     try {
       const script = await storage.getCurrentScript();
-      if (!script) {
-        return res.status(404).json({ message: "No script found" });
-      }
-
+      if (!script)
+        return res.status(404).json({ message: "No current script found" });
       res.json(script);
     } catch (error) {
-      console.error("Error fetching script:", error);
-      res.status(500).json({ message: "Failed to fetch script" });
+      console.error("Error fetching current script:", error);
+      res.status(500).json({ message: "Failed to fetch current script" });
     }
   });
 
-  // Upload and process a script
   app.post(
     `${apiPrefix}/scripts/upload`,
     upload.single("script"),
     async (req, res) => {
       try {
-        if (!req.file) {
+        if (!req.file)
           return res.status(400).json({ message: "No file uploaded" });
-        }
-
         console.log(
-          `Processing uploaded file: ${req.file.originalname}, MIME type: ${req.file.mimetype}`,
+          `Processing uploaded file: ${req.file.originalname}, MIME: ${req.file.mimetype}`,
         );
 
-        // Validate file type - now supporting PDF and various image formats
-        const supportedTypes = [
-          "application/pdf",
-          "image/jpeg",
-          "image/jpg",
-          "image/png",
-        ];
-        const fileType = req.file.mimetype;
-
-        if (!supportedTypes.some((type) => fileType.includes(type))) {
-          return res.status(400).json({
-            message: "Uploaded file must be a PDF or an image (JPEG/PNG)",
-          });
-        }
-
-        // Extract script content from the file - pass the mime type to handle differently
         const parsedScript = await extractScriptFromPdf(
           req.file.buffer,
           req.file.mimetype,
         );
-
-        // Save script to database
         const script = await storage.createScript({
           title: parsedScript.title,
           content: parsedScript.content,
         });
 
-        // Process and save scenes
-        const scenesPromises = parsedScript.scenes.map((scene) =>
-          storage.createScene({
+        const createdScenes: DbScene[] = [];
+        for (const sceneData of parsedScript.scenes) {
+          const newScene = await storage.createScene({
             scriptId: script.id,
-            sceneNumber: scene.sceneNumber,
-            heading: scene.heading,
-            content: scene.content,
-            isBrandable: false,
-            brandableReason: null,
-            suggestedCategories: null,
-          }),
+            sceneNumber: sceneData.sceneNumber,
+            heading: sceneData.heading,
+            content: sceneData.content,
+          });
+          createdScenes.push(newScene);
+        }
+        console.log(
+          `Created ${createdScenes.length} scenes. Analyzing for brandability...`,
         );
 
-        const scenes = await Promise.all(scenesPromises);
-
-        // Analyze scenes for brandable opportunities
-        const brandableScenes = await analyzeBrandableScenes(scenes); // Assuming this function now takes DbScene[]
-
-        // Update scenes with brandable information
-        for (const brandable of brandableScenes.brandableScenes) {
+        const analysisResult = await identifyBrandableScenesWithGemini(
+          createdScenes,
+          5,
+        );
+        for (const brandable of analysisResult.brandableScenes) {
           await storage.updateScene(brandable.sceneId, {
             isBrandable: true,
             brandableReason: brandable.reason,
             suggestedCategories: brandable.suggestedProducts,
           });
         }
-
-        res.status(201).json({
-          script,
-          scenesCount: scenes.length,
-          brandableScenesCount: brandableScenes.brandableScenes.length,
-        });
-      } catch (error) {
-        console.error("Error processing script:", error);
-        res.status(500).json({ message: "Failed to process script" });
+        console.log(
+          `Analysis complete. ${analysisResult.brandableScenes.length} scenes marked as brandable.`,
+        );
+        res
+          .status(201)
+          .json({
+            script,
+            scenesCount: createdScenes.length,
+            brandableScenesCount: analysisResult.brandableScenes.length,
+          });
+      } catch (error: any) {
+        console.error(
+          "Error processing script upload:",
+          error.message || error,
+        );
+        res
+          .status(500)
+          .json({ message: `Failed to process script: ${error.message}` });
       }
     },
   );
 
-  // Get scenes for the current script
-  app.get(`${apiPrefix}/scripts/scenes`, async (req, res) => {
+  app.get(`${apiPrefix}/scripts/scenes`, async (_req, res) => {
     try {
       const script = await storage.getCurrentScript();
-      if (!script) {
-        return res.status(404).json({ message: "No script found" });
-      }
-
+      if (!script)
+        return res.status(404).json({ message: "No current script found" });
       const scenes = await storage.getScenesByScriptId(script.id);
       res.json(scenes);
     } catch (error) {
@@ -564,14 +439,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get brandable scenes for the current script
-  app.get(`${apiPrefix}/scripts/brandable-scenes`, async (req, res) => {
+  app.get(`${apiPrefix}/scripts/brandable-scenes`, async (_req, res) => {
     try {
       const script = await storage.getCurrentScript();
-      if (!script) {
-        return res.status(404).json({ message: "No script found" });
-      }
-
+      if (!script)
+        return res.status(404).json({ message: "No current script found" });
       const brandableScenes = await storage.getBrandableScenes(script.id);
       res.json(brandableScenes);
     } catch (error) {
@@ -580,45 +452,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Save script changes
   app.put(`${apiPrefix}/scripts/save`, async (req, res) => {
     try {
       const { scriptId } = req.body;
-      if (!scriptId) {
+      if (!scriptId)
         return res.status(400).json({ message: "Script ID is required" });
-      }
-
-      // We don't need to pass updatedAt as it's added automatically in the storage function
-      const script = await storage.updateScript(scriptId, {}); // Pass empty object if only updatedAt is modified
-
-      if (!script) {
-        return res.status(404).json({ message: "Script not found" });
-      }
-
+      const script = await storage.updateScript(scriptId, {
+        updatedAt: new Date(),
+      }); // Only update timestamp
+      if (!script) return res.status(404).json({ message: "Script not found" });
       res.json(script);
     } catch (error) {
-      console.error("Error saving script:", error);
+      console.error("Error saving script (updating timestamp):", error);
       res.status(500).json({ message: "Failed to save script" });
     }
   });
 
-  // Re-analyze script for brandable scenes
   app.post(`${apiPrefix}/scripts/analyze`, async (req, res) => {
     try {
       const { scriptId } = req.body;
-      if (!scriptId) {
+      if (!scriptId)
         return res.status(400).json({ message: "Script ID is required" });
-      }
-
       const script = await storage.getScriptById(scriptId);
-      if (!script) {
-        return res.status(404).json({ message: "Script not found" });
-      }
+      if (!script) return res.status(404).json({ message: "Script not found" });
 
-      // Get all scenes
       const scenes = await storage.getScenesByScriptId(scriptId);
+      if (scenes.length === 0)
+        return res.json({
+          brandableScenesCount: 0,
+          message: "No scenes to analyze.",
+        });
 
-      // Reset brandable status
       for (const scene of scenes) {
         await storage.updateScene(scene.id, {
           isBrandable: false,
@@ -627,167 +491,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Re-analyze scenes
-      const brandableScenes = await analyzeBrandableScenes(scenes); // Assuming takes DbScene[]
-
-      // Update scenes with new brandable information
-      for (const brandable of brandableScenes.brandableScenes) {
+      const analysisResult = await identifyBrandableScenesWithGemini(scenes, 5);
+      for (const brandable of analysisResult.brandableScenes) {
         await storage.updateScene(brandable.sceneId, {
           isBrandable: true,
           brandableReason: brandable.reason,
           suggestedCategories: brandable.suggestedProducts,
         });
       }
-
-      res.json({
-        brandableScenesCount: brandableScenes.brandableScenes.length,
-      });
-    } catch (error) {
-      console.error("Error analyzing script:", error);
-      res.status(500).json({ message: "Failed to analyze script" });
+      res.json({ brandableScenesCount: analysisResult.brandableScenes.length });
+    } catch (error: any) {
+      console.error("Error re-analyzing script:", error.message || error);
+      res
+        .status(500)
+        .json({ message: `Failed to re-analyze script: ${error.message}` });
     }
   });
 
-  // Identify brandable scenes and generate product placements
-  app.post(`${apiPrefix}/scripts/generate-placements`, async (req, res) => {
+  app.post(`${apiPrefix}/scripts/generate-placements`, async (_req, res) => {
     try {
-      // Step 1: Get the current script
       const script = await storage.getCurrentScript();
-      if (!script) {
-        return res.status(404).json({ message: "No script found" });
-      }
+      if (!script)
+        return res.status(404).json({ message: "No current script found" });
 
-      // Step 2: Get all scenes
-      const scenes = await storage.getScenesByScriptId(script.id);
-
-      // Step 3: Reset brandable status for all scenes
-      for (const scene of scenes) {
-        await storage.updateScene(scene.id, {
-          isBrandable: false,
-          brandableReason: null,
-          suggestedCategories: null,
-        });
-      }
-
-      // Step 4: Analyze scenes with Gemini to identify brandable opportunities
-      console.log("Analyzing scenes with local analyzer..."); // Updated log message
-      const brandableScenesAnalysis = await analyzeBrandableScenes(scenes); // Using local analyzer
-
-      // Step 5: Update scenes with brandable information
-      const brandableSceneIds = [];
-      for (const brandable of brandableScenesAnalysis.brandableScenes) {
-        await storage.updateScene(brandable.sceneId, {
-          isBrandable: true,
-          brandableReason: brandable.reason,
-          suggestedCategories: brandable.suggestedProducts,
-        });
-        brandableSceneIds.push(brandable.sceneId);
-      }
-
-      console.log(`Identified ${brandableSceneIds.length} brandable scenes`);
-
-      // Step 6.5: Clear existing variations for all brandable scenes to avoid accumulation
-      console.log("Clearing existing scene variations...");
-      for (const sceneId of brandableSceneIds) {
-        const existingVariations = await storage.getSceneVariations(sceneId);
-        for (const variation of existingVariations) {
-          await storage.deleteSceneVariation(variation.id);
-        }
+      let brandableDbScenes = await storage.getBrandableScenes(script.id);
+      if (brandableDbScenes.length === 0) {
         console.log(
-          `Cleared ${existingVariations.length} existing variations for scene ${sceneId}`,
+          "No brandable scenes marked. Attempting re-analysis to identify them first.",
         );
+        const allScenes = await storage.getScenesByScriptId(script.id);
+        const analysisResult = await identifyBrandableScenesWithGemini(
+          allScenes,
+          5,
+        );
+        for (const brandable of analysisResult.brandableScenes) {
+          await storage.updateScene(brandable.sceneId, {
+            isBrandable: true,
+            brandableReason: brandable.reason,
+            suggestedCategories: brandable.suggestedProducts,
+          });
+        }
+        brandableDbScenes = await storage.getBrandableScenes(script.id); // Re-fetch after update
+      }
+
+      const scenesToProcess = brandableDbScenes.slice(0, 5);
+      if (scenesToProcess.length === 0) {
+        return res.json({
+          success: true,
+          brandableScenesCount: 0,
+          generatedVariations: [],
+          message: "No brandable scenes found to generate placements.",
+        });
+      }
+      console.log(
+        `Generating image placements for ${scenesToProcess.length} brandable scenes.`,
+      );
+
+      for (const scene of scenesToProcess) {
+        const existingVariations = await storage.getSceneVariations(scene.id);
+        for (const variation of existingVariations)
+          await storage.deleteSceneVariation(variation.id);
       }
 
       const allGeneratedVariationsResponse = [];
-
-      // Step 7: Generate up to 3 product placement variations for each brandable scene
-      for (const sceneId of brandableSceneIds) {
-        const sceneDetails = await storage.getSceneById(sceneId);
-        if (!sceneDetails) {
-          console.warn(
-            `Scene details not found for sceneId: ${sceneId} while constructing response.`,
-          );
-          continue;
-        }
-
+      for (const scene of scenesToProcess) {
         const singleSceneVariations =
           await _generateAndSaveSceneVariationsForRoute(
-            sceneId,
+            scene.id,
             storage,
             generateProductPlacement,
           );
-
         allGeneratedVariationsResponse.push({
-          sceneId,
-          sceneNumber: sceneDetails.sceneNumber,
-          heading: sceneDetails.heading,
+          sceneId: scene.id,
+          sceneNumber: scene.sceneNumber,
+          heading: scene.heading,
           variations: singleSceneVariations,
         });
       }
-
       res.json({
         success: true,
-        brandableScenesCount: brandableSceneIds.length,
+        brandableScenesCount: scenesToProcess.length,
         generatedVariations: allGeneratedVariationsResponse,
       });
-    } catch (error) {
-      console.error("Error generating placements:", error);
+    } catch (error: any) {
+      console.error(
+        "Error in /generate-placements endpoint:",
+        error.message || error,
+      );
       res
         .status(500)
-        .json({ message: "Failed to generate product placements" });
+        .json({
+          message: `Failed to generate product placements: ${error.message}`,
+        });
     }
   });
 
-  // Get scene variations
   app.get(`${apiPrefix}/scripts/scene-variations`, async (req, res) => {
     try {
       const sceneId = req.query.sceneId
         ? parseInt(req.query.sceneId as string)
         : null;
-
-      if (!sceneId) {
+      if (!sceneId)
         return res.status(400).json({ message: "Scene ID is required" });
-      }
 
-      const variations = await storage.getSceneVariations(sceneId);
+      const scene = await storage.getSceneById(sceneId);
+      if (!scene) return res.status(404).json({ message: "Scene not found" });
 
-      // If no variations exist, generate them using the helper
-      if (variations.length === 0) {
+      let variations = await storage.getSceneVariations(sceneId);
+      if (variations.length === 0 && scene.isBrandable) {
         console.log(
-          `No pre-existing variations for scene ${sceneId}, generating them now.`,
+          `No variations for brandable scene ${sceneId}, generating on-demand.`,
         );
-        const newVariations = await _generateAndSaveSceneVariationsForRoute(
+        variations = await _generateAndSaveSceneVariationsForRoute(
           sceneId,
           storage,
           generateProductPlacement,
         );
-        return res.json(newVariations);
       }
-
       res.json(variations);
-    } catch (error) {
-      console.error("Error fetching scene variations:", error);
-      res.status(500).json({ message: "Failed to fetch scene variations" });
+    } catch (error: any) {
+      console.error(
+        "Error fetching/generating scene variations:",
+        error.message || error,
+      );
+      res
+        .status(500)
+        .json({
+          message: `Failed to fetch/generate scene variations: ${error.message}`,
+        });
     }
   });
 
-  // Select a variation
   app.put(`${apiPrefix}/scripts/variations/select`, async (req, res) => {
     try {
       const { variationId } = req.body;
-      if (!variationId) {
+      if (!variationId)
         return res.status(400).json({ message: "Variation ID is required" });
-      }
-
-      const success = await storage.selectVariation(variationId); // This now returns SceneVariation | null
-      if (!success) {
-        // Check if it's null (not found or error)
+      const selectedVariation = await storage.selectVariation(variationId);
+      if (!selectedVariation)
         return res
           .status(404)
           .json({ message: "Variation not found or failed to select" });
-      }
-
-      res.json({ success: true, selectedVariation: success }); // Optionally return the selected variation
+      res.json({ success: true, selectedVariation });
     } catch (error) {
       console.error("Error selecting variation:", error);
       res.status(500).json({ message: "Failed to select variation" });
@@ -795,8 +640,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Location Routes ---
-
-  // Get locations (with pagination and filtering)
   app.get(`${apiPrefix}/locations`, async (req, res) => {
     try {
       const search = req.query.search as string | undefined;
@@ -812,43 +655,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         page,
         pageSize,
       });
-
-      res.json({
-        locations: result.locations,
-        totalPages: result.totalPages,
-        currentPage: result.currentPage,
-        totalCount: result.totalCount,
-      });
+      res.json(result);
     } catch (error) {
       console.error("Error fetching locations:", error);
       res.status(500).json({ message: "Failed to fetch locations" });
     }
   });
 
-  // Get unique countries for filtering
-  app.get(`${apiPrefix}/locations/countries`, async (req, res) => {
+  app.get(`${apiPrefix}/locations/countries`, async (_req, res) => {
     try {
-      const countries = await storage.getDistinctLocationCountries(); // Implement this in storage.ts
+      const countries = await storage.getDistinctLocationCountries();
       res.json(countries);
     } catch (error) {
-      console.error("Error fetching countries:", error);
-      res.status(500).json({ message: "Failed to fetch countries" });
+      console.error("Error fetching distinct location countries:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to fetch distinct location countries" });
     }
   });
 
-  // Get location by ID
   app.get(`${apiPrefix}/locations/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid location ID" });
-      }
-
       const location = await storage.getLocationById(id);
-      if (!location) {
+      if (!location)
         return res.status(404).json({ message: "Location not found" });
-      }
-
       res.json(location);
     } catch (error) {
       console.error("Error fetching location:", error);
@@ -856,24 +689,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create location
   app.post(`${apiPrefix}/locations`, async (req, res) => {
     try {
-      console.log("Received location data:", req.body);
-
       const validation = insertLocationSchema.safeParse(req.body);
-
       if (!validation.success) {
-        console.log("Validation failed:", validation.error.errors);
-        return res.status(400).json({
-          message: "Invalid location data",
-          errors: validation.error.errors,
-        });
+        return res
+          .status(400)
+          .json({
+            message: "Invalid location data",
+            errors: validation.error.errors,
+          });
       }
-
-      console.log("Validation passed, creating location");
-      const location = await storage.createLocation(validation.data); // Use validated data
-      console.log("Location created:", location);
+      const location = await storage.createLocation(validation.data);
       res.status(201).json(location);
     } catch (error) {
       console.error("Error creating location:", error);
@@ -881,19 +708,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update location
   app.put(`${apiPrefix}/locations/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid location ID" });
-      }
-      // Consider validating req.body against a partial schema for updates
       const location = await storage.updateLocation(id, req.body);
-      if (!location) {
+      if (!location)
         return res.status(404).json({ message: "Location not found" });
-      }
-
       res.json(location);
     } catch (error) {
       console.error("Error updating location:", error);
@@ -901,19 +723,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete location
   app.delete(`${apiPrefix}/locations/:id`, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      if (isNaN(id))
         return res.status(400).json({ message: "Invalid location ID" });
-      }
-
       const success = await storage.deleteLocation(id);
-      if (!success) {
+      if (!success)
         return res.status(404).json({ message: "Location not found" });
-      }
-
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting location:", error);
