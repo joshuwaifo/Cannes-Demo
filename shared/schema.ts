@@ -151,6 +151,7 @@ export const actors = pgTable("actors", {
   socialMediaFollowing: text("social_media_following").notNull(),
   availability: text("availability").notNull(),
   bestSuitedRolesStrategic: text("best_suited_roles_strategic").notNull(),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

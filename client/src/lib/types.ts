@@ -127,4 +127,5 @@ export type Actor = {
   socialMediaFollowing: string;
   availability: string;
   bestSuitedRolesStrategic: string;
+  imageUrl?: string;
 };

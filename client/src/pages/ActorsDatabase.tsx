@@ -128,6 +128,9 @@ export default function ActorsDatabase() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Image
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -165,6 +168,25 @@ export default function ActorsDatabase() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {data.actors.map((actor: Actor) => (
                   <tr key={actor.id || actor.name}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {actor.imageUrl ? (
+                        <div className="h-20 w-16 rounded overflow-hidden">
+                          <img
+                            src={actor.imageUrl}
+                            alt={`${actor.name}`}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = "https://placehold.co/300x400/gray/white?text=No+Image";
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-20 w-16 bg-gray-200 flex items-center justify-center rounded">
+                          <span className="text-gray-500 text-xs text-center">No Image</span>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {actor.name}
                     </td>
