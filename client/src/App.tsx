@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter"; // Import useLocation
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -18,9 +18,15 @@ import { TabType } from "@/lib/types";
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>("welcome");
+  const [location, setLocation] = useLocation(); // Wouter hook for navigation
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
+    // If the current path is not the root path (where main components are rendered),
+    // navigate to the root path to trigger the rendering of the new active tab.
+    if (location !== "/") {
+      setLocation("/");
+    }
   };
 
   // Function to render the active component based on the selected tab
@@ -37,6 +43,7 @@ function App() {
       case "locations":
         return <LocationsDatabase />;
       default:
+        // Fallback to welcome, or handle as an error/redirect if preferred
         return <Welcome onTabChange={handleTabChange} />;
     }
   };
@@ -47,11 +54,15 @@ function App() {
         <Header activeTab={activeTab} onTabChange={handleTabChange} />
 
         <main className="flex-grow container mx-auto px-4 py-6">
+          {/* The Switch component will render the first Route that matches */}
           <Switch>
-            <Route path="/" component={() => renderActiveComponent()} />
+            {/* Static pages first, so they take precedence if their path is matched */}
             <Route path="/privacy-policy" component={PrivacyPolicy} />
             <Route path="/terms-of-service" component={TermsOfService} />
             <Route path="/contact" component={Contact} />
+            {/* The root path now uses renderActiveComponent, which depends on activeTab */}
+            <Route path="/" component={() => renderActiveComponent()} />
+            {/* Catch-all for 404 */}
             <Route component={NotFound} />
           </Switch>
         </main>
