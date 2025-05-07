@@ -61,7 +61,7 @@ const upload = multer({
   },
 });
 
-// Helper function to generate and save scene variations
+// Helper function to generate and save scene variations with optimizations
 async function _generateAndSaveSceneVariationsForRoute(
   sceneId: number,
   storageModule: typeof storage,
@@ -75,26 +75,44 @@ async function _generateAndSaveSceneVariationsForRoute(
     return [];
   }
 
-  const productsResult = await storageModule.getProducts({ pageSize: 1000 }); // Fetch a good number of products
-  const allProducts: DbProduct[] = productsResult.products;
-
-  if (allProducts.length === 0) {
-    console.log(
-      `No products found in database for generating variations for scene ${sceneId}.`,
-    );
-    return [];
+  // Get top matching products for this scene based on suggested categories
+  // This uses our new optimized function that returns more relevant products
+  let selectedProducts: DbProduct[] = [];
+  
+  if (scene.suggestedCategories && scene.suggestedCategories.length > 0) {
+    try {
+      console.log(`Finding best matching products for scene ${scene.sceneNumber} based on categories: ${scene.suggestedCategories.join(', ')}`);
+      
+      selectedProducts = await storageModule.getTopMatchingProductsForScene(
+        sceneId,
+        scene.suggestedCategories as ProductCategory[],
+        3 // Generate 3 variations
+      );
+      
+      console.log(`Selected ${selectedProducts.length} optimal products for scene ${scene.sceneNumber}`);
+    } catch (error) {
+      console.error(`Error finding matching products: ${error}`);
+      // Fallback to traditional product selection if the optimized function fails
+      const productsResult = await storageModule.getProducts({ pageSize: 100 });
+      const allProducts: DbProduct[] = productsResult.products;
+      
+      if (allProducts.length > 0) {
+        const eligibleProducts = allProducts.filter((p: DbProduct) =>
+          (scene.suggestedCategories as ProductCategory[]).includes(p.category)
+        );
+        
+        selectedProducts = eligibleProducts
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 3);
+      }
+    }
+  } else {
+    // If no suggested categories, get some recent products
+    const productsResult = await storageModule.getProducts({ 
+      pageSize: 10,
+    });
+    selectedProducts = productsResult.products.slice(0, 3);
   }
-
-  const eligibleProducts =
-    scene.suggestedCategories && scene.suggestedCategories.length > 0
-      ? allProducts.filter((p: DbProduct) =>
-          (scene.suggestedCategories as ProductCategory[]).includes(p.category),
-        )
-      : allProducts;
-
-  const selectedProducts = eligibleProducts
-    .sort(() => 0.5 - Math.random())
-    .slice(0, 3); // Pick 3 random eligible products
 
   if (selectedProducts.length === 0) {
     console.log(
@@ -103,16 +121,28 @@ async function _generateAndSaveSceneVariationsForRoute(
     return [];
   }
 
+  // Create scene base prompt and seed for consistent scene composition
+  // These will be passed to all variations to ensure the scene layout remains consistent
+  const basePrompt = `Scene ${scene.sceneNumber}: ${scene.heading}. ${scene.content?.substring(0, 200) || ""}`;
+  const baseSeed = Math.floor(Math.random() * 1000000);
+  
+  console.log(`Using consistent scene composition for scene ${scene.sceneNumber} with seed ${baseSeed}`);
+
+  // Process variations in parallel for speed
   const variationPromises = selectedProducts.map(async (product, i) => {
     const variationNumber = i + 1;
     try {
       console.log(
         `Generating variation ${variationNumber} for scene ${scene.sceneNumber} (ID: ${sceneId}) with product ${product.name}...`,
       );
+      
+      // Use the enhanced generateProductPlacement function with consistent scene parameters
       const generationResult = await generateProductPlacementFn({
         scene,
         product,
         variationNumber,
+        sceneBasePrompt: basePrompt, // Pass the base prompt for scene consistency
+        sceneBaseSeed: baseSeed,     // Pass the seed for scene consistency
       });
 
       if (!generationResult.success) {
@@ -127,7 +157,7 @@ async function _generateAndSaveSceneVariationsForRoute(
         productId: product.id,
         variationNumber,
         description: sanitizeString(generationResult.description),
-        imageUrl: sanitizeString(generationResult.imageUrl), // This will be the Replicate URL or fallback
+        imageUrl: sanitizeString(generationResult.imageUrl),
         isSelected: false,
       });
 
@@ -139,20 +169,21 @@ async function _generateAndSaveSceneVariationsForRoute(
       };
     } catch (error) {
       console.error(
-        `Error in variation generation promise for S${scene.sceneNumber}V${variationNumber} (Product: ${product.name}):`,
+        `Error in variation generation for S${scene.sceneNumber}V${variationNumber} (Product: ${product.name}):`,
         error,
       );
       return null;
     }
   });
 
+  // Wait for all variations to complete
   const results = await Promise.all(variationPromises);
   const generatedVariations = results.filter(
     Boolean,
   ) as SceneVariationWithProductInfo[];
 
   console.log(
-    `Finished generating ${generatedVariations.length} variations for scene ${sceneId}.`,
+    `Successfully generated ${generatedVariations.length} variations for scene ${scene.sceneNumber}.`,
   );
   return generatedVariations;
 }
@@ -510,79 +541,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post(`${apiPrefix}/scripts/generate-placements`, async (_req, res) => {
     try {
+      console.time('generate-placements-total'); // Performance tracking
       const script = await storage.getCurrentScript();
       if (!script)
         return res.status(404).json({ message: "No current script found" });
 
+      // Step 1: Ensure we have brandable scenes, or identify them if needed
+      console.log("Step 1: Identifying brandable scenes...");
+      console.time('identify-brandable-scenes');
       let brandableDbScenes = await storage.getBrandableScenes(script.id);
+      
       if (brandableDbScenes.length === 0) {
-        console.log(
-          "No brandable scenes marked. Attempting re-analysis to identify them first.",
-        );
+        console.log("No brandable scenes marked. Running AI analysis to identify them.");
         const allScenes = await storage.getScenesByScriptId(script.id);
+        
+        // Use our optimized Gemini function for faster, more accurate analysis
         const analysisResult = await identifyBrandableScenesWithGemini(
           allScenes,
-          5,
+          5, // Target 5 best scenes for product placement
         );
-        for (const brandable of analysisResult.brandableScenes) {
-          await storage.updateScene(brandable.sceneId, {
+        
+        console.log(`AI identified ${analysisResult.brandableScenes.length} brandable scenes`);
+        
+        // Update scenes with brandable flags and categories
+        const updatePromises = analysisResult.brandableScenes.map(brandable => 
+          storage.updateScene(brandable.sceneId, {
             isBrandable: true,
             brandableReason: brandable.reason,
             suggestedCategories: brandable.suggestedProducts,
-          });
-        }
-        brandableDbScenes = await storage.getBrandableScenes(script.id); // Re-fetch after update
+          })
+        );
+        
+        await Promise.all(updatePromises);
+        brandableDbScenes = await storage.getBrandableScenes(script.id);
       }
+      console.timeEnd('identify-brandable-scenes');
 
+      // Select top scenes to process (limit to 5 for reasonable processing time)
       const scenesToProcess = brandableDbScenes.slice(0, 5);
       if (scenesToProcess.length === 0) {
         return res.json({
           success: true,
           brandableScenesCount: 0,
           generatedVariations: [],
-          message: "No brandable scenes found to generate placements.",
+          message: "No brandable scenes were identified for product placement.",
         });
       }
-      console.log(
-        `Generating image placements for ${scenesToProcess.length} brandable scenes.`,
-      );
-
-      for (const scene of scenesToProcess) {
+      
+      // Step 2: Clean up any existing variations for these scenes
+      console.log("Step 2: Cleaning up existing variations...");
+      console.time('cleanup-existing-variations');
+      
+      const cleanupPromises = scenesToProcess.map(async (scene) => {
         const existingVariations = await storage.getSceneVariations(scene.id);
-        for (const variation of existingVariations)
-          await storage.deleteSceneVariation(variation.id);
-      }
-
-      const allGeneratedVariationsResponse = [];
-      for (const scene of scenesToProcess) {
-        const singleSceneVariations =
-          await _generateAndSaveSceneVariationsForRoute(
-            scene.id,
-            storage,
-            generateProductPlacement,
-          );
-        allGeneratedVariationsResponse.push({
+        const deletePromises = existingVariations.map(variation => 
+          storage.deleteSceneVariation(variation.id)
+        );
+        await Promise.all(deletePromises);
+      });
+      
+      await Promise.all(cleanupPromises);
+      console.timeEnd('cleanup-existing-variations');
+      
+      // Step 3: Generate and save new variations with optimized pipeline
+      console.log(`Step 3: Generating optimized product placements for ${scenesToProcess.length} scenes...`);
+      console.time('generate-all-variations');
+      
+      // Process scenes in parallel for better performance
+      const generationPromises = scenesToProcess.map(async (scene) => {
+        console.time(`generate-scene-${scene.id}`);
+        const singleSceneVariations = await _generateAndSaveSceneVariationsForRoute(
+          scene.id,
+          storage,
+          generateProductPlacement,
+        );
+        console.timeEnd(`generate-scene-${scene.id}`);
+        
+        return {
           sceneId: scene.id,
           sceneNumber: scene.sceneNumber,
           heading: scene.heading,
           variations: singleSceneVariations,
-        });
-      }
+        };
+      });
+      
+      const allGeneratedVariationsResponse = await Promise.all(generationPromises);
+      console.timeEnd('generate-all-variations');
+      
+      // Step 4: Return the results
+      console.timeEnd('generate-placements-total');
+      
+      // Count total successful variations
+      const totalVariations = allGeneratedVariationsResponse.reduce(
+        (sum, sceneData) => sum + sceneData.variations.length, 0
+      );
+      
+      console.log(`Successfully generated ${totalVariations} variations across ${scenesToProcess.length} scenes`);
+      
       res.json({
         success: true,
         brandableScenesCount: scenesToProcess.length,
+        totalVariations: totalVariations,
         generatedVariations: allGeneratedVariationsResponse,
+        message: `Successfully generated ${totalVariations} placement options for ${scenesToProcess.length} scenes.`
       });
     } catch (error: any) {
       console.error(
         "Error in /generate-placements endpoint:",
         error.message || error,
       );
-      res
-        .status(500)
-        .json({
-          message: `Failed to generate product placements: ${error.message}`,
-        });
+      res.status(500).json({
+        message: `Failed to generate product placements: ${error.message}`,
+      });
     }
   });
 
@@ -598,27 +668,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!scene) return res.status(404).json({ message: "Scene not found" });
 
       let variations = await storage.getSceneVariations(sceneId);
+      
+      // Generate variations on demand if none exist and the scene is brandable
       if (variations.length === 0 && scene.isBrandable) {
         console.log(
-          `No variations for brandable scene ${sceneId}, generating on-demand.`,
+          `No variations for brandable scene ${sceneId}, generating on-demand with optimized pipeline.`,
         );
+        console.time('on-demand-variation-generation');
+        
+        // Ensure we have suggested product categories
+        if (!scene.suggestedCategories || !scene.suggestedCategories.length) {
+          console.log("Scene has no suggested categories. Updating scene analysis first.");
+          // Get just this one scene's analysis to avoid reanalyzing all scenes
+          const scenesWithThisOne = [scene];
+          
+          try {
+            const analysisResult = await identifyBrandableScenesWithGemini(
+              scenesWithThisOne,
+              1
+            );
+            
+            if (analysisResult.brandableScenes.length > 0) {
+              const brandable = analysisResult.brandableScenes[0];
+              await storage.updateScene(scene.id, {
+                brandableReason: brandable.reason,
+                suggestedCategories: brandable.suggestedProducts,
+              });
+              
+              // Refresh scene with updated categories
+              const updatedScene = await storage.getSceneById(sceneId);
+              if (updatedScene) scene = updatedScene;
+            }
+          } catch (analysisError) {
+            console.error("Error analyzing scene for suggested categories:", analysisError);
+            // Continue - we'll use general product selection if categories couldn't be determined
+          }
+        }
+        
+        // Use the optimized variation generation
         variations = await _generateAndSaveSceneVariationsForRoute(
           sceneId,
           storage,
-          generateProductPlacement,
+          generateProductPlacement
         );
+        
+        console.timeEnd('on-demand-variation-generation');
+        console.log(`Generated ${variations.length} variations on-demand for scene ${scene.sceneNumber}`);
       }
+      
       res.json(variations);
     } catch (error: any) {
       console.error(
         "Error fetching/generating scene variations:",
         error.message || error,
       );
-      res
-        .status(500)
-        .json({
-          message: `Failed to fetch/generate scene variations: ${error.message}`,
-        });
+      res.status(500).json({
+        message: `Failed to fetch/generate scene variations: ${error.message}`,
+      });
     }
   });
 
