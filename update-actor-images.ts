@@ -53,15 +53,28 @@ async function updateActorImages() {
     
     console.log(`Found ${allActors.length} actors to update with images`);
     
-    // Update each actor with an image URL
-    for (const actor of allActors) {
-      const imageUrl = getActorImage(actor.name);
+    // Work in batches of 50 to avoid timeout
+    const BATCH_SIZE = 50;
+    const batches = Math.ceil(allActors.length / BATCH_SIZE);
+    
+    for (let i = 0; i < batches; i++) {
+      console.log(`Processing batch ${i+1} of ${batches}`);
       
-      console.log(`Updating ${actor.name} with image: ${imageUrl}`);
+      const startIdx = i * BATCH_SIZE;
+      const endIdx = Math.min(startIdx + BATCH_SIZE, allActors.length);
+      const batchActors = allActors.slice(startIdx, endIdx);
       
-      await db.update(actors)
-        .set({ imageUrl })
-        .where(eq(actors.id, actor.id));
+      // Process actors in this batch concurrently
+      await Promise.all(batchActors.map(async (actor) => {
+        const imageUrl = getActorImage(actor.name);
+        console.log(`Updating ${actor.name} with image: ${imageUrl}`);
+        
+        return db.update(actors)
+          .set({ imageUrl })
+          .where(eq(actors.id, actor.id));
+      }));
+      
+      console.log(`Completed batch ${i+1} of ${batches}`);
     }
     
     console.log("Actor images updated successfully");
