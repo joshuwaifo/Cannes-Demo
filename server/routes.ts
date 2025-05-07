@@ -770,6 +770,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // --- Location Routes ---
+  
+  // Get locations (with pagination and filtering)
+  app.get(`${apiPrefix}/locations`, async (req, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const country = req.query.country as string | undefined;
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const pageSize = req.query.pageSize
+        ? parseInt(req.query.pageSize as string)
+        : 10;
+
+      const result = await storage.getLocations({
+        search,
+        country,
+        page,
+        pageSize,
+      });
+
+      res.json({
+        locations: result.locations,
+        totalPages: result.totalPages,
+        currentPage: result.currentPage,
+        totalCount: result.totalCount,
+      });
+    } catch (error) {
+      console.error("Error fetching locations:", error);
+      res.status(500).json({ message: "Failed to fetch locations" });
+    }
+  });
+
+  // Get location by ID
+  app.get(`${apiPrefix}/locations/:id`, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+
+      const location = await storage.getLocationById(id);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+
+      res.json(location);
+    } catch (error) {
+      console.error("Error fetching location:", error);
+      res.status(500).json({ message: "Failed to fetch location" });
+    }
+  });
+
+  // Create location
+  app.post(`${apiPrefix}/locations`, async (req, res) => {
+    try {
+      console.log("Received location data:", req.body);
+
+      const validation = insertLocationSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        console.log("Validation failed:", validation.error.errors);
+        return res.status(400).json({
+          message: "Invalid location data",
+          errors: validation.error.errors,
+        });
+      }
+
+      console.log("Validation passed, creating location");
+      const location = await storage.createLocation(req.body);
+      console.log("Location created:", location);
+      res.status(201).json(location);
+    } catch (error) {
+      console.error("Error creating location:", error);
+      res.status(500).json({ message: "Failed to create location" });
+    }
+  });
+
+  // Update location
+  app.put(`${apiPrefix}/locations/:id`, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+
+      const location = await storage.updateLocation(id, req.body);
+      if (!location) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+
+      res.json(location);
+    } catch (error) {
+      console.error("Error updating location:", error);
+      res.status(500).json({ message: "Failed to update location" });
+    }
+  });
+
+  // Delete location
+  app.delete(`${apiPrefix}/locations/:id`, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid location ID" });
+      }
+
+      const success = await storage.deleteLocation(id);
+      if (!success) {
+        return res.status(404).json({ message: "Location not found" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting location:", error);
+      res.status(500).json({ message: "Failed to delete location" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

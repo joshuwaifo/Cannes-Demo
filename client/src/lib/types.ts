@@ -7,7 +7,7 @@ import {
   SceneVariation,
 } from "@shared/schema";
 
-export type TabType = "welcome" | "script" | "products" | "actors";
+export type TabType = "welcome" | "script" | "products" | "actors" | "locations";
 
 export type FileUploadProps = {
   onFileUpload: (file: File) => Promise<void>;
@@ -165,5 +165,73 @@ export const actorFormSchema = z.object({
   socialMediaFollowing: z.string().min(1, "Social media information is required"),
   availability: z.string().min(1, "Availability is required"),
   bestSuitedRolesStrategic: z.string().min(1, "Best suited roles is required"),
+  imageUrl: z.string().url("Please enter a valid URL").or(z.string().length(0)),
+});
+
+export type Location = {
+  id?: number;
+  country: string;
+  region: string;
+  incentiveProgram: string;
+  incentiveDetails: string;
+  minimumSpend: string;
+  eligibleProductionTypes: string;
+  limitsCaps?: string;
+  qualifyingExpenses?: string;
+  applicationProcess?: string;
+  applicationDeadlines?: string;
+  imageUrl?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+export type EditLocationModalProps = {
+  isOpen: boolean;
+  location: Location | null;
+  onClose: () => void;
+  onEdit: (id: number, location: LocationFormData) => Promise<void>;
+  isSubmitting: boolean;
+};
+
+export type AddLocationModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  onAdd: (location: LocationFormData) => Promise<void>;
+  isSubmitting: boolean;
+};
+
+export type DeleteLocationDialogProps = {
+  isOpen: boolean;
+  location: Location | null;
+  onClose: () => void;
+  onDelete: (id: number) => Promise<void>;
+  isDeleting: boolean;
+};
+
+export type LocationFormData = {
+  country: string;
+  region: string;
+  incentiveProgram: string;
+  incentiveDetails: string;
+  minimumSpend: string;
+  eligibleProductionTypes: string;
+  limitsCaps: string;
+  qualifyingExpenses: string;
+  applicationProcess: string;
+  applicationDeadlines: string;
+  imageUrl: string;
+};
+
+export const locationFormSchema = z.object({
+  country: z.string().min(2, "Country must be at least 2 characters"),
+  region: z.string().min(2, "Region must be at least 2 characters"),
+  incentiveProgram: z.string().min(2, "Incentive program must be at least 2 characters"),
+  incentiveDetails: z.string().min(2, "Incentive details must be at least 2 characters"),
+  minimumSpend: z.string().min(1, "Minimum spend is required"),
+  eligibleProductionTypes: z.string().min(1, "Eligible production types is required"),
+  limitsCaps: z.string(),
+  qualifyingExpenses: z.string(),
+  applicationProcess: z.string(),
+  applicationDeadlines: z.string(),
   imageUrl: z.string().url("Please enter a valid URL").or(z.string().length(0)),
 });

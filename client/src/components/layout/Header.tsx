@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Film, Home, FileText, ShoppingBag, Users } from "lucide-react";
+import { Film, Home, FileText, ShoppingBag, Users, MapPin } from "lucide-react";
 import { HeaderProps } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
