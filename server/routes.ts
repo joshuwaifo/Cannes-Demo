@@ -3,10 +3,9 @@ import { createServer, type Server } from "http";
 import * as storage from "./storage";
 import multer from "multer";
 import { extractScriptFromPdf } from "./services/pdf-service";
-import { analyzeBrandableScenes } from "./services/gemini-service";
 import { generateProductPlacement } from "./services/replicate-service";
 import { z } from "zod";
-import { insertProductSchema } from "@shared/schema";
+import { insertProductSchema, ProductCategory } from "@shared/schema";
 
 // Define a type for scene variations with product details
 interface BaseSceneVariation {
@@ -47,6 +46,65 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB max file size
   },
 });
+
+// Simple analyzer function for brandable scenes
+interface AIAnalysisResult {
+  brandableScenes: {
+    sceneId: number;
+    reason: string;
+    suggestedProducts: ProductCategory[];
+  }[];
+}
+
+// Analyzes scenes for brandable opportunities - simplified implementation
+function analyzeBrandableScenes(scenes: any[]): AIAnalysisResult {
+  const result: AIAnalysisResult = {
+    brandableScenes: [],
+  };
+
+  // For each scene, check if it contains certain keywords that indicate it might be brandable
+  for (const scene of scenes) {
+    const content = scene.content.toLowerCase();
+    
+    // Very simple keyword-based analysis 
+    if (content.includes('restaurant') || 
+        content.includes('cafe') || 
+        content.includes('coffee') || 
+        content.includes('drink')) {
+      result.brandableScenes.push({
+        sceneId: scene.id,
+        reason: 'Scene contains food or beverage references',
+        suggestedProducts: [ProductCategory.BEVERAGE, ProductCategory.FOOD],
+      });
+    } else if (content.includes('car') || 
+               content.includes('drive') || 
+               content.includes('vehicle')) {
+      result.brandableScenes.push({
+        sceneId: scene.id,
+        reason: 'Scene contains automotive references',
+        suggestedProducts: [ProductCategory.AUTOMOTIVE],
+      });
+    } else if (content.includes('phone') || 
+               content.includes('computer') || 
+               content.includes('laptop')) {
+      result.brandableScenes.push({
+        sceneId: scene.id,
+        reason: 'Scene contains technology references',
+        suggestedProducts: [ProductCategory.ELECTRONICS],
+      });
+    } else if (content.includes('clothes') || 
+               content.includes('wear') || 
+               content.includes('dress')) {
+      result.brandableScenes.push({
+        sceneId: scene.id,
+        reason: 'Scene contains fashion references',
+        suggestedProducts: [ProductCategory.FASHION],
+      });
+    }
+  }
+
+  return result;
+}
 
 // Helper function to generate and save scene variations
 async function _generateAndSaveSceneVariationsForRoute(
