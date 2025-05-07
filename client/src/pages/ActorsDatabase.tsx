@@ -135,18 +135,90 @@ export default function ActorsDatabase() {
           </Select>
         </div>
         
-        <div className="w-[200px]">
+        <div className="w-[250px]">
           <Select value={nationality} onValueChange={setNationality}>
             <SelectTrigger>
               <SelectValue placeholder="Nationality" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-[300px]">
               <SelectItem value="all">All Nationalities</SelectItem>
               <SelectItem value="American">American</SelectItem>
-              <SelectItem value="British">British</SelectItem>
+              <SelectItem value="American (Born Italy)">American (Born Italy)</SelectItem>
+              <SelectItem value="American (Born Puerto Rico)">American (Born Puerto Rico)</SelectItem>
+              <SelectItem value="American (Dual Italian)">American (Dual Italian)</SelectItem>
+              <SelectItem value="American (Puerto Rican descent)">American (Puerto Rican descent)</SelectItem>
+              <SelectItem value="American-Australian">American-Australian</SelectItem>
+              <SelectItem value="American-British">American-British</SelectItem>
+              <SelectItem value="American-British-Argentine">American-British-Argentine</SelectItem>
+              <SelectItem value="American-Danish">American-Danish</SelectItem>
+              <SelectItem value="American-French">American-French</SelectItem>
+              <SelectItem value="American-Israeli">American-Israeli</SelectItem>
+              <SelectItem value="Argentine">Argentine</SelectItem>
               <SelectItem value="Australian">Australian</SelectItem>
+              <SelectItem value="Australian (Born NZ)">Australian (Born NZ)</SelectItem>
+              <SelectItem value="Australian-American">Australian-American</SelectItem>
+              <SelectItem value="Austrian-American">Austrian-American</SelectItem>
+              <SelectItem value="Belgian">Belgian</SelectItem>
+              <SelectItem value="Brazilian">Brazilian</SelectItem>
+              <SelectItem value="British">British</SelectItem>
+              <SelectItem value="British (Born Germany)">British (Born Germany)</SelectItem>
+              <SelectItem value="British (Born Ireland)">British (Born Ireland)</SelectItem>
+              <SelectItem value="British (Dual French)">British (Dual French)</SelectItem>
+              <SelectItem value="British (Scottish)">British (Scottish)</SelectItem>
+              <SelectItem value="British (Welsh)">British (Welsh)</SelectItem>
+              <SelectItem value="British-American">British-American</SelectItem>
+              <SelectItem value="British-Australian">British-Australian</SelectItem>
+              <SelectItem value="British-Pakistani">British-Pakistani</SelectItem>
               <SelectItem value="Canadian">Canadian</SelectItem>
+              <SelectItem value="Canadian (Born UK)">Canadian (Born UK)</SelectItem>
+              <SelectItem value="Canadian-American">Canadian-American</SelectItem>
+              <SelectItem value="Canadian-New Zealander">Canadian-New Zealander</SelectItem>
+              <SelectItem value="Chilean-American">Chilean-American</SelectItem>
+              <SelectItem value="Chinese">Chinese</SelectItem>
+              <SelectItem value="Chinese (Singaporean citizen)">Chinese (Singaporean citizen)</SelectItem>
+              <SelectItem value="Colombian-American">Colombian-American</SelectItem>
+              <SelectItem value="Cuban-American">Cuban-American</SelectItem>
+              <SelectItem value="Danish">Danish</SelectItem>
+              <SelectItem value="Dutch">Dutch</SelectItem>
               <SelectItem value="French">French</SelectItem>
+              <SelectItem value="French (Born Morocco)">French (Born Morocco)</SelectItem>
+              <SelectItem value="French-Argentine">French-Argentine</SelectItem>
+              <SelectItem value="German">German</SelectItem>
+              <SelectItem value="German-Austrian">German-Austrian</SelectItem>
+              <SelectItem value="German-Irish">German-Irish</SelectItem>
+              <SelectItem value="German-Spanish">German-Spanish</SelectItem>
+              <SelectItem value="Guatemalan-American">Guatemalan-American</SelectItem>
+              <SelectItem value="Hong Kong">Hong Kong</SelectItem>
+              <SelectItem value="Indian">Indian</SelectItem>
+              <SelectItem value="Irish">Irish</SelectItem>
+              <SelectItem value="Irish (Dual American)">Irish (Dual American)</SelectItem>
+              <SelectItem value="Irish-American">Irish-American</SelectItem>
+              <SelectItem value="Italian">Italian</SelectItem>
+              <SelectItem value="Italian (Born Tunisia)">Italian (Born Tunisia)</SelectItem>
+              <SelectItem value="Italian-American">Italian-American</SelectItem>
+              <SelectItem value="Japanese">Japanese</SelectItem>
+              <SelectItem value="Japanese-American">Japanese-American</SelectItem>
+              <SelectItem value="Kenyan-Mexican">Kenyan-Mexican</SelectItem>
+              <SelectItem value="Korean-American">Korean-American</SelectItem>
+              <SelectItem value="Malaysian">Malaysian</SelectItem>
+              <SelectItem value="Malaysian-British">Malaysian-British</SelectItem>
+              <SelectItem value="Mexican">Mexican</SelectItem>
+              <SelectItem value="Mexican-American">Mexican-American</SelectItem>
+              <SelectItem value="New Zealander">New Zealander</SelectItem>
+              <SelectItem value="New Zealander (Born Northern Ireland)">New Zealander (Born Northern Ireland)</SelectItem>
+              <SelectItem value="New Zealander-Australian">New Zealander-Australian</SelectItem>
+              <SelectItem value="Northern Irish">Northern Irish</SelectItem>
+              <SelectItem value="Pakistani-American">Pakistani-American</SelectItem>
+              <SelectItem value="Puerto Rican">Puerto Rican</SelectItem>
+              <SelectItem value="Romanian-American">Romanian-American</SelectItem>
+              <SelectItem value="Scottish">Scottish</SelectItem>
+              <SelectItem value="South African-American">South African-American</SelectItem>
+              <SelectItem value="South Korean">South Korean</SelectItem>
+              <SelectItem value="Spanish">Spanish</SelectItem>
+              <SelectItem value="Swedish">Swedish</SelectItem>
+              <SelectItem value="Swedish-American">Swedish-American</SelectItem>
+              <SelectItem value="Welsh">Welsh</SelectItem>
+              <SelectItem value="Welsh (Dual American)">Welsh (Dual American)</SelectItem>
             </SelectContent>
           </Select>
         </div>
