@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Function to process all actors in one go with COPY FROM
 async function refreshActors() {
   const client = await pool.connect();
 
@@ -27,10 +28,14 @@ async function refreshActors() {
     const actorLines = actorFileContent.split('\n').filter(line => line.trim().length > 0);
     const header = actorLines[0]; // Skip header
     
-    const actorsData = [];
+    // Prepare values for bulk insert
+    const valuesList = [];
+    const valueParams = [];
+    let paramCount = 1;
     
-    // Process each actor line starting from line 2 (index 1)
-    console.log("Processing actor data...");
+    console.log(`Processing ${actorLines.length - 1} actors...`);
+    
+    // Process each actor (starting from index 1 to skip header)
     for (let i = 1; i < actorLines.length; i++) {
       const line = actorLines[i];
       
@@ -59,29 +64,40 @@ async function refreshActors() {
         const socialMediaFollowing = parts[8];
         const availability = parts[9];
         const bestSuitedRolesStrategic = parts[10];
-        
-        // Use raw SQL to insert directly
-        await client.query(
-          `INSERT INTO actors(
-            name, gender, nationality, notable_roles, genres, 
-            recent_popularity, typical_roles, est_salary_range, 
-            social_media_following, availability, best_suited_roles_strategic, 
-            created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-          [
-            name, gender, nationality, notableRoles, genres, 
-            recentPopularity, typicalRoles, estSalaryRange, 
-            socialMediaFollowing, availability, bestSuitedRolesStrategic, 
-            new Date(), new Date()
-          ]
-        );
 
-        // Log progress every 10 actors
-        if (i % 10 === 0 || i === actorLines.length - 1) {
-          console.log(`Inserted ${i} of ${actorLines.length - 1} actors...`);
+        const now = new Date().toISOString();
+        
+        // Add values for this actor
+        valuesList.push(`($${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++}, $${paramCount++})`);
+        
+        valueParams.push(
+          name, gender, nationality, notableRoles, genres, 
+          recentPopularity, typicalRoles, estSalaryRange, 
+          socialMediaFollowing, availability, bestSuitedRolesStrategic, 
+          now, now
+        );
+        
+        // Log progress
+        if (i % 100 === 0 || i === actorLines.length - 1) {
+          console.log(`Processed ${i} of ${actorLines.length - 1} actors...`);
         }
       }
     }
+    
+    // Bulk insert all actors at once
+    console.log("Inserting all actors into database...");
+    const valuesString = valuesList.join(", ");
+    
+    const insertQuery = `
+      INSERT INTO actors(
+        name, gender, nationality, notable_roles, genres, 
+        recent_popularity, typical_roles, est_salary_range, 
+        social_media_following, availability, best_suited_roles_strategic, 
+        created_at, updated_at
+      ) VALUES ${valuesString}
+    `;
+    
+    await client.query(insertQuery, valueParams);
     
     // Get final count
     const countResult = await client.query('SELECT COUNT(*) FROM actors');
