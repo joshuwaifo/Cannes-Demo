@@ -14,8 +14,8 @@ import { toast } from "@/hooks/use-toast";
 
 export default function ActorsDatabase() {
   const [search, setSearch] = useState("");
-  const [gender, setGender] = useState("");
-  const [nationality, setNationality] = useState("");
+  const [gender, setGender] = useState("all");
+  const [nationality, setNationality] = useState("all");
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -25,8 +25,8 @@ export default function ActorsDatabase() {
     queryFn: async () => {
       const queryParams = new URLSearchParams();
       if (search) queryParams.append('search', search);
-      if (gender) queryParams.append('gender', gender);
-      if (nationality) queryParams.append('nationality', nationality);
+      if (gender && gender !== 'all') queryParams.append('gender', gender);
+      if (nationality && nationality !== 'all') queryParams.append('nationality', nationality);
       queryParams.append('page', page.toString());
       queryParams.append('pageSize', pageSize.toString());
       
@@ -86,7 +86,7 @@ export default function ActorsDatabase() {
               <SelectValue placeholder="Gender" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Genders</SelectItem>
+              <SelectItem value="all">All Genders</SelectItem>
               <SelectItem value="Male">Male</SelectItem>
               <SelectItem value="Female">Female</SelectItem>
               <SelectItem value="Non-Binary">Non-Binary</SelectItem>
@@ -100,11 +100,12 @@ export default function ActorsDatabase() {
               <SelectValue placeholder="Nationality" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Nationalities</SelectItem>
+              <SelectItem value="all">All Nationalities</SelectItem>
               <SelectItem value="American">American</SelectItem>
               <SelectItem value="British">British</SelectItem>
               <SelectItem value="Australian">Australian</SelectItem>
-              {/* Add more common nationalities as needed */}
+              <SelectItem value="Canadian">Canadian</SelectItem>
+              <SelectItem value="French">French</SelectItem>
             </SelectContent>
           </Select>
         </div>
