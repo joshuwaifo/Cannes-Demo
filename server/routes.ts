@@ -3,9 +3,17 @@ import { createServer, type Server } from "http";
 import * as storage from "./storage";
 import multer from "multer";
 import { extractScriptFromPdf } from "./services/pdf-service";
-import { generateProductPlacement } from "./services/replicate-service";
+import { generateProductPlacement } from "./services/replicate-service"; // Assuming this is the correct path
 import { z } from "zod";
-import { insertProductSchema, insertActorSchema, insertLocationSchema, ProductCategory } from "@shared/schema";
+import {
+  insertProductSchema,
+  insertActorSchema,
+  insertLocationSchema,
+  ProductCategory, // Import ProductCategory
+  Product as DbProduct, // Alias to avoid conflict if needed
+  Scene as DbScene, // Alias
+  SceneVariation as DbSceneVariation, // Alias
+} from "@shared/schema";
 
 // Define a type for scene variations with product details
 interface BaseSceneVariation {
@@ -28,7 +36,7 @@ interface SceneVariationWithProductInfo extends BaseSceneVariation {
 interface Product {
   id: number;
   name: string;
-  category: string;
+  category: string; // Can be string or ProductCategory, depends on source
   imageUrl?: string | null;
 }
 
@@ -58,6 +66,7 @@ interface AIAnalysisResult {
 
 // Analyzes scenes for brandable opportunities - simplified implementation
 function analyzeBrandableScenes(scenes: any[]): AIAnalysisResult {
+  // Consider using DbScene[] for better typing
   const result: AIAnalysisResult = {
     brandableScenes: [],
   };
@@ -65,39 +74,47 @@ function analyzeBrandableScenes(scenes: any[]): AIAnalysisResult {
   // For each scene, check if it contains certain keywords that indicate it might be brandable
   for (const scene of scenes) {
     const content = scene.content.toLowerCase();
-    
-    // Very simple keyword-based analysis 
-    if (content.includes('restaurant') || 
-        content.includes('cafe') || 
-        content.includes('coffee') || 
-        content.includes('drink')) {
+
+    // Very simple keyword-based analysis
+    if (
+      content.includes("restaurant") ||
+      content.includes("cafe") ||
+      content.includes("coffee") ||
+      content.includes("drink")
+    ) {
       result.brandableScenes.push({
         sceneId: scene.id,
-        reason: 'Scene contains food or beverage references',
+        reason: "Scene contains food or beverage references",
         suggestedProducts: [ProductCategory.BEVERAGE, ProductCategory.FOOD],
       });
-    } else if (content.includes('car') || 
-               content.includes('drive') || 
-               content.includes('vehicle')) {
+    } else if (
+      content.includes("car") ||
+      content.includes("drive") ||
+      content.includes("vehicle")
+    ) {
       result.brandableScenes.push({
         sceneId: scene.id,
-        reason: 'Scene contains automotive references',
+        reason: "Scene contains automotive references",
         suggestedProducts: [ProductCategory.AUTOMOTIVE],
       });
-    } else if (content.includes('phone') || 
-               content.includes('computer') || 
-               content.includes('laptop')) {
+    } else if (
+      content.includes("phone") ||
+      content.includes("computer") ||
+      content.includes("laptop")
+    ) {
       result.brandableScenes.push({
         sceneId: scene.id,
-        reason: 'Scene contains technology references',
+        reason: "Scene contains technology references",
         suggestedProducts: [ProductCategory.ELECTRONICS],
       });
-    } else if (content.includes('clothes') || 
-               content.includes('wear') || 
-               content.includes('dress')) {
+    } else if (
+      content.includes("clothes") ||
+      content.includes("wear") ||
+      content.includes("dress")
+    ) {
       result.brandableScenes.push({
         sceneId: scene.id,
-        reason: 'Scene contains fashion references',
+        reason: "Scene contains fashion references",
         suggestedProducts: [ProductCategory.FASHION],
       });
     }
@@ -120,8 +137,8 @@ async function _generateAndSaveSceneVariationsForRoute(
     return [];
   }
 
-  const productsResult = await storageModule.getProducts();
-  const allProducts: Product[] = productsResult.products;
+  const productsResult = await storageModule.getProducts(); // Fetch all products initially
+  const allProducts: Product[] = productsResult.products; // Product here is the local interface
 
   if (allProducts.length === 0) {
     console.log(
@@ -130,13 +147,20 @@ async function _generateAndSaveSceneVariationsForRoute(
     return [];
   }
 
+  // Filter products based on suggested categories or use all if none suggested
   const eligibleProducts =
     scene.suggestedCategories && scene.suggestedCategories.length > 0
-      ? allProducts.filter((p: Product) =>
-          scene.suggestedCategories?.includes(p.category),
+      ? allProducts.filter(
+          (
+            p: Product, // Product is local interface
+          ) =>
+            (scene.suggestedCategories as ProductCategory[]).includes(
+              p.category as ProductCategory,
+            ),
         )
       : allProducts;
 
+  // Select up to 3 products (or fewer if not enough eligible)
   const selectedProducts = eligibleProducts.slice(0, 3);
 
   if (selectedProducts.length === 0) {
@@ -146,18 +170,15 @@ async function _generateAndSaveSceneVariationsForRoute(
     return [];
   }
 
-  const generatedVariations: SceneVariationWithProductInfo[] = [];
-  for (let i = 0; i < selectedProducts.length; i++) {
-    const product = selectedProducts[i];
+  const variationPromises = selectedProducts.map(async (product, i) => {
     const variationNumber = i + 1;
-
     try {
       console.log(
         `Generating variation ${variationNumber} for scene ${scene.sceneNumber} (ID: ${sceneId}) with product ${product.name}...`,
       );
       const generation = await generateProductPlacementFn({
-        scene,
-        product,
+        scene, // This is DbScene
+        product: product as DbProduct, // Cast local Product to DbProduct if structures are compatible for the function
         variationNumber,
       });
 
@@ -170,28 +191,34 @@ async function _generateAndSaveSceneVariationsForRoute(
         isSelected: false,
       });
 
-      generatedVariations.push({
-        ...(variation as BaseSceneVariation),
+      return {
+        ...(variation as BaseSceneVariation), // Assuming BaseSceneVariation is correctly defined
         productName: product.name,
         productCategory: product.category,
         productImageUrl: product.imageUrl,
-      });
+      };
     } catch (error) {
       console.error(
-        `Error generating variation ${variationNumber} for scene ${scene.sceneNumber} (ID: ${sceneId}):`,
+        `Error generating variation ${variationNumber} for scene ${scene.sceneNumber} (ID: ${sceneId}) with product ${product.name}:`,
         error,
       );
-      // Continue with other variations
+      return null; // Return null for failed generations to filter out later
     }
-  }
+  });
+
+  const results = await Promise.all(variationPromises);
+  const generatedVariations = results.filter(
+    Boolean,
+  ) as SceneVariationWithProductInfo[]; // Filter out nulls and assert type
+
   return generatedVariations;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const apiPrefix = "/api";
-  
+
   // --- Actor Routes ---
-  
+
   // Get actors (with pagination and filtering)
   app.get(`${apiPrefix}/actors`, async (req, res) => {
     try {
@@ -259,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("Validation passed, creating actor");
-      const actor = await storage.createActor(req.body);
+      const actor = await storage.createActor(validation.data); // Use validated data
       console.log("Actor created:", actor);
       res.status(201).json(actor);
     } catch (error) {
@@ -275,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid actor ID" });
       }
-
+      // Consider validating req.body against a partial schema for updates
       const actor = await storage.updateActor(id, req.body);
       if (!actor) {
         return res.status(404).json({ message: "Actor not found" });
@@ -375,7 +402,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("Validation passed, creating product");
-      const product = await storage.createProduct(req.body);
+      const product = await storage.createProduct(validation.data); // Use validated data
       console.log("Product created:", product);
       res.status(201).json(product);
     } catch (error) {
@@ -391,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid product ID" });
       }
-
+      // Consider validating req.body against a partial schema for updates
       const product = await storage.updateProduct(id, req.body);
       if (!product) {
         return res.status(404).json({ message: "Product not found" });
@@ -498,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const scenes = await Promise.all(scenesPromises);
 
         // Analyze scenes for brandable opportunities
-        const brandableScenes = await analyzeBrandableScenes(scenes);
+        const brandableScenes = await analyzeBrandableScenes(scenes); // Assuming this function now takes DbScene[]
 
         // Update scenes with brandable information
         for (const brandable of brandableScenes.brandableScenes) {
@@ -562,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // We don't need to pass updatedAt as it's added automatically in the storage function
-      const script = await storage.updateScript(scriptId, {});
+      const script = await storage.updateScript(scriptId, {}); // Pass empty object if only updatedAt is modified
 
       if (!script) {
         return res.status(404).json({ message: "Script not found" });
@@ -601,7 +628,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Re-analyze scenes
-      const brandableScenes = await analyzeBrandableScenes(scenes);
+      const brandableScenes = await analyzeBrandableScenes(scenes); // Assuming takes DbScene[]
 
       // Update scenes with new brandable information
       for (const brandable of brandableScenes.brandableScenes) {
@@ -643,8 +670,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Step 4: Analyze scenes with Gemini to identify brandable opportunities
-      console.log("Analyzing scenes with Gemini AI...");
-      const brandableScenesAnalysis = await analyzeBrandableScenes(scenes);
+      console.log("Analyzing scenes with local analyzer..."); // Updated log message
+      const brandableScenesAnalysis = await analyzeBrandableScenes(scenes); // Using local analyzer
 
       // Step 5: Update scenes with brandable information
       const brandableSceneIds = [];
@@ -658,12 +685,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`Identified ${brandableSceneIds.length} brandable scenes`);
-
-      // Step 6: Get all products (this is done inside the helper now)
-      // const products = await storage.getProducts();
-      // if (products.products.length === 0) {
-      //   return res.status(404).json({ message: 'No products found in database' });
-      // }
 
       // Step 6.5: Clear existing variations for all brandable scenes to avoid accumulation
       console.log("Clearing existing scene variations...");
@@ -758,12 +779,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Variation ID is required" });
       }
 
-      const success = await storage.selectVariation(variationId);
+      const success = await storage.selectVariation(variationId); // This now returns SceneVariation | null
       if (!success) {
-        return res.status(404).json({ message: "Variation not found" });
+        // Check if it's null (not found or error)
+        return res
+          .status(404)
+          .json({ message: "Variation not found or failed to select" });
       }
 
-      res.json({ success: true });
+      res.json({ success: true, selectedVariation: success }); // Optionally return the selected variation
     } catch (error) {
       console.error("Error selecting variation:", error);
       res.status(500).json({ message: "Failed to select variation" });
@@ -771,7 +795,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // --- Location Routes ---
-  
+
   // Get locations (with pagination and filtering)
   app.get(`${apiPrefix}/locations`, async (req, res) => {
     try {
@@ -800,16 +824,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch locations" });
     }
   });
-  
+
   // Get unique countries for filtering
   app.get(`${apiPrefix}/locations/countries`, async (req, res) => {
     try {
-      const allLocations = await storage.getLocations({ pageSize: 1000 });
-      const uniqueCountries = Array.from(
-        new Set(allLocations.locations.map((loc) => loc.country))
-      ).sort();
-      
-      res.json(uniqueCountries);
+      const countries = await storage.getDistinctLocationCountries(); // Implement this in storage.ts
+      res.json(countries);
     } catch (error) {
       console.error("Error fetching countries:", error);
       res.status(500).json({ message: "Failed to fetch countries" });
@@ -852,7 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log("Validation passed, creating location");
-      const location = await storage.createLocation(req.body);
+      const location = await storage.createLocation(validation.data); // Use validated data
       console.log("Location created:", location);
       res.status(201).json(location);
     } catch (error) {
@@ -868,7 +888,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid location ID" });
       }
-
+      // Consider validating req.body against a partial schema for updates
       const location = await storage.updateLocation(id, req.body);
       if (!location) {
         return res.status(404).json({ message: "Location not found" });
@@ -900,8 +920,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to delete location" });
     }
   });
-  
-
 
   const httpServer = createServer(app);
   return httpServer;
