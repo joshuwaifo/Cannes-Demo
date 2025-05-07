@@ -56,7 +56,7 @@ export async function generateProductPlacement(
     );
 
     // flux-1.1-pro model expects input like this
-    const output = await replicate.run("sblack-forest-labs/flux-schnell", {
+    const output = await replicate.run("black-forest-labs/flux-schnell", {
       input: {
         prompt: prompt,
         width: 1024,
@@ -85,7 +85,7 @@ export async function generateProductPlacement(
         const reader = output[0].getReader();
         const chunks = [];
         while (true) {
-          const {done, value} = await reader.read();
+          const { done, value } = await reader.read();
           if (done) break;
           chunks.push(value);
         }

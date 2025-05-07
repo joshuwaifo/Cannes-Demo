@@ -1,0 +1,22 @@
+Finding best matching products for scene 2 based on categories: AUTOMOTIVE
+Selected 3 optimal products for scene 2
+Using consistent scene composition for scene 2 with seed 835760
+Generating variation 1 for scene 2 (ID: 2830) with product Model Y...
+Replicate Call: Scene 2, Var 1, Product Model Y. Prompt (start): Cinematic film still, high detail, photorealistic. Scene: INT. '74 CHEVY (MOVING) - MORNING. Featuri...
+Generating variation 2 for scene 2 (ID: 2830) with product Tesla Model 3...
+Replicate Call: Scene 2, Var 2, Product Tesla Model 3. Prompt (start): Cinematic film still, high detail, photorealistic. Scene: INT. '74 CHEVY (MOVING) - MORNING. Featuri...
+Generating variation 3 for scene 2 (ID: 2830) with product Natural Mineral Water...
+Replicate Call: Scene 2, Var 3, Product Natural Mineral Water. Prompt (start): Cinematic film still, high detail, photorealistic. Scene: INT. '74 CHEVY (MOVING) - MORNING. Featuri...
+Replicate API error for S2V2 (Product: Tesla Model 3): Request to https://api.replicate.com/v1/models/sblack-forest-labs/flux-schnell/predictions failed with status 404 Not Found: {"detail":"The requested resource could not be found.","status":404}
+.
+Image generation failed for S2V2, P:Tesla Model 3. Using fallback.
+Replicate API error for S2V1 (Product: Model Y): Request to https://api.replicate.com/v1/models/sblack-forest-labs/flux-schnell/predictions failed with status 404 Not Found: {"detail":"The requested resource could not be found.","status":404}
+.
+Image generation failed for S2V1, P:Model Y. Using fallback.
+Replicate API error for S2V3 (Product: Natural Mineral Water): Request to https://api.replicate.com/v1/models/sblack-forest-labs/flux-schnell/predictions failed with status 404 Not Found: {"detail":"The requested resource could not be found.","status":404}
+.
+Image generation failed for S2V3, P:Natural Mineral Water. Using fallback.
+Successfully generated 3 variations for scene 2.
+on-demand-variation-generation: 524.574ms
+Generated 3 variations on-demand for scene 2
+1:59:24 PM [express] GET /api/scripts/scene-variations 200 in 625ms :: [{"id":166,"sceneId":2830,"pr…
