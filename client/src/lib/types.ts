@@ -115,6 +115,7 @@ export type ImageGenerationResponse = {
 };
 
 export type Actor = {
+  id?: number;
   name: string;
   gender: string;
   nationality: string;
