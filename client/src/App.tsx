@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { useState } from "react";
+import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -18,25 +18,27 @@ import { TabType } from "@/lib/types";
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>("welcome");
-  const [location] = useLocation();
-
-  // Sync tab state with current URL
-  useEffect(() => {
-    if (location === "/") {
-      setActiveTab("welcome");
-    } else if (location === "/script") {
-      setActiveTab("script");
-    } else if (location === "/products") {
-      setActiveTab("products");
-    } else if (location === "/actors") {
-      setActiveTab("actors");
-    } else if (location === "/locations") {
-      setActiveTab("locations");
-    }
-  }, [location]);
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
+  };
+
+  // Function to render the active component based on the selected tab
+  const renderActiveComponent = () => {
+    switch (activeTab) {
+      case "welcome":
+        return <Welcome onTabChange={handleTabChange} />;
+      case "script":
+        return <ScriptEditor />;
+      case "products":
+        return <ProductDatabase />;
+      case "actors":
+        return <ActorsDatabase />;
+      case "locations":
+        return <LocationsDatabase />;
+      default:
+        return <Welcome onTabChange={handleTabChange} />;
+    }
   };
 
   return (
@@ -46,11 +48,7 @@ function App() {
 
         <main className="flex-grow container mx-auto px-4 py-6">
           <Switch>
-            <Route path="/" component={() => <Welcome onTabChange={handleTabChange} />} />
-            <Route path="/script" component={ScriptEditor} />
-            <Route path="/products" component={ProductDatabase} />
-            <Route path="/actors" component={ActorsDatabase} />
-            <Route path="/locations" component={LocationsDatabase} />
+            <Route path="/" component={() => renderActiveComponent()} />
             <Route path="/privacy-policy" component={PrivacyPolicy} />
             <Route path="/terms-of-service" component={TermsOfService} />
             <Route path="/contact" component={Contact} />
