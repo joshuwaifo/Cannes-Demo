@@ -316,6 +316,15 @@ export default function ActorsDatabase() {
           <p className="text-gray-500">No actors found matching your criteria.</p>
         </div>
       )}
+
+      {/* Edit Actor Modal */}
+      <EditActorModal
+        isOpen={isEditModalOpen}
+        actor={selectedActor}
+        onClose={() => setIsEditModalOpen(false)}
+        onEdit={handleEditActor}
+        isSubmitting={editActorMutation.isPending}
+      />
     </div>
   );
 }
