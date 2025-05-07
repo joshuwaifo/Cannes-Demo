@@ -56,7 +56,7 @@ export async function generateProductPlacement(
     );
 
     // flux-1.1-pro model expects input like this
-    const output = await replicate.run("black-forest-labs/flux-schnell", {
+    const output = await replicate.run("stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316", {
       input: {
         prompt: prompt,
         width: 1024,
