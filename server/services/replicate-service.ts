@@ -55,22 +55,25 @@ export async function generateProductPlacement(
       `Replicate Call: Scene ${scene.sceneNumber}, Var ${variationNumber}, Product ${product.name}. Prompt (start): ${prompt.substring(0, 100)}...`,
     );
 
-    // flux-1.1-pro model expects input like this
-    const output = await replicate.run("black-forest-labs/flux-schnell", {
-      input: {
-        prompt: prompt,
-        width: 1024,
-        height: 576,
-        aspect_ratio: "custom",
-        // prompt_upsampling: true, // Not a direct parameter for this model version, control through prompt detail
-        // output_format: "webp", // This model usually outputs png or jpg based on default, or specified in prompt techniques
-        // output_quality: 80, // Quality controlled by model / prompt
-        // safety_tolerance: 2, // Handled by Replicate's platform-level safety
-        seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
-        // num_inference_steps: 50, // Example, if you want to control this
-        // guidance_scale: 7.5, // Example
-      },
-    });
+    // Stability AI model configuration
+    const output = await replicate.run(
+      "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+      {
+        input: {
+          prompt: prompt,
+          width: 1024,
+          height: 576,
+          refine: "expert_ensemble_refiner",
+          scheduler: "K_EULER",
+          num_outputs: 1,
+          guidance_scale: 7.5,
+          apply_watermark: false,
+          high_noise_frac: 0.8,
+          negative_prompt: "low quality, blurry, watermark, text, logo",
+          seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+        },
+      }
+    );
 
     console.log(
       `Replicate Raw Output (S${scene.sceneNumber}V${variationNumber}):`,
@@ -127,28 +130,37 @@ export async function generateProductPlacement(
 function createProductPlacementPrompt(request: GenerationRequest): string {
   const { scene, product } = request;
   const sceneLocation = scene.heading || "A dynamic film scene";
+  const sceneContext = scene.content?.substring(0, 300) || "";
 
-  // More descriptive prompt focusing on visual elements
-  let prompt = `Cinematic film still, high detail, photorealistic. Scene: ${sceneLocation}. `;
-  prompt += `Featuring a ${product.category.toLowerCase()} product: ${product.name}. `;
+  // Base cinematic quality descriptors
+  let prompt = `Cinematic 35mm film still, ultra photorealistic, extremely detailed. Scene: ${sceneLocation}. `;
+  prompt += `Scene context: ${sceneContext}. `;
+  
+  // Product integration specifics
+  prompt += `Professional product placement of ${product.name} (${product.category.toLowerCase()}). `;
 
-  // Add specific placement details based on product category and variation number (conceptual)
-  // This part would need more sophisticated logic based on scene content analysis
+  // Category-specific placement strategies
   if (product.category === ProductCategory.BEVERAGE) {
-    prompt += `The ${product.name} is clearly visible, perhaps on a table or held by a character.`;
+    prompt += `${product.name} placed naturally in scene, crystal clear bottle/can, perfect lighting highlighting the product, condensation details, premium look`;
   } else if (product.category === ProductCategory.ELECTRONICS) {
-    prompt += `A character is interacting with the ${product.name}, or it's prominently displayed on a desk.`;
+    prompt += `${product.name} seamlessly integrated, screen displaying content, modern aesthetic, premium materials visible`;
   } else if (product.category === ProductCategory.AUTOMOTIVE) {
-    prompt += `The ${product.name} vehicle is a key visual element, maybe in motion or stylishly parked.`;
+    prompt += `${product.name} vehicle prominently featured, showroom quality, dramatic lighting, professional automotive photography style`;
+  } else if (product.category === ProductCategory.FASHION) {
+    prompt += `${product.name} worn naturally, premium fabric details visible, fashion photography lighting`;
   } else {
-    prompt += `The ${product.name} is naturally integrated into the scene.`;
+    prompt += `${product.name} integrated organically into scene, professional product photography quality`;
   }
 
-  prompt += ` Focus on realism and brand visibility. ${scene.brandableReason || ""}.`;
-  prompt +=
-    " Shot on 35mm film, professional lighting, sharp focus, vivid colors.";
+  // Scene-specific context
+  if (scene.brandableReason) {
+    prompt += ` ${scene.brandableReason}`;
+  }
 
-  return prompt.substring(0, 1000); // Ensure prompt length is within limits
+  // Technical quality specifications
+  prompt += ` 8k resolution, masterful composition, perfect exposure, rich color grading, cinematic lighting, sharp focus`;
+
+  return prompt.substring(0, 1000);
 }
 
 function createPlacementDescription(request: GenerationRequest): string {
