@@ -5,7 +5,7 @@ import multer from "multer";
 import { extractScriptFromPdf } from "./services/pdf-service";
 import { generateProductPlacement } from "./services/replicate-service";
 import { z } from "zod";
-import { insertProductSchema, ProductCategory } from "@shared/schema";
+import { insertProductSchema, insertActorSchema, ProductCategory } from "@shared/schema";
 
 // Define a type for scene variations with product details
 interface BaseSceneVariation {
@@ -189,6 +189,124 @@ async function _generateAndSaveSceneVariationsForRoute(
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const apiPrefix = "/api";
+  
+  // --- Actor Routes ---
+  
+  // Get actors (with pagination and filtering)
+  app.get(`${apiPrefix}/actors`, async (req, res) => {
+    try {
+      const search = req.query.search as string | undefined;
+      const gender = req.query.gender as string | undefined;
+      const nationality = req.query.nationality as string | undefined;
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const pageSize = req.query.pageSize
+        ? parseInt(req.query.pageSize as string)
+        : 10;
+
+      const result = await storage.getActors({
+        search,
+        gender,
+        nationality,
+        page,
+        pageSize,
+      });
+
+      res.json({
+        actors: result.actors,
+        totalPages: result.totalPages,
+        currentPage: result.currentPage,
+        totalCount: result.totalCount,
+      });
+    } catch (error) {
+      console.error("Error fetching actors:", error);
+      res.status(500).json({ message: "Failed to fetch actors" });
+    }
+  });
+
+  // Get actor by ID
+  app.get(`${apiPrefix}/actors/:id`, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid actor ID" });
+      }
+
+      const actor = await storage.getActorById(id);
+      if (!actor) {
+        return res.status(404).json({ message: "Actor not found" });
+      }
+
+      res.json(actor);
+    } catch (error) {
+      console.error("Error fetching actor:", error);
+      res.status(500).json({ message: "Failed to fetch actor" });
+    }
+  });
+
+  // Create actor
+  app.post(`${apiPrefix}/actors`, async (req, res) => {
+    try {
+      console.log("Received actor data:", req.body);
+
+      const validation = insertActorSchema.safeParse(req.body);
+
+      if (!validation.success) {
+        console.log("Validation failed:", validation.error.errors);
+        return res.status(400).json({
+          message: "Invalid actor data",
+          errors: validation.error.errors,
+        });
+      }
+
+      console.log("Validation passed, creating actor");
+      const actor = await storage.createActor(req.body);
+      console.log("Actor created:", actor);
+      res.status(201).json(actor);
+    } catch (error) {
+      console.error("Error creating actor:", error);
+      res.status(500).json({ message: "Failed to create actor" });
+    }
+  });
+
+  // Update actor
+  app.put(`${apiPrefix}/actors/:id`, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid actor ID" });
+      }
+
+      const actor = await storage.updateActor(id, req.body);
+      if (!actor) {
+        return res.status(404).json({ message: "Actor not found" });
+      }
+
+      res.json(actor);
+    } catch (error) {
+      console.error("Error updating actor:", error);
+      res.status(500).json({ message: "Failed to update actor" });
+    }
+  });
+
+  // Delete actor
+  app.delete(`${apiPrefix}/actors/:id`, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid actor ID" });
+      }
+
+      const success = await storage.deleteActor(id);
+      if (!success) {
+        return res.status(404).json({ message: "Actor not found" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting actor:", error);
+      res.status(500).json({ message: "Failed to delete actor" });
+    }
+  });
 
   // --- Product Routes ---
 

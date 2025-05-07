@@ -1,6 +1,8 @@
 import { db } from "./index";
 import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
+import * as fs from "fs";
+import * as path from "path";
 
 async function seed() {
   try {
@@ -185,6 +187,92 @@ Sarah opens a document on her laptop and turns it towards Michael.`,
       };
       
       await db.insert(schema.scenes).values(sceneData);
+    }
+
+    // Check if actors already exist
+    const existingActors = await db.select({ count: { value: schema.actors.id } })
+      .from(schema.actors)
+      .limit(1);
+    
+    if (existingActors.length === 0 || existingActors[0].count.value === 0) {
+      try {
+        console.log("Seeding actors from actorDatabase.txt...");
+        
+        // Read the actor database file
+        const actorFilePath = path.join(__dirname, '..', 'attached_assets', 'actorDatabase.txt');
+        const actorFileContent = fs.readFileSync(actorFilePath, 'utf8');
+        
+        // Skip the header line and process each actor line
+        const actorLines = actorFileContent.split('\n').filter(line => line.trim().length > 0);
+        const header = actorLines[0]; // Skip header
+        
+        const actorsData = [];
+        
+        // Process each actor line starting from line 2 (index 1)
+        for (let i = 1; i < actorLines.length; i++) {
+          const line = actorLines[i];
+          
+          // Split by pipe character and trim spaces
+          const parts = line.split('|').map(part => part.trim());
+          
+          if (parts.length >= 11) {
+            const name = parts[0].replace(/\*\*/g, ''); // Remove ** from names
+            const gender = parts[1];
+            const nationality = parts[2];
+            
+            // Extract notable roles - remove * markers and split by comma
+            const notableRolesText = parts[3].replace(/\*/g, '');
+            const notableRoles = notableRolesText.split(',').map(role => role.trim());
+            
+            // Split genres by comma
+            const genres = parts[4].split(',').map(genre => genre.trim());
+            
+            const recentPopularity = parts[5];
+            
+            // Split typical roles by comma
+            const typicalRolesText = parts[6];
+            const typicalRoles = typicalRolesText.split(',').map(role => role.trim());
+            
+            const estSalaryRange = parts[7];
+            const socialMediaFollowing = parts[8];
+            const availability = parts[9];
+            const bestSuitedRolesStrategic = parts[10];
+            
+            actorsData.push({
+              name,
+              gender,
+              nationality,
+              notableRoles,
+              genres,
+              recentPopularity,
+              typicalRoles,
+              estSalaryRange,
+              socialMediaFollowing,
+              availability,
+              bestSuitedRolesStrategic,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+          }
+        }
+        
+        if (actorsData.length > 0) {
+          // Insert actors in batches to avoid very large queries
+          const batchSize = 10;
+          for (let i = 0; i < actorsData.length; i += batchSize) {
+            const batch = actorsData.slice(i, i + batchSize);
+            await db.insert(schema.actors).values(batch);
+          }
+          
+          console.log(`Successfully seeded ${actorsData.length} actors.`);
+        } else {
+          console.log("No actor data found to seed.");
+        }
+      } catch (error) {
+        console.error("Error seeding actors:", error);
+      }
+    } else {
+      console.log("Actors already exist in the database, skipping actor seed.");
     }
 
     console.log("Database seeding completed successfully.");

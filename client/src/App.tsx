@@ -6,10 +6,11 @@ import { Toaster } from "@/components/ui/toaster";
 import Welcome from "@/pages/Welcome";
 import ScriptEditor from "@/pages/ScriptEditor";
 import ProductDatabase from "@/pages/ProductDatabase";
+import ActorsDatabase from "@/pages/ActorsDatabase";
 import NotFound from "@/pages/not-found";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { TabType, Actor } from "@/lib/types";
+import { TabType } from "@/lib/types";
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabType>("welcome");
