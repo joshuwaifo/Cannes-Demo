@@ -800,6 +800,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch locations" });
     }
   });
+  
+  // Get unique countries for filtering
+  app.get(`${apiPrefix}/locations/countries`, async (req, res) => {
+    try {
+      const allLocations = await storage.getLocations({ pageSize: 1000 });
+      const uniqueCountries = Array.from(
+        new Set(allLocations.locations.map((loc) => loc.country))
+      ).sort();
+      
+      res.json(uniqueCountries);
+    } catch (error) {
+      console.error("Error fetching countries:", error);
+      res.status(500).json({ message: "Failed to fetch countries" });
+    }
+  });
 
   // Get location by ID
   app.get(`${apiPrefix}/locations/:id`, async (req, res) => {
@@ -886,20 +901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get unique countries for filtering
-  app.get(`${apiPrefix}/locations/countries`, async (req, res) => {
-    try {
-      const allLocations = await storage.getLocations({ pageSize: 1000 });
-      const uniqueCountries = Array.from(
-        new Set(allLocations.locations.map((loc) => loc.country))
-      ).sort();
-      
-      res.json(uniqueCountries);
-    } catch (error) {
-      console.error("Error fetching countries:", error);
-      res.status(500).json({ message: "Failed to fetch countries" });
-    }
-  });
+
 
   const httpServer = createServer(app);
   return httpServer;
