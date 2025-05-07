@@ -1,0 +1,39 @@
+Successfully generated 0 variations for scene 1.
+on-demand-variation-generation: 178.408ms
+Generated 0 variations on-demand for scene 1
+1:36:43 PM [express] GET /api/scripts/scene-variations 200 in 300ms :: []
+No variations for brandable scene 2313, generating on-demand with optimized pipeline.
+Finding best matching products for scene 18 based on categories: FOOD, BEVERAGE
+Selected 3 optimal products for scene 18
+Using consistent scene composition for scene 18 with seed 916220
+Generating variation 1 for scene 18 (ID: 2313) with product Natural Mineral Water...
+Generating variation 2 for scene 18 (ID: 2313) with product Model Y...
+Generating variation 3 for scene 18 (ID: 2313) with product Coca-Cola...
+Error in variation generation for S18V1 (Product: Natural Mineral Water): ReferenceError: scene is not defined
+    at createPlacementDescription (/home/runner/workspace/server/services/replicate-service.ts:149:80)
+    at generateProductPlacement (/home/runner/workspace/server/services/replicate-service.ts:42:23)
+    at <anonymous> (/home/runner/workspace/server/routes.ts:140:38)
+    at Array.map (<anonymous>)
+    at _generateAndSaveSceneVariationsForRoute (/home/runner/workspace/server/routes.ts:132:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:709:22)
+Error in variation generation for S18V2 (Product: Model Y): ReferenceError: scene is not defined
+    at createPlacementDescription (/home/runner/workspace/server/services/replicate-service.ts:149:80)
+    at generateProductPlacement (/home/runner/workspace/server/services/replicate-service.ts:42:23)
+    at <anonymous> (/home/runner/workspace/server/routes.ts:140:38)
+    at Array.map (<anonymous>)
+    at _generateAndSaveSceneVariationsForRoute (/home/runner/workspace/server/routes.ts:132:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:709:22)
+Error in variation generation for S18V3 (Product: Coca-Cola): ReferenceError: scene is not defined
+    at createPlacementDescription (/home/runner/workspace/server/services/replicate-service.ts:149:80)
+    at generateProductPlacement (/home/runner/workspace/server/services/replicate-service.ts:42:23)
+    at <anonymous> (/home/runner/workspace/server/routes.ts:140:38)
+    at Array.map (<anonymous>)
+    at _generateAndSaveSceneVariationsForRoute (/home/runner/workspace/server/routes.ts:132:46)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:709:22)
+Successfully generated 0 variations for scene 18.
+on-demand-variation-generation: 197.418ms
+Generated 0 variations on-demand for scene 18
+1:38:16 PM [express] GET /api/scripts/scene-variations 200 in 1064ms :: []
