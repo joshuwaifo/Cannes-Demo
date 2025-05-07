@@ -56,7 +56,7 @@ export async function generateProductPlacement(
     );
 
     // flux-1.1-pro model expects input like this
-    const output = await replicate.run("stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316", {
+    const output = await replicate.run("black-forest-labs/flux-schnell", {
       input: {
         prompt: prompt,
         width: 1024,
@@ -82,7 +82,6 @@ export async function generateProductPlacement(
     // Handle ReadableStream response
     if (Array.isArray(output) && output.length > 0) {
       if (output[0] instanceof ReadableStream) {
-        // The stream contains the image directly - return base64 data URL
         const reader = output[0].getReader();
         const chunks = [];
         while (true) {
@@ -90,8 +89,8 @@ export async function generateProductPlacement(
           if (done) break;
           chunks.push(value);
         }
-        const imageBuffer = Buffer.concat(chunks);
-        imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+        const result = JSON.parse(Buffer.concat(chunks).toString());
+        imageUrl = result.url || result.image || result[0];
       } else if (typeof output[0] === "string") {
         imageUrl = output[0];
       }
@@ -128,39 +127,28 @@ export async function generateProductPlacement(
 function createProductPlacementPrompt(request: GenerationRequest): string {
   const { scene, product } = request;
   const sceneLocation = scene.heading || "A dynamic film scene";
-  const sceneContext = scene.content?.substring(0, 500) || "";
 
-  // Base prompt incorporating scene details
-  let prompt = `Cinematic film still, photorealistic, high detail. Scene: ${sceneLocation}. `;
-  prompt += `Scene context: ${sceneContext}. `;
-  
-  // Detailed product placement instructions
-  prompt += `Integrate ${product.name} (${product.category.toLowerCase()}) naturally into the scene. `;
+  // More descriptive prompt focusing on visual elements
+  let prompt = `Cinematic film still, high detail, photorealistic. Scene: ${sceneLocation}. `;
+  prompt += `Featuring a ${product.category.toLowerCase()} product: ${product.name}. `;
 
-  // Category-specific placement strategies
+  // Add specific placement details based on product category and variation number (conceptual)
+  // This part would need more sophisticated logic based on scene content analysis
   if (product.category === ProductCategory.BEVERAGE) {
-    prompt += `Show the ${product.name} in a natural drinking/serving moment - on a table, in someone's hand, or being poured. The product should be clearly identifiable but not feel forced.`;
+    prompt += `The ${product.name} is clearly visible, perhaps on a table or held by a character.`;
   } else if (product.category === ProductCategory.ELECTRONICS) {
-    prompt += `Show the ${product.name} being used naturally within the scene - integrated into the action, not just placed as a prop. Ensure the brand is recognizable.`;
+    prompt += `A character is interacting with the ${product.name}, or it's prominently displayed on a desk.`;
   } else if (product.category === ProductCategory.AUTOMOTIVE) {
-    prompt += `Feature the ${product.name} as part of the scene's environment - whether parked, driving by, or as a key story element. Show the distinctive design features of the vehicle.`;
-  } else if (product.category === ProductCategory.FASHION) {
-    prompt += `Have a character wearing or interacting with the ${product.name} in a way that fits the scene's context. The brand should be visible but not overly prominent.`;
-  } else if (product.category === ProductCategory.FOOD) {
-    prompt += `Include the ${product.name} in a natural eating/dining scenario within the scene. The packaging or presentation should be clearly visible but feel organic to the moment.`;
+    prompt += `The ${product.name} vehicle is a key visual element, maybe in motion or stylishly parked.`;
   } else {
-    prompt += `Integrate the ${product.name} naturally into the scene's environment, making it visible but not distracting from the scene's narrative.`;
+    prompt += `The ${product.name} is naturally integrated into the scene.`;
   }
 
-  // Add scene-specific context from brandable reason
-  if (scene.brandableReason) {
-    prompt += ` ${scene.brandableReason}`;
-  }
+  prompt += ` Focus on realism and brand visibility. ${scene.brandableReason || ""}.`;
+  prompt +=
+    " Shot on 35mm film, professional lighting, sharp focus, vivid colors.";
 
-  // Technical specifications for quality
-  prompt += ` Create a high-quality cinematic shot with professional lighting, sharp focus, and natural color grading. Make the product integration feel authentic to the scene.`;
-
-  return prompt.substring(0, 1000);
+  return prompt.substring(0, 1000); // Ensure prompt length is within limits
 }
 
 function createPlacementDescription(request: GenerationRequest): string {
