@@ -55,25 +55,22 @@ export async function generateProductPlacement(
       `Replicate Call: Scene ${scene.sceneNumber}, Var ${variationNumber}, Product ${product.name}. Prompt (start): ${prompt.substring(0, 100)}...`,
     );
 
-    // Stability AI model configuration
-    const output = await replicate.run(
-      "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
-      {
-        input: {
-          prompt: prompt,
-          width: 1024,
-          height: 576,
-          refine: "expert_ensemble_refiner",
-          scheduler: "K_EULER",
-          num_outputs: 1,
-          guidance_scale: 7.5,
-          apply_watermark: false,
-          high_noise_frac: 0.8,
-          negative_prompt: "low quality, blurry, watermark, text, logo",
-          seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
-        },
-      }
-    );
+    // flux-1.1-pro model expects input like this
+    const output = await replicate.run("stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316", {
+      input: {
+        prompt: prompt,
+        width: 1024,
+        height: 576,
+        aspect_ratio: "custom",
+        // prompt_upsampling: true, // Not a direct parameter for this model version, control through prompt detail
+        // output_format: "webp", // This model usually outputs png or jpg based on default, or specified in prompt techniques
+        // output_quality: 80, // Quality controlled by model / prompt
+        // safety_tolerance: 2, // Handled by Replicate's platform-level safety
+        seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+        // num_inference_steps: 50, // Example, if you want to control this
+        // guidance_scale: 7.5, // Example
+      },
+    });
 
     console.log(
       `Replicate Raw Output (S${scene.sceneNumber}V${variationNumber}):`,
@@ -82,39 +79,23 @@ export async function generateProductPlacement(
 
     let imageUrl: string | undefined;
 
-    // Handle response from Replicate API
+    // Handle ReadableStream response
     if (Array.isArray(output) && output.length > 0) {
-      if (typeof output[0] === "string" && output[0].startsWith("http")) {
+      if (output[0] instanceof ReadableStream) {
+        // The stream contains the image directly - return base64 data URL
+        const reader = output[0].getReader();
+        const chunks = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        const imageBuffer = Buffer.concat(chunks);
+        imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+      } else if (typeof output[0] === "string") {
         imageUrl = output[0];
       }
-      else if (output[0] instanceof ReadableStream) {
-        try {
-          const reader = output[0].getReader();
-          let chunks = [];
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            chunks.push(value);
-          }
-          // Check if it's a PNG (starts with PNG magic number)
-          const buffer = Buffer.concat(chunks);
-          if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
-            // TODO: We need to implement image storage and return a URL
-            console.log("Received valid PNG image data");
-            imageUrl = FALLBACK_IMAGE_URL; // For now, use fallback until storage is implemented
-          } else {
-            // Try parsing as JSON if not PNG
-            const result = JSON.parse(buffer.toString());
-            imageUrl = result.url || result[0];
-          }
-        } catch (err) {
-          console.warn("Failed to process ReadableStream:", err);
-          imageUrl = FALLBACK_IMAGE_URL;
-        }
-      }
-    } 
-    // Handle direct URL response
-    else if (typeof output === "string" && output.startsWith("http")) {
+    } else if (typeof output === "string" && output.startsWith("http")) {
       imageUrl = output;
     }
 
@@ -147,35 +128,37 @@ export async function generateProductPlacement(
 function createProductPlacementPrompt(request: GenerationRequest): string {
   const { scene, product } = request;
   const sceneLocation = scene.heading || "A dynamic film scene";
-  const sceneContext = scene.content?.substring(0, 300) || "";
+  const sceneContext = scene.content?.substring(0, 500) || "";
 
-  // Base cinematic quality descriptors
-  let prompt = `Cinematic 35mm film still, ultra photorealistic, extremely detailed. Scene: ${sceneLocation}. `;
+  // Base prompt incorporating scene details
+  let prompt = `Cinematic film still, photorealistic, high detail. Scene: ${sceneLocation}. `;
   prompt += `Scene context: ${sceneContext}. `;
   
-  // Product integration specifics
-  prompt += `Professional product placement of ${product.name} (${product.category.toLowerCase()}). `;
+  // Detailed product placement instructions
+  prompt += `Integrate ${product.name} (${product.category.toLowerCase()}) naturally into the scene. `;
 
   // Category-specific placement strategies
   if (product.category === ProductCategory.BEVERAGE) {
-    prompt += `${product.name} placed naturally in scene, crystal clear bottle/can, perfect lighting highlighting the product, condensation details, premium look`;
+    prompt += `Show the ${product.name} in a natural drinking/serving moment - on a table, in someone's hand, or being poured. The product should be clearly identifiable but not feel forced.`;
   } else if (product.category === ProductCategory.ELECTRONICS) {
-    prompt += `${product.name} seamlessly integrated, screen displaying content, modern aesthetic, premium materials visible`;
+    prompt += `Show the ${product.name} being used naturally within the scene - integrated into the action, not just placed as a prop. Ensure the brand is recognizable.`;
   } else if (product.category === ProductCategory.AUTOMOTIVE) {
-    prompt += `${product.name} vehicle prominently featured, showroom quality, dramatic lighting, professional automotive photography style`;
+    prompt += `Feature the ${product.name} as part of the scene's environment - whether parked, driving by, or as a key story element. Show the distinctive design features of the vehicle.`;
   } else if (product.category === ProductCategory.FASHION) {
-    prompt += `${product.name} worn naturally, premium fabric details visible, fashion photography lighting`;
+    prompt += `Have a character wearing or interacting with the ${product.name} in a way that fits the scene's context. The brand should be visible but not overly prominent.`;
+  } else if (product.category === ProductCategory.FOOD) {
+    prompt += `Include the ${product.name} in a natural eating/dining scenario within the scene. The packaging or presentation should be clearly visible but feel organic to the moment.`;
   } else {
-    prompt += `${product.name} integrated organically into scene, professional product photography quality`;
+    prompt += `Integrate the ${product.name} naturally into the scene's environment, making it visible but not distracting from the scene's narrative.`;
   }
 
-  // Scene-specific context
+  // Add scene-specific context from brandable reason
   if (scene.brandableReason) {
     prompt += ` ${scene.brandableReason}`;
   }
 
-  // Technical quality specifications
-  prompt += ` 8k resolution, masterful composition, perfect exposure, rich color grading, cinematic lighting, sharp focus`;
+  // Technical specifications for quality
+  prompt += ` Create a high-quality cinematic shot with professional lighting, sharp focus, and natural color grading. Make the product integration feel authentic to the scene.`;
 
   return prompt.substring(0, 1000);
 }
