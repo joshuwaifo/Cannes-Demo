@@ -61,6 +61,18 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
                 Actors
               </button>
             </li>
+            <li>
+              <button
+                onClick={() => onTabChange("locations")}
+                className={cn(
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center",
+                  activeTab === "locations" && "text-primary",
+                )}
+              >
+                <MapPin className="mr-1 h-4 w-4" />
+                Locations
+              </button>
+            </li>
           </ul>
         </nav>
       </div>

@@ -7,6 +7,7 @@ import Welcome from "@/pages/Welcome";
 import ScriptEditor from "@/pages/ScriptEditor";
 import ProductDatabase from "@/pages/ProductDatabase";
 import ActorsDatabase from "@/pages/ActorsDatabase";
+import LocationsDatabase from "@/pages/LocationsDatabase";
 import NotFound from "@/pages/not-found";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -30,6 +31,8 @@ function App() {
         return <ProductDatabase />;
       case "actors":
         return <ActorsDatabase />;
+      case "locations":
+        return <LocationsDatabase />;
       default:
         return <Welcome onTabChange={handleTabChange} />;
     }
