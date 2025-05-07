@@ -167,3 +167,31 @@ export const insertActorSchema = createInsertSchema(actors, {
 
 export type InsertActor = z.infer<typeof insertActorSchema>;
 export type Actor = typeof actors.$inferSelect;
+
+// Locations table
+export const locations = pgTable("locations", {
+  id: serial("id").primaryKey(),
+  country: text("country").notNull(),
+  region: text("region").notNull(),
+  incentiveProgram: text("incentive_program").notNull(),
+  incentiveDetails: text("incentive_details").notNull(),
+  minimumSpend: text("minimum_spend").notNull(),
+  eligibleProductionTypes: text("eligible_production_types").notNull(),
+  limitsCaps: text("limits_caps"),
+  qualifyingExpenses: text("qualifying_expenses"),
+  applicationProcess: text("application_process"),
+  applicationDeadlines: text("application_deadlines"),
+  imageUrl: text("image_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertLocationSchema = createInsertSchema(locations, {
+  country: (schema) => schema.min(2, "Country name must be at least 2 characters"),
+  region: (schema) => schema.min(2, "Region must be at least 2 characters"),
+  incentiveProgram: (schema) => schema.min(2, "Incentive program must be at least 2 characters"),
+  incentiveDetails: (schema) => schema.min(2, "Incentive details must be at least 2 characters"),
+});
+
+export type InsertLocation = z.infer<typeof insertLocationSchema>;
+export type Location = typeof locations.$inferSelect;
