@@ -1,6 +1,4 @@
-import { db } from "./db/index.js";
-import * as schema from "./shared/schema.js";
-import { eq, sql, count, asc } from "drizzle-orm";
+import { pool } from "./db/index.js";
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -10,12 +8,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function refreshActors() {
+  const client = await pool.connect();
+
   try {
     console.log("Starting actor database refresh...");
     
     // Step 1: Clear existing actors
     console.log("Clearing existing actors...");
-    await db.delete(schema.actors);
+    await client.query('DELETE FROM actors');
     console.log("All existing actors deleted successfully.");
     
     // Step 2: Read the actor database file
@@ -44,57 +44,55 @@ async function refreshActors() {
         
         // Extract notable roles - remove * markers and split by comma
         const notableRolesText = parts[3].replace(/\*/g, '');
-        const notableRoles = notableRolesText.split(',').map(role => role.trim());
+        const notableRoles = JSON.stringify(notableRolesText.split(',').map(role => role.trim()));
         
         // Split genres by comma
-        const genres = parts[4].split(',').map(genre => genre.trim());
+        const genres = JSON.stringify(parts[4].split(',').map(genre => genre.trim()));
         
         const recentPopularity = parts[5];
         
         // Split typical roles by comma
         const typicalRolesText = parts[6];
-        const typicalRoles = typicalRolesText.split(',').map(role => role.trim());
+        const typicalRoles = JSON.stringify(typicalRolesText.split(',').map(role => role.trim()));
         
         const estSalaryRange = parts[7];
         const socialMediaFollowing = parts[8];
         const availability = parts[9];
         const bestSuitedRolesStrategic = parts[10];
         
-        actorsData.push({
-          name,
-          gender,
-          nationality,
-          notableRoles,
-          genres,
-          recentPopularity,
-          typicalRoles,
-          estSalaryRange,
-          socialMediaFollowing,
-          availability,
-          bestSuitedRolesStrategic,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
+        // Use raw SQL to insert directly
+        await client.query(
+          `INSERT INTO actors(
+            name, gender, nationality, notable_roles, genres, 
+            recent_popularity, typical_roles, est_salary_range, 
+            social_media_following, availability, best_suited_roles_strategic, 
+            created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+          [
+            name, gender, nationality, notableRoles, genres, 
+            recentPopularity, typicalRoles, estSalaryRange, 
+            socialMediaFollowing, availability, bestSuitedRolesStrategic, 
+            new Date(), new Date()
+          ]
+        );
+
+        // Log progress every 10 actors
+        if (i % 10 === 0 || i === actorLines.length - 1) {
+          console.log(`Inserted ${i} of ${actorLines.length - 1} actors...`);
+        }
       }
     }
     
-    // Step 3: Insert the new actors in batches
-    if (actorsData.length > 0) {
-      console.log(`Inserting ${actorsData.length} actors into database...`);
-      // Insert actors in batches to avoid very large queries
-      const batchSize = 20;
-      for (let i = 0; i < actorsData.length; i += batchSize) {
-        const batch = actorsData.slice(i, i + batchSize);
-        await db.insert(schema.actors).values(batch);
-        console.log(`Inserted batch ${Math.floor(i/batchSize) + 1} of ${Math.ceil(actorsData.length/batchSize)}`);
-      }
-      
-      console.log(`Successfully refreshed actor database with ${actorsData.length} actors.`);
-    } else {
-      console.log("No actor data found to insert.");
-    }
+    // Get final count
+    const countResult = await client.query('SELECT COUNT(*) FROM actors');
+    const count = parseInt(countResult.rows[0].count);
+    
+    console.log(`Successfully refreshed actor database with ${count} actors.`);
   } catch (error) {
     console.error("Error refreshing actors:", error);
+  } finally {
+    // Release client
+    client.release();
   }
 }
 
