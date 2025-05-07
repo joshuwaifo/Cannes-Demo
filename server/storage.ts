@@ -385,6 +385,56 @@ export async function deleteSceneVariation(id: number): Promise<boolean> {
   return result.length > 0;
 }
 
+/**
+ * Gets top matching products for a scene based on the suggested categories.
+ * This helps optimize product selection for generating scene variations.
+ */
+export async function getTopMatchingProductsForScene(
+  sceneId: number, 
+  suggestedCategories: ProductCategory[], 
+  limit: number = 3
+): Promise<Product[]> {
+  try {
+    if (!suggestedCategories || suggestedCategories.length === 0) {
+      // If no categories suggested, get most recent products
+      return await db
+        .select()
+        .from(products)
+        .orderBy(desc(products.createdAt))
+        .limit(limit);
+    }
+
+    // Filter products by the suggested categories
+    const matchingProducts = await db
+      .select()
+      .from(products)
+      .where(
+        sql`${products.category} IN (${suggestedCategories.join(',')})`
+      )
+      .orderBy(desc(products.createdAt)) // Order by newest first
+      .limit(limit);
+
+    // If we don't have enough matching products, add more to reach the limit
+    if (matchingProducts.length < limit) {
+      const additionalProducts = await db
+        .select()
+        .from(products)
+        .where(
+          sql`${products.category} NOT IN (${suggestedCategories.join(',')})`
+        )
+        .orderBy(desc(products.createdAt))
+        .limit(limit - matchingProducts.length);
+
+      return [...matchingProducts, ...additionalProducts];
+    }
+
+    return matchingProducts;
+  } catch (error) {
+    console.error(`Error getting top matching products for scene ${sceneId}:`, error);
+    return [];
+  }
+}
+
 export async function selectVariation(
   id: number,
 ): Promise<SceneVariation | null> {

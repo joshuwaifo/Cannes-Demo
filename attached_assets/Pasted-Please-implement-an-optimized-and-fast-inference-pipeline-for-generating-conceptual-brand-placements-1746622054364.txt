@@ -1,0 +1,51 @@
+Please implement an optimized and fast inference pipeline for generating conceptual brand placements in film scripts. The process should be triggered by the existing `/api/scripts/generate-placements` endpoint in `server/routes.ts`.
+
+The new pipeline should follow these steps:
+
+1.  **Scene Identification (Gemini Analysis - Modify `server/services/file-upload-service.ts`):**
+    *   In `identifyBrandableScenesWithGemini`:
+        *   Ensure the function takes the full list of `Scene` objects for the current script as input.
+        *   Use a Gemini model (e.g., `gemini-1.5-flash` configured for JSON output) to analyze all scenes.
+        *   The Gemini agent should identify **at most 5 scenes** that offer the most promising and natural opportunities for product placement.
+        *   The output for this step should be a list of these brandable `Scene` objects (or at least their `id` and `suggestedCategories`).
+        *   Review and optimize the prompt for speed and accuracy.
+
+2.  **Top Brand Selection (Database Logic - Modify `server/storage.ts`):**
+    *   Create a new function in `server/storage.ts`, e.g., `getTopMatchingProductsForScene(sceneId: number, suggestedCategories: ProductCategory[], limit: number = 3): Promise<Product[]>`.
+    *   This function will take a `sceneId` and its `suggestedCategories`.
+    *   It should query the `products` table to find brands.
+    *   Implement logic to select the **top 3 brands** for that scene. Initially, this logic can be:
+        *   Filter products whose `category` is present in the scene's `suggestedCategories`.
+        *   If more than 3 match, you can pick randomly, by newest, or by ID for now. (Future enhancement: consider a popularity score if added to the `products` schema).
+        *   Return up to `limit` (default 3) `Product` objects.
+
+3.  **Conceptual Image Generation (Image Generation Service - Modify `server/services/replicate-service.ts`):**
+    *   For each brandable scene identified in Step 1, and for each of the up to 3 top brands selected for it in Step 2:
+        *   Generate one conceptual image depicting that specific brand integrated into that scene.
+        *   **Crucially, for a given scene, the generated images for its different selected brands should look very similar in terms of scene setting, characters (if any), and camera angle. Only the integrated brand and its immediate interaction should change.**
+            *   To achieve this, consider a two-step process if feasible with Replicate:
+                1.  Generate a "base image" for the scene without any specific product.
+                2.  Use that base image as input to an image editing/inpainting model on Replicate to integrate each brand.
+            *   Alternatively, if using only text-to-image, craft prompts for the same scene (but different products) to be highly consistent in their description of the scene, varying only the product details.
+        *   The output should be an image URL.
+        *   The existing `generateProductPlacement` function can be refactored or new functions created. Prompts will need significant updates to guide the model towards "conceptual" rather than hyper-realistic if desired, and to manage the scene consistency.
+        *   Ensure robust error handling and use a fallback image URL if generation fails for any image.
+
+4.  **Orchestration & Data Storage (Modify `server/routes.ts`):**
+    *   The `/api/scripts/generate-placements` endpoint in `server/routes.ts` (and its helper, e.g., `_generateAndSaveSceneVariationsForRoute`, which might need renaming/refactoring) should orchestrate this new 3-step flow.
+    *   It should first clear any existing `sceneVariations` for the brandable scenes it's about to process.
+    *   After image generation (Step 3), it should save each generated image URL and a relevant description as a new `SceneVariation` record in the database, linked to the correct `sceneId` and `productId`.
+    *   Optimize for speed:
+        *   Image generation calls for multiple scene-brand pairs should be parallelized (e.g., using `Promise.all`) respecting any API rate limits.
+        *   Database operations should be efficient.
+
+5.  **Frontend (`client/src/pages/ScriptEditor.tsx` and `client/src/components/script/BrandableScenes.tsx`):**
+    *   No major changes are anticipated for the frontend components themselves if the API continues to provide `SceneVariation` data in the expected format. The existing UI should display the newly generated conceptual images.
+
+**Example Output:** If 2 scenes (Scene A, Scene B) are identified as brandable:
+*   Scene A: Top 3 brands (BrandX, BrandY, BrandZ) selected.
+*   Scene B: Top 3 brands (BrandP, BrandQ, BrandR) selected.
+*   Total images generated: 3 for Scene A (A+X, A+Y, A+Z) and 3 for Scene B (B+P, B+Q, B+R).
+*   The images A+X, A+Y, A+Z should share a very similar base scene.
+
+Please ensure the solution is robust, handles potential errors gracefully (especially in API calls to Gemini and Replicate), and logs relevant information for debugging.

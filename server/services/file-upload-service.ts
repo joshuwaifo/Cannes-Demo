@@ -200,9 +200,13 @@ export interface AIAnalysisResponseForRoutes {
   brandableScenes: BrandableSceneAnalysis[];
 }
 
-// New function to identify brandable scenes using Gemini
+/**
+ * Optimized function to identify brandable scenes using Gemini
+ * This function has been enhanced for speed and accuracy in identifying
+ * the best scenes for product placement.
+ */
 export async function identifyBrandableScenesWithGemini(
-  scenes: Scene[], // Pass the full scene objects
+  scenes: Scene[],
   targetBrandableSceneCount: number = 5,
 ): Promise<AIAnalysisResponseForRoutes> {
   if (!scenes || scenes.length === 0) {
@@ -211,42 +215,60 @@ export async function identifyBrandableScenesWithGemini(
 
   const { genAI, safetySettings } = initializeGeminiClient();
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash", // Changed to 1.5-flash as it's generally better for complex tasks
+    model: "gemini-1.5-flash", // Using the flash model for faster inference
     safetySettings,
     generationConfig: {
-      responseMimeType: "application/json", // Request JSON output
-      temperature: 0.3, // Lower temperature for more factual/constrained output
-    } as GenerationConfig, // Cast to GenerationConfig if the property is valid for the SDK version
+      responseMimeType: "application/json", // Explicitly request JSON output
+      temperature: 0.2, // Even lower temperature for more deterministic results
+      maxOutputTokens: 2048, // Limit token count for faster response
+    } as GenerationConfig,
   });
 
-  // Prepare content for the prompt - include scene number and heading for context
+  // Optimize the content preparation for the prompt
+  // Only include the most relevant information to reduce token usage
   const scenesTextForPrompt = scenes
-    .map(
-      (scene) =>
-        `SCENE_ID: ${scene.id}\nSCENE_NUMBER: ${scene.sceneNumber}\nHEADING: ${scene.heading}\nCONTENT:\n${scene.content.substring(0, 1000)}\n---\n`,
-    )
+    .map((scene) => {
+      // Extract just enough context for analysis while keeping token count low
+      const truncatedContent = scene.content.substring(0, 800); // Reduce from 1000 to 800 chars
+      
+      return `SCENE_ID: ${scene.id}
+SCENE_NUMBER: ${scene.sceneNumber}
+HEADING: ${scene.heading}
+CONTENT: ${truncatedContent}
+---`;
+    })
     .join("\n");
 
-  const prompt = `
-    You are an expert in film production and product placement.
-    Analyze the following screenplay scenes. Your goal is to identify up to ${targetBrandableSceneCount} scenes that offer the MOST promising and natural opportunities for product placement.
+  // Optimized prompt with clearer instructions for more accurate results
+  const prompt = `You are an expert in film production and product placement.
 
-    For each identified scene, you MUST provide:
-    1. "sceneId": The EXACT SCENE_ID provided for that scene in the input.
-    2. "reason": A brief (1-2 sentences) explanation of why this scene is suitable for product placement.
-    3. "suggestedProducts": An array of 1 to 3 relevant product categories from this list: BEVERAGE, ELECTRONICS, FOOD, AUTOMOTIVE, FASHION, OTHER.
+TASK: Analyze the screenplay scenes below and identify exactly ${targetBrandableSceneCount} scenes that offer the most promising and natural opportunities for product placement.
 
-    Output MUST be a valid JSON object with a single key "brandableScenes", which is an array of objects, each representing a brandable scene.
-    If no scenes are suitable, return an empty array for "brandableScenes".
-    Prioritize scenes where placement would feel organic and enhance realism.
+SELECTION CRITERIA:
+- Scenes with clear visual settings where products can be naturally integrated
+- Scenes with social interactions or natural product consumption scenarios
+- Scenes that have adequate description to understand the context
+- Scenes where a branded product would enhance realism rather than seem forced
 
-    Screenplay Scenes:
-    ${scenesTextForPrompt}
-  `;
+RESPONSE FORMAT:
+Return a valid JSON object with a single key "brandableScenes", containing an array of objects with these exact fields:
+{
+  "brandableScenes": [
+    {
+      "sceneId": number,          // MUST be the exact SCENE_ID provided in input
+      "reason": string,           // 1-2 sentence explanation of placement opportunity
+      "suggestedProducts": array  // 1-3 categories from: BEVERAGE, ELECTRONICS, FOOD, AUTOMOTIVE, FASHION, OTHER
+    },
+    ...
+  ]
+}
+
+SCREENPLAY SCENES:
+${scenesTextForPrompt}`;
 
   console.log(
-    "Sending prompt to Gemini for brandable scene analysis (first 300 chars):",
-    prompt.substring(0, 300),
+    "Sending optimized prompt to Gemini for brandable scene analysis:",
+    prompt.substring(0, 300) + "..."
   );
 
   try {
@@ -255,43 +277,116 @@ export async function identifyBrandableScenesWithGemini(
     const responseText = response.text();
     console.log("Gemini raw response for brandable scenes:", responseText);
 
-    // Attempt to parse the JSON response
-    const parsedResponse: AIAnalysisResponseForRoutes =
-      JSON.parse(responseText);
+    try {
+      // Parse the JSON response with error handling
+      const parsedResponse: AIAnalysisResponseForRoutes = JSON.parse(responseText);
 
-    // Validate the structure and content
-    if (
-      !parsedResponse.brandableScenes ||
-      !Array.isArray(parsedResponse.brandableScenes)
-    ) {
-      console.error(
-        "Gemini response for brandable scenes is not in the expected format (missing brandableScenes array).",
-      );
+      // Validate the structure and content
+      if (!parsedResponse.brandableScenes || !Array.isArray(parsedResponse.brandableScenes)) {
+        console.error("Gemini response is not in the expected format (missing brandableScenes array).");
+        return { brandableScenes: [] };
+      }
+
+      // Enhanced validation to ensure only valid scenes with correct data structure are included
+      const validatedBrandableScenes = parsedResponse.brandableScenes
+        .filter((bs) => {
+          // Ensure scene ID is a number and exists in our scenes array
+          const sceneId = typeof bs.sceneId === 'string' ? parseInt(bs.sceneId) : bs.sceneId;
+          const sceneExists = scenes.some(s => s.id === sceneId);
+          
+          // Validate other fields
+          const hasValidReason = typeof bs.reason === 'string' && bs.reason.length > 10;
+          const hasValidProducts = Array.isArray(bs.suggestedProducts) && 
+                                  bs.suggestedProducts.length > 0 &&
+                                  bs.suggestedProducts.every(p => 
+                                    Object.values(ProductCategory).includes(p as any));
+          
+          const isValid = sceneExists && hasValidReason && hasValidProducts;
+          
+          if (!isValid) {
+            console.log(`Filtering out invalid brandable scene: ${JSON.stringify(bs)}`);
+          }
+          
+          return isValid;
+        })
+        .slice(0, targetBrandableSceneCount);
+
+      console.log(`Gemini identified ${validatedBrandableScenes.length} valid brandable scenes.`);
+      
+      // Convert string IDs to numbers if necessary
+      const finalScenes = validatedBrandableScenes.map(scene => ({
+        ...scene,
+        sceneId: typeof scene.sceneId === 'string' ? parseInt(scene.sceneId) : scene.sceneId
+      }));
+      
+      return { brandableScenes: finalScenes };
+    } catch (parseError) {
+      console.error("Failed to parse Gemini response as JSON:", parseError);
+      // If JSON parsing fails, make a second attempt with a more explicit prompt
+      return await retryWithExplicitJsonPrompt(scenes, targetBrandableSceneCount, model);
+    }
+  } catch (error: any) {
+    console.error("Error analyzing scenes with Gemini:", error.message || error);
+    return { brandableScenes: [] }; // Return empty on error
+  }
+}
+
+/**
+ * Backup function to retry scene analysis with an even more explicit JSON prompt
+ * if the first attempt fails to produce valid JSON.
+ */
+async function retryWithExplicitJsonPrompt(
+  scenes: Scene[],
+  targetBrandableSceneCount: number,
+  model: any
+): Promise<AIAnalysisResponseForRoutes> {
+  console.log("Retrying brandable scene analysis with explicit JSON prompt...");
+  
+  // Create an even simpler prompt focusing solely on proper JSON formatting
+  const simplifiedScenesText = scenes
+    .map(scene => `Scene ID ${scene.id}: ${scene.heading} - ${scene.content.substring(0, 200)}...`)
+    .join("\n");
+  
+  const retryPrompt = `CRITICAL: You must return a valid JSON object containing exactly this structure:
+{
+  "brandableScenes": [
+    {
+      "sceneId": 123,
+      "reason": "Brief reason for selection",
+      "suggestedProducts": ["BEVERAGE", "FOOD"]
+    }
+  ]
+}
+
+Analyze these screenplay scenes and select ${targetBrandableSceneCount} best for product placement:
+${simplifiedScenesText}
+
+AGAIN, YOUR RESPONSE MUST BE ONLY VALID JSON WITH NO OTHER TEXT.`;
+
+  try {
+    const retryResult = await model.generateContent(retryPrompt);
+    const retryResponse = await retryResult.response;
+    const retryText = retryResponse.text();
+    
+    // Extract JSON if there's any surrounding text
+    const jsonMatch = retryText.match(/\{[\s\S]*\}/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : retryText;
+    
+    const parsedResponse = JSON.parse(jsonStr);
+    
+    if (!parsedResponse.brandableScenes || !Array.isArray(parsedResponse.brandableScenes)) {
+      console.error("Retry also failed to produce correct format.");
       return { brandableScenes: [] };
     }
-
-    const validatedBrandableScenes = parsedResponse.brandableScenes
-      .filter(
-        (bs) =>
-          bs.sceneId &&
-          scenes.find((s) => s.id === bs.sceneId) && // Ensure sceneId from Gemini exists in original scenes
-          bs.reason &&
-          Array.isArray(bs.suggestedProducts) &&
-          bs.suggestedProducts.every((p) =>
-            Object.values(ProductCategory).includes(p as any),
-          ),
-      )
-      .slice(0, targetBrandableSceneCount); // Limit to target count
-
-    console.log(
-      `Gemini identified ${validatedBrandableScenes.length} valid brandable scenes.`,
-    );
-    return { brandableScenes: validatedBrandableScenes };
-  } catch (error: any) {
-    console.error(
-      "Error analyzing scenes with Gemini:",
-      error.message || error,
-    );
-    return { brandableScenes: [] }; // Return empty on error
+    
+    // Basic validation
+    const validScenes = parsedResponse.brandableScenes
+      .filter(bs => bs.sceneId && bs.reason && Array.isArray(bs.suggestedProducts))
+      .slice(0, targetBrandableSceneCount);
+      
+    return { brandableScenes: validScenes };
+  } catch (retryError) {
+    console.error("Retry also failed:", retryError);
+    return { brandableScenes: [] };
   }
 }
