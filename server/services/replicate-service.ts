@@ -145,6 +145,6 @@ function createProductPlacementPrompt(request: GenerationRequest): string {
 }
 
 function createPlacementDescription(request: GenerationRequest): string {
-  const { product, variationNumber } = request;
+  const { scene, product, variationNumber } = request;
   return `Variation ${variationNumber}: ${product.name} placed in the scene. ${scene.heading}. Context: ${scene.brandableReason || "General placement"}`;
 }
