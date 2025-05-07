@@ -4,15 +4,18 @@ import {
   scripts,
   scenes,
   sceneVariations,
+  actors,
   insertProductSchema,
   insertScriptSchema,
   insertSceneSchema,
   insertSceneVariationSchema,
+  insertActorSchema,
   Product,
   ProductCategory,
   Script,
   Scene,
   SceneVariation,
+  Actor,
 } from "@shared/schema";
 import { eq, and, like, desc, sql, count, asc, not } from "drizzle-orm";
 import { ZodError } from "zod";
@@ -424,4 +427,145 @@ export async function selectVariation(
     // Rethrow or handle as appropriate for your application's error strategy
     throw error;
   }
+}
+
+// Actors
+export async function getActors(
+  options: {
+    search?: string;
+    gender?: string;
+    nationality?: string;
+    page?: number;
+    pageSize?: number;
+  } = {},
+): Promise<{
+  actors: Actor[];
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+}> {
+  const { search = "", gender = "", nationality = "", page = 1, pageSize = 10 } = options;
+  const offset = (page - 1) * pageSize;
+
+  let query = db.select().from(actors);
+
+  // Apply search filter - case insensitive for name
+  if (search) {
+    query = query.where(
+      sql`(LOWER(${actors.name}) LIKE LOWER(${"%" + search + "%"}))`,
+    );
+  }
+
+  // Apply gender filter
+  if (gender) {
+    query = query.where(
+      sql`(LOWER(${actors.gender}) = LOWER(${gender}))`,
+    );
+  }
+
+  // Apply nationality filter
+  if (nationality) {
+    query = query.where(
+      sql`(LOWER(${actors.nationality}) LIKE LOWER(${"%" + nationality + "%"}))`,
+    );
+  }
+
+  // Get total count for pagination - Apply the same filters to count query
+  let countQuery = db.select({ count: count() }).from(actors);
+  if (search) {
+    countQuery = countQuery.where(
+      sql`(LOWER(${actors.name}) LIKE LOWER(${"%" + search + "%"}))`,
+    );
+  }
+  if (gender) {
+    countQuery = countQuery.where(
+      sql`(LOWER(${actors.gender}) = LOWER(${gender}))`,
+    );
+  }
+  if (nationality) {
+    countQuery = countQuery.where(
+      sql`(LOWER(${actors.nationality}) LIKE LOWER(${"%" + nationality + "%"}))`,
+    );
+  }
+
+  const countResult = await countQuery;
+  const total = Number(countResult[0].count || 0);
+
+  // Get paginated actors
+  const result = await query
+    .orderBy(asc(actors.name))
+    .limit(pageSize)
+    .offset(offset);
+
+  return {
+    actors: result,
+    totalCount: total,
+    currentPage: page,
+    totalPages: Math.ceil(total / pageSize),
+    pageSize,
+  };
+}
+
+export async function getActorById(id: number): Promise<Actor | null> {
+  const result = await db
+    .select()
+    .from(actors)
+    .where(eq(actors.id, id))
+    .limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+export async function createActor(
+  data: Omit<Actor, "id" | "createdAt" | "updatedAt">,
+): Promise<Actor> {
+  try {
+    const validatedData = insertActorSchema.parse({
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await db.insert(actors).values(validatedData).returning();
+    return result[0];
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      throw new Error(
+        `Validation error: ${error.errors.map((e: any) => e.message).join(", ")}`,
+      );
+    }
+    console.error("Error in createActor:", error);
+    throw error;
+  }
+}
+
+export async function updateActor(
+  id: number,
+  data: Partial<Omit<Actor, "id" | "createdAt" | "updatedAt">>,
+): Promise<Actor | null> {
+  try {
+    const result = await db
+      .update(actors)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(actors.id, id))
+      .returning();
+
+    return result.length > 0 ? result[0] : null;
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      throw new Error(
+        `Validation error: ${error.errors.map((e: any) => e.message).join(", ")}`,
+      );
+    }
+    console.error(`Error in updateActor for ID ${id}:`, error);
+    throw error;
+  }
+}
+
+export async function deleteActor(id: number): Promise<boolean> {
+  const result = await db
+    .delete(actors)
+    .where(eq(actors.id, id))
+    .returning();
+  return result.length > 0;
 }

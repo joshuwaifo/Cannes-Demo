@@ -136,3 +136,33 @@ export type SceneVariation = typeof sceneVariations.$inferSelect & {
   productCategory?: string;
   productImageUrl?: string;
 };
+
+// Actors table
+export const actors = pgTable("actors", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  gender: text("gender").notNull(),
+  nationality: text("nationality").notNull(),
+  notableRoles: jsonb("notable_roles").$type<string[]>().notNull(),
+  genres: jsonb("genres").$type<string[]>().notNull(),
+  recentPopularity: text("recent_popularity").notNull(),
+  typicalRoles: jsonb("typical_roles").$type<string[]>().notNull(),
+  estSalaryRange: text("est_salary_range").notNull(),
+  socialMediaFollowing: text("social_media_following").notNull(),
+  availability: text("availability").notNull(),
+  bestSuitedRolesStrategic: text("best_suited_roles_strategic").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertActorSchema = createInsertSchema(actors, {
+  name: (schema) => schema.min(2, "Actor name must be at least 2 characters"),
+  gender: (schema) => schema.min(1, "Gender cannot be empty"),
+  nationality: (schema) => schema.min(2, "Nationality must be at least 2 characters"),
+  notableRoles: (schema) => schema.array().min(1, "At least one notable role must be provided"),
+  genres: (schema) => schema.array().min(1, "At least one genre must be provided"),
+  typicalRoles: (schema) => schema.array().min(1, "At least one typical role must be provided"),
+});
+
+export type InsertActor = z.infer<typeof insertActorSchema>;
+export type Actor = typeof actors.$inferSelect;
