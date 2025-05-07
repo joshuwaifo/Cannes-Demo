@@ -96,11 +96,19 @@ export async function generateProductPlacement(
             if (done) break;
             chunks.push(value);
           }
-          const concatenated = Buffer.concat(chunks);
-          const result = JSON.parse(concatenated.toString());
-          imageUrl = result.url || result[0];
+          // Check if it's a PNG (starts with PNG magic number)
+          const buffer = Buffer.concat(chunks);
+          if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+            // TODO: We need to implement image storage and return a URL
+            console.log("Received valid PNG image data");
+            imageUrl = FALLBACK_IMAGE_URL; // For now, use fallback until storage is implemented
+          } else {
+            // Try parsing as JSON if not PNG
+            const result = JSON.parse(buffer.toString());
+            imageUrl = result.url || result[0];
+          }
         } catch (err) {
-          console.warn("Failed to parse ReadableStream:", err);
+          console.warn("Failed to process ReadableStream:", err);
           imageUrl = FALLBACK_IMAGE_URL;
         }
       }
