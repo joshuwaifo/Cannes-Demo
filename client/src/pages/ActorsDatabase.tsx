@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Actor } from "@/lib/types";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Actor, ActorFormData } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -11,6 +11,9 @@ import {
   SelectValue, 
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { Edit, Pencil } from "lucide-react";
+import EditActorModal from "@/components/actors/EditActorModal";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function ActorsDatabase() {
   const [search, setSearch] = useState("");
@@ -18,6 +21,9 @@ export default function ActorsDatabase() {
   const [nationality, setNationality] = useState("all");
   const [page, setPage] = useState(1);
   const pageSize = 10;
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedActor, setSelectedActor] = useState<Actor | null>(null);
+  const queryClient = useQueryClient();
 
   // Query to fetch actors with filtering and pagination
   const { data, isLoading, error } = useQuery({
@@ -64,6 +70,41 @@ export default function ActorsDatabase() {
     if (data && page < data.totalPages) {
       setPage(page + 1);
     }
+  };
+  
+  // Open edit modal with selected actor
+  const openEditModal = (actor: Actor) => {
+    setSelectedActor(actor);
+    setIsEditModalOpen(true);
+  };
+  
+  // Edit actor mutation
+  const editActorMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number, data: ActorFormData }) => {
+      return await apiRequest('PUT', `/api/actors/${id}`, data);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Actor updated",
+        description: "The actor information has been updated successfully.",
+      });
+      setIsEditModalOpen(false);
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/actors', search, gender, nationality, page] 
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to update actor",
+        description: error.message || "There was an error updating the actor.",
+      });
+    },
+  });
+  
+  // Handle actor edit
+  const handleEditActor = async (id: number, data: ActorFormData) => {
+    await editActorMutation.mutate({ id, data });
   };
 
   return (
@@ -163,6 +204,9 @@ export default function ActorsDatabase() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Best Suited (Strategic)
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -219,6 +263,17 @@ export default function ActorsDatabase() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {actor.bestSuitedRolesStrategic}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => openEditModal(actor)}
+                        className="flex items-center"
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Edit
+                      </Button>
                     </td>
                   </tr>
                 ))}

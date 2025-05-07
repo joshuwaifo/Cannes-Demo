@@ -129,3 +129,41 @@ export type Actor = {
   bestSuitedRolesStrategic: string;
   imageUrl?: string;
 };
+
+export type EditActorModalProps = {
+  isOpen: boolean;
+  actor: Actor | null;
+  onClose: () => void;
+  onEdit: (id: number, actor: ActorFormData) => Promise<void>;
+  isSubmitting: boolean;
+};
+
+export type ActorFormData = {
+  name: string;
+  gender: string;
+  nationality: string;
+  notableRoles: string;
+  genres: string;
+  recentPopularity: string;
+  typicalRoles: string;
+  estSalaryRange: string;
+  socialMediaFollowing: string;
+  availability: string;
+  bestSuitedRolesStrategic: string;
+  imageUrl: string;
+};
+
+export const actorFormSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  gender: z.string().min(1, "Gender is required"),
+  nationality: z.string().min(2, "Nationality must be at least 2 characters"),
+  notableRoles: z.string(),
+  genres: z.string(),
+  recentPopularity: z.string().min(1, "Popularity status is required"),
+  typicalRoles: z.string(),
+  estSalaryRange: z.string().min(1, "Salary range is required"),
+  socialMediaFollowing: z.string().min(1, "Social media information is required"),
+  availability: z.string().min(1, "Availability is required"),
+  bestSuitedRolesStrategic: z.string().min(1, "Best suited roles is required"),
+  imageUrl: z.string().url("Please enter a valid URL").or(z.string().length(0)),
+});
