@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { Film, Home, FileText, ShoppingBag } from "lucide-react";
+import { Film, Home, FileText, ShoppingBag, Users } from "lucide-react";
 import { HeaderProps } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -14,11 +14,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
         <nav>
           <ul className="flex space-x-6">
             <li>
-              <button 
+              <button
                 onClick={() => onTabChange("welcome")}
                 className={cn(
                   "hover:text-primary transition-colors duration-200 font-medium flex items-center",
-                  activeTab === "welcome" && "text-primary"
+                  activeTab === "welcome" && "text-primary",
                 )}
               >
                 <Home className="mr-1 h-4 w-4" />
@@ -26,11 +26,11 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             </li>
             <li>
-              <button 
+              <button
                 onClick={() => onTabChange("script")}
                 className={cn(
                   "hover:text-primary transition-colors duration-200 font-medium flex items-center",
-                  activeTab === "script" && "text-primary"
+                  activeTab === "script" && "text-primary",
                 )}
               >
                 <FileText className="mr-1 h-4 w-4" />
@@ -38,15 +38,27 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               </button>
             </li>
             <li>
-              <button 
+              <button
                 onClick={() => onTabChange("products")}
                 className={cn(
                   "hover:text-primary transition-colors duration-200 font-medium flex items-center",
-                  activeTab === "products" && "text-primary"
+                  activeTab === "products" && "text-primary",
                 )}
               >
                 <ShoppingBag className="mr-1 h-4 w-4" />
                 Brands
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={() => onTabChange("actors")}
+                className={cn(
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center",
+                  activeTab === "actors" && "text-primary",
+                )}
+              >
+                <Users className="mr-1 h-4 w-4" />
+                Actors
               </button>
             </li>
           </ul>

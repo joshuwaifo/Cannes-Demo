@@ -7,6 +7,7 @@ import SceneBreakdown from "@/components/script/SceneBreakdown";
 import ScriptDisplay from "@/components/script/ScriptDisplay";
 import BrandableScenes from "@/components/script/BrandableScenes";
 import { Script, Scene, SceneVariation } from "@shared/schema";
+import { RefreshCw, FileText } from "lucide-react";
 
 export default function ScriptEditor() {
   const [scriptFile, setScriptFile] = useState<File | null>(null);
@@ -22,7 +23,7 @@ export default function ScriptEditor() {
     queryKey: ["/api/scripts/current"],
     refetchOnWindowFocus: false,
     retry: 1, // Limit retry attempts
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Error fetching script:", error);
       toast({
         variant: "destructive",
@@ -43,7 +44,7 @@ export default function ScriptEditor() {
     refetchOnWindowFocus: false,
     enabled: !!script,
     retry: 1, // Limit retry attempts
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Error fetching scenes:", error);
     },
   });
@@ -58,7 +59,7 @@ export default function ScriptEditor() {
     refetchOnWindowFocus: false,
     enabled: !!script && scenes.length > 0,
     retry: 1, // Limit retry attempts
-    onError: (error) => {
+    onError: (error: Error) => {
       console.error("Error fetching brandable scenes:", error);
     },
   });
@@ -73,7 +74,7 @@ export default function ScriptEditor() {
     refetchOnWindowFocus: false,
     enabled:
       !!activeSceneId &&
-      brandableScenes.some((scene) => scene.id === activeSceneId),
+      brandableScenes.some((scene: Scene) => scene.id === activeSceneId),
   });
 
   // Upload script mutation
@@ -148,13 +149,13 @@ export default function ScriptEditor() {
       });
     },
   });
-  
+
   // Generate product placements mutation
   const generatePlacementsMutation = useMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/scripts/generate-placements", {});
     },
-    onSuccess: (data) => {
+    onSuccess: (data: { brandableScenesCount: number }) => {
       refetchBrandable();
       refetchVariations();
       toast({
@@ -196,84 +197,78 @@ export default function ScriptEditor() {
     setActiveSceneId(sceneId);
 
     // If the selected scene is a brandable scene, load variations
-    if (brandableScenes.some((scene) => scene.id === sceneId)) {
+    if (brandableScenes.some((scene: Scene) => scene.id === sceneId)) {
       refetchVariations();
     }
   };
 
-  const handleSaveScript = async () => {
-    await saveScriptMutation.mutateAsync();
-  };
+  const activeScene = scenes.find((s: Scene) => s.id === activeSceneId);
 
-  const handleReanalyzeScript = async () => {
-    await reanalyzeScriptMutation.mutateAsync();
-  };
-  
-  const handleGeneratePlacements = async () => {
-    await generatePlacementsMutation.mutateAsync();
-  };
+  // Loading state for initial data
+  if (isLoadingScript || (script && isLoadingScenes && scenes.length === 0)) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <RefreshCw className="h-8 w-8 text-primary animate-spin" />
+        <p className="ml-2 text-lg font-semibold text-secondary">
+          Loading script data...
+        </p>
+      </div>
+    );
+  }
 
-  const handleOptionSelect = async (variationId: number) => {
-    await selectVariationMutation.mutateAsync(variationId);
-  };
-
-  const isScriptLoaded = !!script && !isLoadingScript;
-  const activeScene =
-    scenes.find((scene) => scene.id === activeSceneId) || null;
-  const brandableSceneIds = brandableScenes.map((scene) => scene.id);
-  const isLoading =
-    isLoadingScript || isLoadingScenes || uploadScriptMutation.isPending;
+  // If there's an error fetching the initial script and it's not loading,
+  // and not in the process of uploading, guide user to upload.
+  // This is a fallback in case the initial query fails and there's truly no script.
+  if (!script && !isLoadingScript && !uploadScriptMutation.isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-center">
+        <FileText size={48} className="text-gray-400 mb-4" />
+        <h2 className="text-xl font-semibold text-gray-700 mb-2">
+          No Script Loaded
+        </h2>
+        <p className="text-sm text-gray-600">
+          Please go to the 'Welcome' page to upload a script.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      {!isScriptLoaded ? (
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="bg-white rounded-lg shadow-lg p-8 mb-8">
-            <h2 className="text-2xl font-semibold mb-6">Upload a Script</h2>
-            <p className="text-gray-600 mb-6">
-              Please upload a screenplay PDF file to begin analyzing it for
-              product placement opportunities.
-            </p>
-            <FileUpload
-              onFileUpload={handleFileUpload}
-              isLoading={uploadScriptMutation.isPending}
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <SceneBreakdown
+        scenes={scenes}
+        activeSceneId={activeSceneId}
+        brandableSceneIds={brandableScenes.map((scene: Scene) => scene.id)}
+        isLoading={isLoadingScenes}
+        onSceneSelect={handleSceneSelect}
+      />
+
+      <div className="lg:col-span-3">
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <ScriptDisplay
+            script={script}
+            isLoading={isLoadingScript || isLoadingScenes}
+            onSave={() => saveScriptMutation.mutateAsync()}
+            onReanalyze={() => reanalyzeScriptMutation.mutateAsync()}
+            onGeneratePlacements={() =>
+              generatePlacementsMutation.mutateAsync()
+            }
+            activeScene={activeScene}
+          />
+
+          <div className="mt-6">
+            <BrandableScenes
+              brandableScenes={brandableScenes}
+              productVariations={sceneVariations}
+              isLoading={isLoadingVariations}
+              selectedSceneId={activeSceneId}
+              onOptionSelect={(variationId: number) =>
+                selectVariationMutation.mutateAsync(variationId)
+              }
             />
           </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <SceneBreakdown
-            scenes={scenes}
-            activeSceneId={activeSceneId}
-            brandableSceneIds={brandableSceneIds}
-            isLoading={isLoadingScenes}
-            onSceneSelect={handleSceneSelect}
-          />
-
-          <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow p-4 mb-6">
-              <ScriptDisplay
-                script={script}
-                isLoading={isLoading}
-                onSave={handleSaveScript}
-                onReanalyze={handleReanalyzeScript}
-                onGeneratePlacements={handleGeneratePlacements}
-                activeScene={activeScene}
-              />
-
-              <div className="mt-6">
-                <BrandableScenes
-                  brandableScenes={brandableScenes}
-                  productVariations={sceneVariations}
-                  isLoading={isLoadingVariations}
-                  selectedSceneId={activeSceneId}
-                  onOptionSelect={handleOptionSelect}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

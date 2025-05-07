@@ -1,5 +1,5 @@
-import Replicate from 'replicate';
-import { Scene, Product } from '@shared/schema';
+import Replicate from "replicate";
+import { Scene, Product, ProductCategory } from "@shared/schema";
 
 interface GenerationRequest {
   scene: Scene;
@@ -12,150 +12,164 @@ interface GenerationResult {
   description: string;
 }
 
-export async function generateProductPlacement(request: GenerationRequest): Promise<GenerationResult> {
+export async function generateProductPlacement(
+  request: GenerationRequest,
+): Promise<GenerationResult> {
   try {
     const apiToken = process.env.REPLICATE_API_TOKEN;
-    
+
     if (!apiToken) {
-      throw new Error('REPLICATE_API_TOKEN environment variable is not set');
+      throw new Error("REPLICATE_API_TOKEN environment variable is not set");
     }
-    
+
     const replicate = new Replicate({
       auth: apiToken,
     });
-    
+
     // Create a prompt describing the scene and product placement
     const prompt = createProductPlacementPrompt(request);
-    
-    // Generate image using Replicate's flux-schnell model
-    console.log('Generating image with Replicate...');
-    console.log('Prompt:', prompt);
+
+    // Generate image using Replicate's flux-1.1-pro model
+    console.log(
+      "Calling Replicate API with model: black-forest-labs/flux-1.1-pro",
+    );
     let output;
-    
+
     try {
-      console.log('Calling Replicate API with model: black-forest-labs/flux-schnell');
-      output = await replicate.run(
-        "black-forest-labs/flux-schnell:0cd26e7eda1e36be3a2bc7f47d500f253c7c34ec91ea18a0fcf0ec4c3a096528",
-        {
-          input: {
-            prompt: prompt,
-            prompt_upsampling: true,
-            width: 864,
-            height: 480,
-            num_outputs: 1,
-            scheduler: "K_EULER", 
-            steps: 25,
-            guidance_scale: 7.5,
-            negative_prompt: "poor quality, bad quality, blurry, low resolution, distorted, deformed, unrealistic, disfigured",
-          }
-        }
+      output = await replicate.run("black-forest-labs/flux-1.1-pro", {
+        input: {
+          prompt: prompt,
+          width: 1024, // Must be multiple of 32
+          height: 576, // Must be multiple of 32
+          aspect_ratio: "custom", // Since width and height are provided
+          prompt_upsampling: true, // For more creative generation
+          output_format: "webp", // Default, can be 'png'
+          output_quality: 90, // 0-100, default 80
+          safety_tolerance: 2, // 1 (strict) to 6 (permissive), default 2
+          seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER), // For random seed; use a fixed number for reproducibility
+          // No negative_prompt, num_inference_steps, guidance_scale, num_outputs, or scheduler in this schema
+        },
+      });
+      console.log("Replicate API response type:", typeof output);
+      console.log(
+        "Replicate API raw response:",
+        JSON.stringify(output, null, 2),
       );
-      console.log('Replicate API response type:', typeof output);
-      console.log('Replicate API raw response:', JSON.stringify(output, null, 2));
-      
+
       // Handle ReadableStream output (common in newer Replicate API responses)
       if (output instanceof ReadableStream) {
-        console.log('Got ReadableStream from Replicate, processing stream...');
+        console.log("Got ReadableStream from Replicate, processing stream...");
         const reader = output.getReader();
-        let result = '';
-        
+        let result = "";
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          
+
           // Convert Uint8Array to string
           if (value) {
             const chunk = new TextDecoder().decode(value);
             result += chunk;
           }
         }
-        
+
         // Try to parse the result as JSON
         try {
           output = JSON.parse(result);
         } catch (e) {
-          console.log('Stream output is not JSON, using as direct URL:', result);
+          console.log(
+            "Stream output is not JSON, using as direct URL:",
+            result,
+          );
           output = [result.trim()];
         }
       }
     } catch (error) {
-      console.error('Error running Replicate model:', error);
+      console.error("Error running Replicate model:", error);
       throw error;
     }
-    
+
     // Create a description of the product placement
     const description = createPlacementDescription(request);
-    
+
     // Return image URL and description
-    console.log('Processing Replicate output:', JSON.stringify(output));
-    
+    console.log("Processing Replicate output:", JSON.stringify(output));
+
     // Helper function to sanitize URLs
     const sanitizeUrl = (url: string): string => {
       try {
         // Remove any whitespace or newline characters
         url = url.trim();
-        
+
         // Validate if it's a proper URL by creating a URL object
         new URL(url);
-        
+
         // Return the sanitized URL
         return url;
       } catch (error) {
-        console.error('Invalid URL format:', url, error);
+        console.error("Invalid URL format:", url, error);
         // Return a placeholder image if URL is invalid
         return "https://placehold.co/600x400/gray/white?text=Image+Generation+Failed";
       }
     };
-    
+
     if (Array.isArray(output) && output.length > 0) {
-      console.log('Output is an array, using first element as image URL');
-      
+      console.log("Output is an array, using first element as image URL");
+
       // Check if we have empty object in array
-      if (output[0] && typeof output[0] === 'object' && Object.keys(output[0]).length === 0) {
-        console.log('Empty object returned, using fallback image URL');
+      if (
+        output[0] &&
+        typeof output[0] === "object" &&
+        Object.keys(output[0]).length === 0
+      ) {
+        console.log("Empty object returned, using fallback image URL");
         return {
-          imageUrl: "https://placehold.co/864x480/333/white?text=Image+Generation+Failed",
+          imageUrl:
+            "https://placehold.co/864x480/333/white?text=Image+Generation+Failed",
           description,
         };
       }
-      
-      const imageUrl = typeof output[0] === 'string' ? sanitizeUrl(output[0]) : '';
+
+      const imageUrl =
+        typeof output[0] === "string" ? sanitizeUrl(output[0]) : "";
       return {
         imageUrl,
         description,
       };
-    } else if (output && typeof output === 'object') {
+    } else if (output && typeof output === "object") {
       // Handle other output formats
-      console.log('Output is an object, looking for image URL');
+      console.log("Output is an object, looking for image URL");
       const anyOutput = output as any;
-      
+
       // For stability-ai/sdxl style outputs with output property
       if (anyOutput.output) {
-        console.log('Found output property:', anyOutput.output);
-        const imageUrls = Array.isArray(anyOutput.output) ? anyOutput.output : [anyOutput.output];
-        if (imageUrls.length > 0 && typeof imageUrls[0] === 'string') {
-          console.log('Using output[0] as image URL:', imageUrls[0]);
+        console.log("Found output property:", anyOutput.output);
+        const imageUrls = Array.isArray(anyOutput.output)
+          ? anyOutput.output
+          : [anyOutput.output];
+        if (imageUrls.length > 0 && typeof imageUrls[0] === "string") {
+          console.log("Using output[0] as image URL:", imageUrls[0]);
           return {
             imageUrl: sanitizeUrl(imageUrls[0]),
             description,
           };
         }
-      } 
-      
+      }
+
       // For flux-schnell which might return a direct URL string
-      if (typeof anyOutput === 'string' && anyOutput.startsWith('http')) {
-        console.log('Output is a direct URL string:', anyOutput);
+      if (typeof anyOutput === "string" && anyOutput.startsWith("http")) {
+        console.log("Output is a direct URL string:", anyOutput);
         return {
           imageUrl: sanitizeUrl(anyOutput),
           description,
         };
       }
-      
+
       // For other possibilities
-      console.log('Checking all object properties for URLs');
+      console.log("Checking all object properties for URLs");
       for (const key in anyOutput) {
         const value = anyOutput[key];
-        if (typeof value === 'string' && value.startsWith('http')) {
+        if (typeof value === "string" && value.startsWith("http")) {
           console.log(`Found URL in property ${key}:`, value);
           return {
             imageUrl: sanitizeUrl(value),
@@ -163,7 +177,9 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
           };
         }
         if (Array.isArray(value)) {
-          const urls = value.filter(item => typeof item === 'string' && item.startsWith('http'));
+          const urls = value.filter(
+            (item) => typeof item === "string" && item.startsWith("http"),
+          );
           if (urls.length > 0) {
             console.log(`Found URL in array property ${key}[0]:`, urls[0]);
             return {
@@ -174,26 +190,29 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
         }
       }
     }
-    
+
     // If we reach here, no valid image URL was found
-    console.error('Unexpected output format from Replicate:', JSON.stringify(output, null, 2));
-    throw new Error('No image was generated');
+    console.error(
+      "Unexpected output format from Replicate:",
+      JSON.stringify(output, null, 2),
+    );
+    throw new Error("No image was generated");
   } catch (error) {
-    console.error('Replicate API error:', error);
-    throw new Error('Failed to generate product placement image');
+    console.error("Replicate API error:", error);
+    throw new Error("Failed to generate product placement image");
   }
 }
 
 function createProductPlacementPrompt(request: GenerationRequest): string {
   const { scene, product, variationNumber } = request;
-  
+
   // Extract scene details
   const sceneLocation = scene.heading;
   const sceneContent = scene.content;
-  
+
   // Create a prompt based on variation number
   let promptBase = `High-quality cinematic film scene, ${sceneLocation}, showing`;
-  
+
   // Customize prompt based on product category and scene
   switch (product.category) {
     case "BEVERAGE":
@@ -205,7 +224,7 @@ function createProductPlacementPrompt(request: GenerationRequest): string {
         promptBase += ` multiple characters enjoying ${product.name} drinks together`;
       }
       break;
-      
+
     case "ELECTRONICS":
       if (variationNumber === 1) {
         promptBase += ` a character using a ${product.name} device with the logo clearly visible`;
@@ -215,7 +234,7 @@ function createProductPlacementPrompt(request: GenerationRequest): string {
         promptBase += ` multiple characters interacting with ${product.name} products`;
       }
       break;
-      
+
     case "FOOD":
       if (variationNumber === 1) {
         promptBase += ` a character eating or holding ${product.name} with packaging visible`;
@@ -225,7 +244,7 @@ function createProductPlacementPrompt(request: GenerationRequest): string {
         promptBase += ` characters sharing and enjoying ${product.name} together`;
       }
       break;
-      
+
     case "AUTOMOTIVE":
       if (variationNumber === 1) {
         promptBase += ` a ${product.name} car prominently parked or driving in the scene`;
@@ -235,7 +254,7 @@ function createProductPlacementPrompt(request: GenerationRequest): string {
         promptBase += ` a ${product.name} vehicle as a focal point in the background`;
       }
       break;
-      
+
     case "FASHION":
       if (variationNumber === 1) {
         promptBase += ` a character wearing ${product.name} with the logo/brand visible`;
@@ -245,57 +264,60 @@ function createProductPlacementPrompt(request: GenerationRequest): string {
         promptBase += ` multiple characters wearing or using ${product.name} products`;
       }
       break;
-      
+
     default:
       promptBase += ` ${product.name} prominently featured in the scene`;
   }
-  
+
   // Add cinematic quality descriptors
-  promptBase += ", professional lighting, high-quality, film still, 35mm film, cinematic composition, high detail";
-  
+  promptBase +=
+    ", professional lighting, high-quality, film still, 35mm film, cinematic composition, high detail";
+
   return promptBase;
 }
 
 function createPlacementDescription(request: GenerationRequest): string {
   const { scene, product, variationNumber } = request;
-  
-  // Create description templates based on product category
-  const templates = {
-    "BEVERAGE": [
-      `Character enters with a ${product.name} in hand. "Sorry I'm late, I had to stop for my ${product.name}."`,
-      `Close-up on the ${product.name} as character takes a sip and smiles appreciatively.`,
-      `Characters toast with ${product.name} glasses/bottles while celebrating their success.`
+
+  // Define placement templates based on product category
+  const templates: Record<ProductCategory, string[]> & { OTHER: string[] } = {
+    [ProductCategory.BEVERAGE]: [
+      `${product.name} is featured prominently on a table.`,
+      `A character is enjoying ${product.name} in the scene.`,
+      `Multiple characters are sharing ${product.name} together.`,
     ],
-    "ELECTRONICS": [
-      `Character works intently on their ${product.name} device, with the logo clearly visible.`,
-      `"Let me check that on my ${product.name}," character says, pulling out the device.`,
-      `${product.name} device plays an important notification sound, drawing everyone's attention.`
+    [ProductCategory.ELECTRONICS]: [
+      `A character is using a ${product.name} device.`,
+      `A ${product.name} device is placed prominently in the scene.`,
+      `Multiple characters are interacting with ${product.name} products.`,
     ],
-    "FOOD": [
-      `Character opens a package of ${product.name} and offers it to others in the scene.`,
-      `"I always keep ${product.name} with me when I travel," character explains, taking a bite.`,
-      `Close-up of ${product.name} packaging as character reaches for it during conversation.`
+    [ProductCategory.FOOD]: [
+      `Characters are enjoying ${product.name} during a meal.`,
+      `${product.name} products are arranged attractively in the scene.`,
+      `A character is eating or holding ${product.name} with packaging visible.`,
     ],
-    "AUTOMOTIVE": [
-      `Character pulls up in a sleek ${product.name}, turning heads as they park.`,
-      `"Nice ${product.name}," another character comments admiringly as they approach the vehicle.`,
-      `Camera pans to reveal a ${product.name} car prominently featured in the background.`
+    [ProductCategory.AUTOMOTIVE]: [
+      `A ${product.name} car is parked on the street or driven by a character.`,
+      `A character is entering or exiting a ${product.name} vehicle.`,
+      `A ${product.name} vehicle is a focal point in the background.`,
     ],
-    "FASHION": [
-      `Character adjusts their ${product.name} item, drawing attention to the brand label.`,
-      `"Is that the new ${product.name}?" another character asks, clearly impressed.`,
-      `Close-up of character's ${product.name} accessory as they confidently enter the scene.`
+    [ProductCategory.FASHION]: [
+      `A character is wearing or carrying a ${product.name} item.`,
+      `A ${product.name} item is being used or worn prominently in the scene.`,
+      `Multiple characters are wearing or using ${product.name} products.`,
     ],
-    "OTHER": [
-      `${product.name} is prominently displayed as character interacts with it.`,
-      `Character mentions ${product.name} by name as they use the product.`,
-      `Close-up shot focuses on the ${product.name} logo or packaging.`
-    ]
+    // OTHER is a fallback, so it's handled slightly differently
+    OTHER: [
+      `${product.name} is subtly placed in the background of the scene.`,
+      `${product.name} is visible on a shelf or counter.`,
+      `${product.name} is part of the scene's natural environment.`,
+    ],
   };
-  
+
   // Get appropriate template for this category and variation
   const categoryTemplates = templates[product.category] || templates.OTHER;
-  const template = categoryTemplates[(variationNumber - 1) % categoryTemplates.length];
-  
+  const template =
+    categoryTemplates[(variationNumber - 1) % categoryTemplates.length];
+
   return template;
 }

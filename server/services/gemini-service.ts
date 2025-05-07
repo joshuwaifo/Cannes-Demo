@@ -1,165 +1,325 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
-import { ProductCategory, Scene } from '@shared/schema';
+import Replicate from "replicate";
+import { Scene, Product, ProductCategory } from "@shared/schema";
 
-interface BrandableSceneAnalysis {
-  sceneId: number;
-  reason: string;
-  suggestedProducts: ProductCategory[];
+interface GenerationRequest {
+  scene: Scene;
+  product: Product;
+  variationNumber: number;
 }
 
-interface AIAnalysisResponse {
-  brandableScenes: BrandableSceneAnalysis[];
+interface GenerationResult {
+  imageUrl: string;
+  description: string;
 }
 
-// Initialize Gemini API with safety settings
-function initializeGeminiClient() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY environment variable is not set');
-  }
-  
-  const genAI = new GoogleGenerativeAI(apiKey);
-  
-  // Configure safety settings
-  const safetySettings = [
-    {
-      category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-    {
-      category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-      threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-    },
-  ];
-  
-  return { genAI, safetySettings };
-}
-
-export async function analyzeBrandableScenes(scenes: Scene[]): Promise<AIAnalysisResponse> {
+export async function generateProductPlacement(
+  request: GenerationRequest,
+): Promise<GenerationResult> {
   try {
-    const { genAI, safetySettings } = initializeGeminiClient();
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash-preview-04-17",
-      safetySettings
+    const apiToken = process.env.REPLICATE_API_TOKEN;
+
+    if (!apiToken) {
+      throw new Error("REPLICATE_API_TOKEN environment variable is not set");
+    }
+
+    const replicate = new Replicate({
+      auth: apiToken,
     });
-    
-    // Create a prompt for analyzing brandable scenes
-    const prompt = createAnalysisPrompt(scenes);
-    
-    // Generate response from Gemini
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    
-    // Parse the response
-    let analysisResponse = parseGeminiResponse(text, scenes);
-    
-    // Ensure we always have at least one brandable scene
-    if (analysisResponse.length === 0 && scenes.length > 0) {
-      console.log('No brandable scenes detected by AI. Using first scene as fallback.');
-      analysisResponse = [{
-        sceneId: scenes[0].id,
-        reason: "This scene provides a good opportunity for product integration.",
-        suggestedProducts: [ProductCategory.BEVERAGE, ProductCategory.ELECTRONICS, ProductCategory.FASHION]
-      }];
+
+    // Create a prompt describing the scene and product placement
+    const prompt = createProductPlacementPrompt(request);
+
+    // Generate image using Replicate's flux-1.1-pro model
+    console.log("Generating image with Replicate...");
+    console.log("Prompt:", prompt);
+    let output;
+
+    try {
+      console.log(
+        "Calling Replicate API with model: black-forest-labs/flux-1.1-pro",
+      );
+      output = await replicate.run("black-forest-labs/flux-1.1-pro", {
+        input: {
+          prompt: prompt,
+          width: 1024, // Must be multiple of 32
+          height: 576, // Must be multiple of 32
+          aspect_ratio: "custom", // Since width and height are provided
+          prompt_upsampling: true, // For more creative generation
+          output_format: "webp", // Default, can be 'png'
+          output_quality: 90, // 0-100, default 80
+          safety_tolerance: 2, // 1 (strict) to 6 (permissive), default 2
+          seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER), // For random seed; use a fixed number for reproducibility
+          // No negative_prompt, num_inference_steps, guidance_scale, num_outputs, or scheduler in this schema
+        },
+      });
+      console.log("Replicate API response type:", typeof output);
+      console.log(
+        "Replicate API raw response:",
+        JSON.stringify(output, null, 2),
+      );
+
+      // Handle ReadableStream output (common in newer Replicate API responses)
+      if (output instanceof ReadableStream) {
+        console.log("Got ReadableStream from Replicate, processing stream...");
+        const reader = output.getReader();
+        let result = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          // Convert Uint8Array to string
+          if (value) {
+            const chunk = new TextDecoder().decode(value);
+            result += chunk;
+          }
+        }
+
+        // Try to parse the result as JSON
+        try {
+          output = JSON.parse(result);
+        } catch (e) {
+          console.log(
+            "Stream output is not JSON, using as direct URL:",
+            result,
+          );
+          output = [result.trim()];
+        }
+      }
+    } catch (error) {
+      console.error("Error running Replicate model:", error);
+      throw error;
     }
-    
-    return {
-      brandableScenes: analysisResponse,
+
+    // Create a description of the product placement
+    const description = createPlacementDescription(request);
+
+    // Return image URL and description
+    console.log("Processing Replicate output:", JSON.stringify(output));
+
+    // Helper function to sanitize URLs
+    const sanitizeUrl = (url: string): string => {
+      try {
+        // Remove any whitespace or newline characters
+        url = url.trim();
+
+        // Validate if it's a proper URL by creating a URL object
+        new URL(url);
+
+        // Return the sanitized URL
+        return url;
+      } catch (error) {
+        console.error("Invalid URL format:", url, error);
+        // Return a placeholder image if URL is invalid
+        return "https://placehold.co/600x400/gray/white?text=Image+Generation+Failed";
+      }
     };
-  } catch (error) {
-    console.error('Gemini API error:', error);
-    throw new Error('Failed to analyze scenes with Gemini AI');
-  }
-}
 
-function createAnalysisPrompt(scenes: Scene[]): string {
-  return `
-  You are an expert film script analyzer specialized in identifying product placement opportunities. 
-  
-  I'll provide you with scenes from a film script. Please analyze these scenes and identify the 5 most suitable scenes for product placement based on:
-  1. Naturalness of the placement in the setting
-  2. Visibility in the scene
-  3. Relevance to the characters and plot
-  4. Potential screen time
-  
-  Here are the available product categories:
-  - BEVERAGE (coffee, soda, water, alcohol, etc.)
-  - ELECTRONICS (phones, computers, TVs, etc.)
-  - FOOD (snacks, meals, desserts, etc.)
-  - AUTOMOTIVE (cars, motorcycles, etc.)
-  - FASHION (clothing, shoes, accessories, etc.)
-  - OTHER (any other products)
-  
-  For each selected scene, provide:
-  1. Scene ID number
-  2. A brief explanation of why this scene is good for product placement (1-2 sentences)
-  3. The most suitable product categories (1-3 categories)
-  
-  Format your response as a JSON array with this structure:
-  [
-    {
-      "sceneId": 3,
-      "reason": "Character drinking coffee provides natural product placement",
-      "suggestedProducts": ["BEVERAGE"]
-    },
-    ...
-  ]
-  
-  Return only valid JSON in your response without any additional comments or formatting.
-  
-  Here are the scenes:
-  
-  ${scenes.map(scene => `
-  SCENE ${scene.sceneNumber}: ${scene.heading}
-  ${scene.content}
-  `).join('\n\n')}
-  `;
-}
+    if (Array.isArray(output) && output.length > 0) {
+      console.log("Output is an array, using first element as image URL");
 
-function parseGeminiResponse(responseText: string, scenes: Scene[]): BrandableSceneAnalysis[] {
-  try {
-    // Extract JSON from the response (clean up any markdown code blocks if needed)
-    const jsonText = responseText.replace(/```json\n|\n```/g, '');
-    const parsedResponse = JSON.parse(jsonText);
-    
-    if (!Array.isArray(parsedResponse)) {
-      throw new Error('Response is not an array');
+      // Check if we have empty object in array
+      if (
+        output[0] &&
+        typeof output[0] === "object" &&
+        Object.keys(output[0]).length === 0
+      ) {
+        console.log("Empty object returned, using fallback image URL");
+        return {
+          imageUrl:
+            "https://placehold.co/864x480/333/white?text=Image+Generation+Failed",
+          description,
+        };
+      }
+
+      const imageUrl =
+        typeof output[0] === "string" ? sanitizeUrl(output[0]) : "";
+      return {
+        imageUrl,
+        description,
+      };
+    } else if (output && typeof output === "object") {
+      // Handle other output formats
+      console.log("Output is an object, looking for image URL");
+      const anyOutput = output as any;
+
+      // For stability-ai/sdxl style outputs with output property
+      if (anyOutput.output) {
+        console.log("Found output property:", anyOutput.output);
+        const imageUrls = Array.isArray(anyOutput.output)
+          ? anyOutput.output
+          : [anyOutput.output];
+        if (imageUrls.length > 0 && typeof imageUrls[0] === "string") {
+          console.log("Using output[0] as image URL:", imageUrls[0]);
+          return {
+            imageUrl: sanitizeUrl(imageUrls[0]),
+            description,
+          };
+        }
+      }
+
+      // For flux-schnell which might return a direct URL string
+      if (typeof anyOutput === "string" && anyOutput.startsWith("http")) {
+        console.log("Output is a direct URL string:", anyOutput);
+        return {
+          imageUrl: sanitizeUrl(anyOutput),
+          description,
+        };
+      }
+
+      // For other possibilities
+      console.log("Checking all object properties for URLs");
+      for (const key in anyOutput) {
+        const value = anyOutput[key];
+        if (typeof value === "string" && value.startsWith("http")) {
+          console.log(`Found URL in property ${key}:`, value);
+          return {
+            imageUrl: sanitizeUrl(value),
+            description,
+          };
+        }
+        if (Array.isArray(value)) {
+          const urls = value.filter(
+            (item) => typeof item === "string" && item.startsWith("http"),
+          );
+          if (urls.length > 0) {
+            console.log(`Found URL in array property ${key}[0]:`, urls[0]);
+            return {
+              imageUrl: sanitizeUrl(urls[0]),
+              description,
+            };
+          }
+        }
+      }
     }
-    
-    // Validate and clean up the response
-    const validResponse = parsedResponse
-      .filter(item => {
-        // Validate scene ID exists
-        const sceneExists = scenes.some(scene => scene.id === item.sceneId);
-        return sceneExists && item.reason && Array.isArray(item.suggestedProducts);
-      })
-      .map(item => ({
-        sceneId: item.sceneId,
-        reason: item.reason,
-        suggestedProducts: item.suggestedProducts.filter((product: string) => 
-          Object.values(ProductCategory).includes(product as ProductCategory)
-        )
-      }))
-      .slice(0, 5); // Limit to 5 scenes
-    
-    return validResponse;
+
+    // If we reach here, no valid image URL was found
+    console.error(
+      "Unexpected output format from Replicate:",
+      JSON.stringify(output, null, 2),
+    );
+    throw new Error("No image was generated");
   } catch (error) {
-    console.error('Failed to parse Gemini response:', error, responseText);
-    // Return a fallback response
-    return scenes.slice(0, 5).map(scene => ({
-      sceneId: scene.id,
-      reason: "This scene has potential for product placement.",
-      suggestedProducts: [ProductCategory.OTHER]
-    }));
+    console.error("Replicate API error:", error);
+    throw new Error("Failed to generate product placement image");
   }
+}
+
+function createProductPlacementPrompt(request: GenerationRequest): string {
+  const { scene, product, variationNumber } = request;
+
+  // Extract scene details
+  const sceneLocation = scene.heading;
+  const sceneContent = scene.content;
+
+  // Create a prompt based on variation number
+  let promptBase = `High-quality cinematic film scene, ${sceneLocation}, showing`;
+
+  // Customize prompt based on product category and scene
+  switch (product.category) {
+    case "BEVERAGE":
+      if (variationNumber === 1) {
+        promptBase += ` a character drinking from a ${product.name} cup or bottle clearly visible in the foreground`;
+      } else if (variationNumber === 2) {
+        promptBase += ` a ${product.name} bottle or can placed prominently on a table or counter`;
+      } else {
+        promptBase += ` multiple characters enjoying ${product.name} drinks together`;
+      }
+      break;
+
+    case "ELECTRONICS":
+      if (variationNumber === 1) {
+        promptBase += ` a character using a ${product.name} device with the logo clearly visible`;
+      } else if (variationNumber === 2) {
+        promptBase += ` a ${product.name} device placed prominently in the scene`;
+      } else {
+        promptBase += ` multiple characters interacting with ${product.name} products`;
+      }
+      break;
+
+    case "FOOD":
+      if (variationNumber === 1) {
+        promptBase += ` a character eating or holding ${product.name} with packaging visible`;
+      } else if (variationNumber === 2) {
+        promptBase += ` ${product.name} products arranged attractively in the scene`;
+      } else {
+        promptBase += ` characters sharing and enjoying ${product.name} together`;
+      }
+      break;
+
+    case "AUTOMOTIVE":
+      if (variationNumber === 1) {
+        promptBase += ` a ${product.name} car prominently parked or driving in the scene`;
+      } else if (variationNumber === 2) {
+        promptBase += ` a character entering or exiting a ${product.name} vehicle`;
+      } else {
+        promptBase += ` a ${product.name} vehicle as a focal point in the background`;
+      }
+      break;
+
+    case "FASHION":
+      if (variationNumber === 1) {
+        promptBase += ` a character wearing ${product.name} with the logo/brand visible`;
+      } else if (variationNumber === 2) {
+        promptBase += ` a ${product.name} item being used or worn prominently in the scene`;
+      } else {
+        promptBase += ` multiple characters wearing or using ${product.name} products`;
+      }
+      break;
+
+    default:
+      promptBase += ` ${product.name} prominently featured in the scene`;
+  }
+
+  // Add cinematic quality descriptors
+  promptBase +=
+    ", professional lighting, high-quality, film still, 35mm film, cinematic composition, high detail";
+
+  return promptBase;
+}
+
+function createPlacementDescription(request: GenerationRequest): string {
+  const { scene, product, variationNumber } = request;
+
+  // Define placement templates based on product category
+  const templates: Record<ProductCategory, string[]> & { OTHER: string[] } = {
+    [ProductCategory.BEVERAGE]: [
+      `${product.name} is featured prominently on a table.`,
+      `A character is enjoying ${product.name} in the scene.`,
+      `Multiple characters are sharing ${product.name} together.`,
+    ],
+    [ProductCategory.ELECTRONICS]: [
+      `A character is using a ${product.name} device.`,
+      `A ${product.name} device is placed prominently in the scene.`,
+      `Multiple characters are interacting with ${product.name} products.`,
+    ],
+    [ProductCategory.FOOD]: [
+      `Characters are enjoying ${product.name} during a meal.`,
+      `${product.name} products are arranged attractively in the scene.`,
+      `A character is eating or holding ${product.name} with packaging visible.`,
+    ],
+    [ProductCategory.AUTOMOTIVE]: [
+      `A ${product.name} car is parked on the street or driven by a character.`,
+      `A character is entering or exiting a ${product.name} vehicle.`,
+      `A ${product.name} vehicle is a focal point in the background.`,
+    ],
+    [ProductCategory.FASHION]: [
+      `A character is wearing or carrying a ${product.name} item.`,
+      `A ${product.name} item is being used or worn prominently in the scene.`,
+      `Multiple characters are wearing or using ${product.name} products.`,
+    ],
+    // OTHER is a fallback, so it's handled slightly differently
+    OTHER: [
+      `${product.name} is subtly placed in the background of the scene.`,
+      `${product.name} is visible on a shelf or counter.`,
+      `${product.name} is part of the scene's natural environment.`,
+    ],
+  };
+
+  // Get appropriate template for this category and variation
+  const categoryTemplates = templates[product.category] || templates.OTHER;
+  const template =
+    categoryTemplates[(variationNumber - 1) % categoryTemplates.length];
+
+  return template;
 }
