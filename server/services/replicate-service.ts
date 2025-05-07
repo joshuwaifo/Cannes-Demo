@@ -56,24 +56,21 @@ export async function generateProductPlacement(
     );
 
     // flux-1.1-pro model expects input like this
-    const output = await replicate.run(
-      "stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316",
-      {
-        input: {
-          prompt: prompt,
-          width: 1024,
-          height: 576,
-          aspect_ratio: "custom",
-          // prompt_upsampling: true, // Not a direct parameter for this model version, control through prompt detail
-          // output_format: "webp", // This model usually outputs png or jpg based on default, or specified in prompt techniques
-          // output_quality: 80, // Quality controlled by model / prompt
-          // safety_tolerance: 2, // Handled by Replicate's platform-level safety
-          seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
-          // num_inference_steps: 50, // Example, if you want to control this
-          // guidance_scale: 7.5, // Example
-        },
+    const output = await replicate.run("sblack-forest-labs/flux-schnell", {
+      input: {
+        prompt: prompt,
+        width: 1024,
+        height: 576,
+        aspect_ratio: "custom",
+        // prompt_upsampling: true, // Not a direct parameter for this model version, control through prompt detail
+        // output_format: "webp", // This model usually outputs png or jpg based on default, or specified in prompt techniques
+        // output_quality: 80, // Quality controlled by model / prompt
+        // safety_tolerance: 2, // Handled by Replicate's platform-level safety
+        seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+        // num_inference_steps: 50, // Example, if you want to control this
+        // guidance_scale: 7.5, // Example
       },
-    );
+    });
 
     console.log(
       `Replicate Raw Output (S${scene.sceneNumber}V${variationNumber}):`,
