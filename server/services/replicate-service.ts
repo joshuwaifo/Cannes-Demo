@@ -82,6 +82,7 @@ export async function generateProductPlacement(
     // Handle ReadableStream response
     if (Array.isArray(output) && output.length > 0) {
       if (output[0] instanceof ReadableStream) {
+        // The stream contains the image directly - return base64 data URL
         const reader = output[0].getReader();
         const chunks = [];
         while (true) {
@@ -89,8 +90,8 @@ export async function generateProductPlacement(
           if (done) break;
           chunks.push(value);
         }
-        const result = JSON.parse(Buffer.concat(chunks).toString());
-        imageUrl = result.url || result.image || result[0];
+        const imageBuffer = Buffer.concat(chunks);
+        imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
       } else if (typeof output[0] === "string") {
         imageUrl = output[0];
       }
