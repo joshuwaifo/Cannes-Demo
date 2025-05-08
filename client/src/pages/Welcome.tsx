@@ -160,7 +160,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
         </div>
         <h1 className="text-3xl font-bold mb-2">Vadis Brand Marketplace</h1>
         <p className="text-xl text-gray-600 mb-6">
-          AI-powered script analysis for strategic product placement
+          AI-powered script analysis for Brand Sponsorship Opportunities
         </p>
         <div className="max-w-2xl mx-auto">
           {isProcessingScript ? (
