@@ -1,62 +1,28 @@
 // // server/services/replicate-service.ts
+// // server/services/replicate-service.ts
 // import Replicate from "replicate";
-// import {
-//   Scene,
-//   Product,
-//   ProductCategory,
-//   SceneVariation,
-// } from "@shared/schema"; // Added SceneVariation
-// import * as storage from "../storage"; // Import all exports as 'storage'
-// import { Buffer } from "buffer"; // Required for Buffer.concat
+// import { Scene, Product, SceneVariation, ProductCategory } from "@shared/schema";
+// import * as storage from "../storage";
+// import { Buffer } from "buffer"; // Ensure Buffer is available
 
+// // --- Interfaces ---
 // interface GenerationRequest {
 //   scene: Scene;
 //   product: Product;
 //   variationNumber: number;
-//   // sceneBasePrompt?: string; // Keep consistency if needed
-//   // sceneBaseSeed?: number; // Keep consistency if needed
-// }
-
-
-// // Utility function to validate URLs
-// function isValidHttpUrl(urlString: string): boolean {
-//   try {
-//     const url = new URL(urlString);
-//     return url.protocol === "http:" || url.protocol === "https:";
-//   } catch {
-//     return false;
-//   }
-// }
-
-// // Enhanced error handling wrapper for Replicate API calls
-// async function safeReplicateCall<T>(
-//   operation: () => Promise<T>,
-//   context: string
-// ): Promise<T> {
-//   try {
-//     return await operation();
-//   } catch (error: any) {
-//     const errorMessage = error.response?.data?.error || error.message || "Unknown error";
-//     console.error(`Replicate API error (${context}):`, {
-//       message: errorMessage,
-//       details: error.response?.data,
-//       logs: error.response?.data?.logs
-//     });
-//     throw new Error(`Replicate ${context} failed: ${errorMessage}`);
-//   }
+//   prompt: string;
 // }
 
 // interface GenerationResult {
-//   imageUrl: string;
+//   imageUrl: string; // Can be HTTP URL or base64 Data URI
 //   description: string;
-//   success: boolean; // Added to indicate if generation was successful
+//   success: boolean;
 // }
 
-// // --- Video Generation Types ---
 // interface VideoGenerationResult {
 //   predictionId: string | null;
 //   error?: string;
-//   status?: string; // Initial status
+//   status?: string;
 // }
 
 // interface PredictionStatusResult {
@@ -67,355 +33,323 @@
 //     | "failed"
 //     | "canceled"
 //     | "unknown";
-//   outputUrl?: string | null; // URL of the generated video
+//   outputUrl?: string | null;
 //   error?: string | null;
-//   logs?: string | null; // Include logs for debugging
+//   logs?: string | null;
 // }
 
-// const FALLBACK_IMAGE_URL =
-//   "https://placehold.co/864x480/grey/white?text=Image+Gen+Failed";
-// const FALLBACK_VIDEO_URL = ""; // No fallback video, just indicate failure
+// // --- Constants ---
+// const FALLBACK_IMAGE_URL = "https://placehold.co/1024x576/grey/white?text=Image+Gen+Failed";
+// const REPLICATE_IMAGE_MODEL = "stability-ai/sdxl";
+// const REPLICATE_IMAGE_VERSION = "c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316";
+// const REPLICATE_VIDEO_MODEL = "stability-ai/stable-video-diffusion";
+// const REPLICATE_VIDEO_VERSION = "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438";
+// const MAX_PROMPT_LENGTH = 950;
 
-// // Helper function to sanitize URLs and provide a specific fallback for errors
-// const getSanitizedImageUrl = (url: string | undefined | null): string => {
-//   if (!url || typeof url !== "string") {
-//     console.warn(
-//       "Received invalid or empty URL for sanitization, using fallback.",
-//     );
-//     return FALLBACK_IMAGE_URL;
-//   }
+// // --- Utilities ---
+// function isValidHttpUrl(urlString: string): boolean {
+//   if (!urlString || typeof urlString !== 'string') return false;
 //   try {
-//     const trimmedUrl = url.trim();
-//     new URL(trimmedUrl); // Validate URL
-//     return trimmedUrl;
-//   } catch (error) {
-//     console.error("Invalid URL format received:", url, ". Using fallback.");
+//     const url = new URL(urlString);
+//     return url.protocol === "http:" || url.protocol === "https:";
+//   } catch {
+//     return false;
+//   }
+// }
+
+// // Modified to accept data URIs as valid
+// const getSanitizedImageUrl = (url: string | undefined | null): string => {
+//   if (!url || typeof url !== 'string') {
 //     return FALLBACK_IMAGE_URL;
 //   }
+//   const trimmedUrl = url.trim();
+//   // Allow data URIs
+//   if (trimmedUrl.startsWith('data:image/')) {
+//       return trimmedUrl;
+//   }
+//   // Check for valid HTTP/HTTPS URLs
+//   if (isValidHttpUrl(trimmedUrl)) {
+//      return trimmedUrl;
+//   }
+//   // If neither, return fallback
+//   console.warn(`[Sanitize] URL is not HTTP/HTTPS or Data URI, using fallback: ${trimmedUrl.substring(0,50)}...`);
+//   return FALLBACK_IMAGE_URL;
 // };
 
-// // --- generateProductPlacement (Still Image Generation - CORRECTED) ---
-// export async function generateProductPlacement(
-//   request: GenerationRequest,
-// ): Promise<GenerationResult> {
-//   const { scene, product, variationNumber } = request;
-//   const description = createPlacementDescription(request); // Use helper
-
-//   try {
+// function getReplicateClient(): Replicate {
 //     const apiToken = process.env.REPLICATE_API_TOKEN;
 //     if (!apiToken) {
-//       console.error("REPLICATE_API_TOKEN environment variable is not set");
-//       return { imageUrl: FALLBACK_IMAGE_URL, description, success: false };
+//         console.error("CRITICAL: REPLICATE_API_TOKEN environment variable is not set.");
+//         throw new Error("Replicate API token is not configured.");
 //     }
+//     return new Replicate({ auth: apiToken });
+// }
 
-//     const replicate = new Replicate({ auth: apiToken });
-//     const prompt = createProductPlacementPrompt(request); // Use helper
+// async function safeReplicateCall<T>(operation: () => Promise<T>, context: string): Promise<T> {
+//     try {
+//         return await operation();
+//     } catch (error: any) {
+//         const replicateErrorDetail = error.response?.data?.detail || error.message || 'Unknown Replicate error';
+//         const statusCode = error.response?.status;
+//         console.error(`Replicate API error during [${context}] (Status: ${statusCode || 'N/A'}):`, replicateErrorDetail);
+//         throw new Error(`Replicate failed [${context}]: ${replicateErrorDetail}`);
+//     }
+// }
 
-//     console.log(
-//       `Replicate Call (Image): Scene ${scene.sceneNumber}, Var ${variationNumber}, Product ${product.name}. Prompt (start): ${prompt.substring(0, 100)}...`,
-//     );
+// // --- Image Generation (Corrected Stream Handling) ---
+// export async function generateProductPlacement(request: GenerationRequest): Promise<GenerationResult> {
+//   const { scene, product, variationNumber, prompt } = request;
+//   const logPrefix = `[ImgGen S${scene.sceneNumber} V${variationNumber} P:${product.id}]`;
+//   const description = createPlacementDescription(request);
 
-//     // stability-ai/sdxl model
-//     const output: any = await replicate.run(
-//       "stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316",
-//       {
-//         input: {
-//           prompt: prompt,
-//           width: 1024,
-//           height: 576,
-//           // aspect_ratio: "custom", // Implicitly handled by width/height
-//           seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
-//         },
-//       },
-//     );
+//   if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 10) {
+//        console.error(`${logPrefix} Invalid or empty prompt received: "${prompt}"`);
+//        return { imageUrl: FALLBACK_IMAGE_URL, description: "Error: Invalid generation prompt.", success: false };
+//    }
 
-//     console.log(
-//       `Replicate Raw Output (S${scene.sceneNumber}V${variationNumber}):`,
-//       // Safely stringify and truncate, as output could be large or complex
-//       output &&
-//         typeof output === "object" &&
-//         !(output instanceof ReadableStream)
-//         ? JSON.stringify(output, null, 2).substring(0, 500) + "..."
-//         : String(output).substring(0, 500) + "...",
-//     );
+//   const finalPrompt = prompt.length > MAX_PROMPT_LENGTH ? prompt.substring(0, MAX_PROMPT_LENGTH) + "..." : prompt;
+//   if (prompt.length > MAX_PROMPT_LENGTH) {
+//       console.warn(`${logPrefix} Prompt truncated to ${MAX_PROMPT_LENGTH} characters.`);
+//   }
+
+//   try {
+//     const replicate = getReplicateClient();
+//     console.log(`${logPrefix} Using Gemini Prompt (len ${finalPrompt.length}): ${finalPrompt.substring(0, 100)}...`);
+
+//     const input = {
+//         prompt: finalPrompt,
+//         negative_prompt: "nsfw, nude, naked, offensive, violence, gore, explicit language, text, words, letters, watermark, signature, blurry, low quality, distorted, deformed, bad anatomy, extra limbs, disfigured, multiple views",
+//         width: 1024,
+//         height: 576,
+//         num_outputs: 1,
+//         scheduler: "K_EULER",
+//         num_inference_steps: 30,
+//         guidance_scale: 7,
+//         refine: "expert_ensemble_refiner",
+//         refine_steps: 50,
+//     };
+
+//     console.log(`${logPrefix} Calling Replicate run (${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION})...`);
+
+//     const output: any = await safeReplicateCall(() => replicate.run(
+//        `${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION}`,
+//       { input }
+//     ), `Run Image Model Var ${variationNumber}`);
 
 //     let imageUrl: string | undefined;
+//     let failureReason = "Unexpected output format";
 
-//     // Restore original output handling logic to correctly process potential ReadableStream
-//     if (Array.isArray(output) && output.length > 0) {
-//       if (output[0] instanceof ReadableStream) {
-//         // The stream contains the image directly - return base64 data URL
-//         const reader = output[0].getReader();
-//         const chunks = [];
-//         while (true) {
-//           const { done, value } = await reader.read();
-//           if (done) break;
-//           chunks.push(value);
+//     if (output && typeof output === 'object' && !Array.isArray(output) && output.error) {
+//         failureReason = String(output.error);
+//         console.error(`${logPrefix} Replicate run returned an error object:`, failureReason);
+//     } else if (Array.isArray(output) && output.length > 0) {
+//         const firstItem = output[0];
+//         if (typeof firstItem === 'string' && isValidHttpUrl(firstItem)) {
+//             imageUrl = firstItem; // Successfully got HTTP/S URL
 //         }
-//         const imageBuffer = Buffer.concat(chunks); // Ensure Buffer is imported
-//         imageUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
-//       } else if (typeof output[0] === "string") {
-//         imageUrl = output[0];
-//       }
-//     } else if (
-//       typeof output === "string" &&
-//       (output.startsWith("http") || output.startsWith("data:"))
-//     ) {
-//       imageUrl = output;
-//     }
-//     // Add check for non-array ReadableStream (though less common for 'run' method, defensive)
-//     else if (output instanceof ReadableStream) {
-//       const reader = output.getReader();
-//       const chunks = [];
-//       while (true) {
-//         const { done, value } = await reader.read();
-//         if (done) break;
-//         chunks.push(value);
-//       }
-//       const imageBuffer = Buffer.concat(chunks);
-//       imageUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
+//         // --- Explicit Stream Handling ---
+//         else if (firstItem instanceof ReadableStream) {
+//             console.log(`${logPrefix} Replicate output is a ReadableStream. Reading data...`);
+//             try {
+//                 const reader = firstItem.getReader();
+//                 const chunks: Uint8Array[] = []; // Type hint for clarity
+//                 while (true) {
+//                   const { done, value } = await reader.read();
+//                   if (done) break;
+//                   if (value) { // Ensure value is not undefined
+//                     chunks.push(value);
+//                   }
+//                 }
+//                 const imageBuffer = Buffer.concat(chunks);
+//                 // Assuming PNG output from SDXL via stream, adjust content type if needed
+//                 imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+//                 console.log(`${logPrefix} Successfully read stream and created base64 data URI.`);
+//             } catch (streamError: any) {
+//                  console.error(`${logPrefix} Error reading Replicate stream:`, streamError);
+//                  failureReason = `Error reading output stream: ${streamError.message}`;
+//                  imageUrl = undefined; // Ensure imageUrl is undefined on stream read error
+//             }
+//         }
+//         // --- End Stream Handling ---
+//         else if (firstItem && typeof firstItem === 'object' && firstItem.error) {
+//             failureReason = String(firstItem.error);
+//             console.error(`${logPrefix} Replicate run returned an array containing an error object:`, failureReason);
+//         } else {
+//              console.error(`${logPrefix} Replicate run returned array with unexpected content type:`, typeof firstItem);
+//         }
+//     } else {
+//         console.error(`${logPrefix} Replicate run returned unexpected or empty output:`, output);
 //     }
 
-//     if (!imageUrl || typeof imageUrl !== "string") {
-//       // Check if imageUrl was successfully extracted as a string
-//       console.error(
-//         `No valid image URL found or extracted for S${scene.sceneNumber}V${variationNumber}. Output received:`,
-//         output, // Log the problematic output again if it wasn't clear from raw log
-//       );
-//       return { imageUrl: FALLBACK_IMAGE_URL, description, success: false };
+//     // Check if imageUrl was successfully assigned (either URL or data URI)
+//     if (!imageUrl) {
+//         if (failureReason.toLowerCase().includes('safety_checker') || failureReason.toLowerCase().includes('safety filter')) {
+//              console.warn(`${logPrefix} SAFETY FILTER likely triggered.`);
+//              return { imageUrl: FALLBACK_IMAGE_URL, description: "Generation failed due to safety filter.", success: false };
+//           }
+//          return { imageUrl: FALLBACK_IMAGE_URL, description: `Generation failed: ${failureReason}`, success: false };
 //     }
 
-//     const sanitizedUrl = getSanitizedImageUrl(imageUrl);
-//     // Log the actual sanitized URL for verification if needed, but be mindful of console spam
-//     // console.log(
-//     //    `Generated Image URL (S${scene.sceneNumber}V${variationNumber}): ${sanitizedUrl}`
-//     // );
-//     console.log(
-//       `Image generation process completed for S${scene.sceneNumber}V${variationNumber}. Success: ${sanitizedUrl !== FALLBACK_IMAGE_URL}`,
-//     );
+//     // Now imageUrl can be either http(s) URL or data URI
+//     const sanitizedUrl = getSanitizedImageUrl(imageUrl); // Sanitizer now accepts data URIs
+//     const success = sanitizedUrl !== FALLBACK_IMAGE_URL;
+//     console.log(`${logPrefix} Image generation completed. Success: ${success}. Type: ${imageUrl.startsWith('data:') ? 'Data URI' : 'URL'}`);
 
-//     return {
-//       imageUrl: sanitizedUrl,
-//       description,
-//       success: sanitizedUrl !== FALLBACK_IMAGE_URL,
-//     };
+//     // IMPORTANT: Return the potentially large data URI or the URL
+//     return { imageUrl: imageUrl, description, success };
+
 //   } catch (error: any) {
-//     console.error(
-//       `Replicate API error (Image) for S${scene.sceneNumber}V${variationNumber} (Product: ${product.name}):`,
-//       error.message || error,
-//       error.stack, // Log stack for more details
-//     );
-//     return { imageUrl: FALLBACK_IMAGE_URL, description, success: false };
+//     console.error(`${logPrefix} Overall error during image generation process:`, error.message || error);
+//     return { imageUrl: FALLBACK_IMAGE_URL, description: `Generation failed: ${error.message}`, success: false };
 //   }
 // }
 
-// // --- NEW: generateVideoFromVariation ---
-// export async function generateVideoFromVariation(
-//   variationId: number,
-// ): Promise<VideoGenerationResult> {
+// // --- Video Generation ---
+// export async function generateVideoFromVariation(variationId: number): Promise<VideoGenerationResult> {
+//   const logPrefix = `[VidGen Var ${variationId}]`;
 //   try {
-//     const apiToken = process.env.REPLICATE_API_TOKEN;
-//     if (!apiToken) {
-//       throw new Error("REPLICATE_API_TOKEN environment variable is not set");
-//     }
-//     const replicate = new Replicate({ auth: apiToken });
+//     const replicate = getReplicateClient();
 
-//     // 1. Fetch variation details (including image URL, scene, product)
+//     // 1. Fetch variation details
 //     const variation = await storage.getSceneVariationById(variationId);
-//     if (
-//       !variation ||
-//       !variation.imageUrl ||
-//       variation.imageUrl === FALLBACK_IMAGE_URL
-//     ) {
-//       throw new Error(
-//         `Variation ${variationId} not found or has no valid start image.`,
-//       );
+//     if (!variation) throw new Error(`Variation ${variationId} not found.`);
+
+//     // *** CHECK: Prevent generation if image URL is the fallback ***
+//     // Use the original imageUrl which could be a data URI
+//     if (!variation.imageUrl || variation.imageUrl === FALLBACK_IMAGE_URL || (!isValidHttpUrl(variation.imageUrl) && !variation.imageUrl.startsWith('data:image/'))) {
+//         console.error(`${logPrefix} Cannot generate video. Invalid, missing, or fallback start image URL.`);
+//         throw new Error(`Cannot generate video for Variation ${variationId} due to invalid or missing source image.`);
 //     }
+
+//     if (!variation.geminiPrompt) throw new Error(`Missing Gemini prompt for variation ${variationId}. Cannot generate video.`);
+
 //     const scene = await storage.getSceneById(variation.sceneId);
-//     if (!scene) {
-//       throw new Error(
-//         `Scene ${variation.sceneId} for variation ${variationId} not found.`,
-//       );
-//     }
+//     if (!scene) throw new Error(`Scene ${variation.sceneId} not found for variation ${variationId}.`);
 //     const product = await storage.getProductById(variation.productId);
-//     if (!product) {
-//       throw new Error(
-//         `Product ${variation.productId} for variation ${variationId} not found.`,
-//       );
+//     if (!product) throw new Error(`Product ${variation.productId} not found for variation ${variationId}.`);
+
+//     // 2. Construct video prompt
+//     const imageContextPrompt = variation.geminiPrompt;
+//     const videoPrompt = `Animate this cinematic scene described as: "${imageContextPrompt}". Add subtle, natural, realistic motion consistent with the scene description (e.g., slight character shifts, gentle environmental effects like steam or wind). Maintain photorealism, lighting, and composition. Ensure the integrated product "${product.name}" remains clear and natural. Avoid jerky motion, drastic changes, text or watermarks.`;
+
+//     const finalVideoPrompt = videoPrompt.length > MAX_PROMPT_LENGTH ? videoPrompt.substring(0, MAX_PROMPT_LENGTH) + "..." : videoPrompt;
+//     if (videoPrompt.length > MAX_PROMPT_LENGTH) {
+//         console.warn(`${logPrefix} Video prompt truncated to ${MAX_PROMPT_LENGTH} characters.`);
 //     }
 
-//     // 2. Construct the video prompt (enhance the still image context)
-//     const stillImagePromptContext = createProductPlacementPrompt({
-//       scene,
-//       product,
-//       variationNumber: variation.variationNumber,
-//     });
-//     // Validate image URL before proceeding
-//     if (!variation.imageUrl || !isValidHttpUrl(variation.imageUrl)) {
-//       throw new Error("Invalid or missing image URL for video generation");
-//     }
-
-//     const videoPrompt = `Create a cinematic animation from this scene. Primary focus: ${stillImagePromptContext}
-// Key animation guidelines:
-// - Maintain absolute photorealism and the established composition
-// - Add minimal, natural motion: subtle character movements, gentle environmental effects
-// - Keep the product "${product.name}" perfectly integrated and clear
-// - Use smooth, cinematic camera work (slight dolly or pan if appropriate)
-// - Preserve lighting quality and mood throughout
-
-// Do not:
-// - Add sudden movements or jerky motion
-// - Change the scene composition drastically
-// - Alter product placement or visibility
-// - Modify the fundamental lighting or atmosphere`;
-
-//     const generationParams = {
-//       prompt: videoPrompt.substring(0, 1000),
-//       start_image: variation.imageUrl,
-//       num_frames: 90, // 3 seconds at 30fps
-//       motion_bucket_id: 35, // Moderate motion level
-//       fps: 30,
-//       guidance_scale: 7.5, // Balance between prompt adherence and creativity
-//       negative_prompt: "blurry, low quality, jerky motion, distortion, warping, artifacting",
+//     // Input requires input_image to be a publicly accessible URL or a data URI.
+//     // Our imageUrl might be either already.
+//     const input = {
+//       input_image: variation.imageUrl, // Pass URL or Data URI directly
+//       prompt: finalVideoPrompt,
+//       video_length: "25_frames_with_svd_xt",
+//       frames_per_second: 6,
+//       motion_bucket_id: 35,
+//       seed: Math.floor(Math.random() * 4294967295),
 //     };
 
-//     console.log(
-//       `Replicate Call (Video): Var ${variation.id}. Start Image: ${variation.imageUrl}. Prompt: ${videoPrompt.substring(0, 150)}...`,
-//     );
+//     console.log(`${logPrefix} Calling Replicate create prediction (${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION})...`);
+//     console.log(`${logPrefix} Start Image Type: ${variation.imageUrl.startsWith('data:') ? 'Data URI' : 'URL'}`);
+//     // console.log(`${logPrefix} Video Input Payload:`, JSON.stringify(input, null, 2)); // Debug if needed
 
-//     // 3. Call Replicate's prediction endpoint for Kling model
-//     const prediction = await replicate.predictions.create({
-//       version: "kwaivgi/kling-v1.6-standard",
-//       input: generationParams,
-//       // webhook: "YOUR_WEBHOOK_URL", // Optional: Use webhooks instead of polling for better scalability
-//       // webhook_events_filter: ["completed"]
-//     });
+//     // 3. Start prediction job
+//     const prediction = await safeReplicateCall(() => replicate.predictions.create({
+//       version: REPLICATE_VIDEO_VERSION,
+//       input: input,
+//       // webhook: process.env.REPLICATE_WEBHOOK_URL,
+//       // webhook_events_filter: ["completed", "failed"]
+//     }), `Create Video Prediction Var ${variationId}`);
 
-//     console.log(
-//       `Started Replicate video prediction for Var ${variation.id}. Prediction ID: ${prediction.id}, Status: ${prediction.status}`,
-//     );
+//     console.log(`${logPrefix} Prediction started. ID: ${prediction.id}, Status: ${prediction.status}`);
 
-//     if (prediction.status === "failed" || prediction.status === "canceled") {
+//     if (prediction.status === 'failed' || prediction.status === 'canceled') {
+//       const errMsg = prediction.error ? String(prediction.error) : `Prediction immediately ${prediction.status}`;
+//       console.error(`${logPrefix} Prediction failed or canceled on start: ${errMsg}`);
 //       return {
 //         predictionId: prediction.id,
-//         error: prediction.error
-//           ? String(prediction.error)
-//           : "Prediction failed or was canceled",
+//         error: errMsg,
 //         status: prediction.status,
 //       };
 //     }
 
 //     return {
 //       predictionId: prediction.id,
-//       status: prediction.status as VideoGenerationResult["status"],
-//     }; // Cast status
+//       status: prediction.status as VideoGenerationResult['status'],
+//     };
+
 //   } catch (error: any) {
-//     console.error(
-//       `Error starting video generation for Variation ${variationId}:`,
-//       error.message || error,
-//     );
+//     console.error(`${logPrefix} Error starting video generation process:`, error.message || error);
 //     return {
 //       predictionId: null,
-//       error: error.message || "Failed to start video generation",
+//       error: error.message || 'Failed to start video generation',
 //     };
 //   }
 // }
 
-// // --- NEW: getPredictionStatus ---
-// export async function getPredictionStatus(
-//   predictionId: string,
-// ): Promise<PredictionStatusResult> {
+// // --- Prediction Status ---
+// export async function getPredictionStatus(predictionId: string): Promise<PredictionStatusResult> {
+//   const logPrefix = `[Poll Status ID ${predictionId}]`;
 //   try {
-//     const apiToken = process.env.REPLICATE_API_TOKEN;
-//     if (!apiToken) {
-//       throw new Error("REPLICATE_API_TOKEN environment variable is not set");
-//     }
-//     const replicate = new Replicate({ auth: apiToken });
+//     const replicate = getReplicateClient();
 
-//     const prediction = await replicate.predictions.get(predictionId);
+//     const prediction = await safeReplicateCall(() =>
+//         replicate.predictions.get(predictionId),
+//         `Get Prediction Status ${predictionId}`
+//     );
 
-//     // Map Replicate status to our defined status type
-//     let status: PredictionStatusResult["status"] = "unknown";
-//     if (
-//       ["starting", "processing", "succeeded", "failed", "canceled"].includes(
-//         prediction.status,
-//       )
-//     ) {
-//       status = prediction.status as PredictionStatusResult["status"];
+//     let status: PredictionStatusResult['status'] = 'unknown';
+//     if (['starting', 'processing', 'succeeded', 'failed', 'canceled'].includes(prediction.status)) {
+//       status = prediction.status as PredictionStatusResult['status'];
+//     } else {
+//         console.warn(`${logPrefix} Received unexpected status from Replicate: ${prediction.status}`);
 //     }
 
-//     // Ensure output is treated as a string URL
-//     const outputUrl =
-//       prediction.output && typeof prediction.output === "string"
-//         ? prediction.output
-//         : Array.isArray(prediction.output) &&
-//             typeof prediction.output[0] === "string"
-//           ? prediction.output[0] // Kling might output an array with one URL
-//           : null;
+//     // Output is typically a direct URL string
+//     const outputUrl = (prediction.output && typeof prediction.output === 'string' && isValidHttpUrl(prediction.output))
+//                       ? prediction.output
+//                       : null;
+
+//     if (status === 'succeeded' && !outputUrl) {
+//         console.warn(`${logPrefix} Prediction succeeded but output URL is invalid or missing. Output:`, prediction.output);
+//     }
+
+//     const errorString = prediction.error ? String(prediction.error) : null;
 
 //     return {
 //       status: status,
 //       outputUrl: outputUrl,
-//       error: prediction.error ? String(prediction.error) : null, // Ensure error is string or null
+//       error: errorString,
 //       logs: prediction.logs,
 //     };
+
 //   } catch (error: any) {
-//     console.error(
-//       `Error fetching prediction status for ID ${predictionId}:`,
-//       error.message || error,
-//     );
+//     console.error(`${logPrefix} Failed to fetch prediction status overall.`);
 //     return {
-//       status: "failed", // Consider it failed if we can't get status
-//       error: `Failed to fetch prediction status: ${error.message || "Unknown error"}`,
+//       status: 'failed',
+//       error: `Failed to fetch prediction status: ${error.message || 'Unknown error'}`,
 //     };
 //   }
 // }
 
-// // Helper to create the still image prompt (can be reused/adapted for video)
-// function createProductPlacementPrompt(request: GenerationRequest): string {
-//   const { scene, product } = request;
-//   const sceneLocation = scene.heading || "A dynamic film scene";
-//   const sceneContext = scene.content?.substring(0, 500) || "";
-
-//   // Base prompt incorporating scene details
-//   let prompt = `Cinematic film still, photorealistic, high detail. Scene: ${sceneLocation}. `;
-//   prompt += `Scene context: ${sceneContext}. `;
-//   prompt += `Integrate ${product.name} (${product.category.toLowerCase()}) naturally into the scene. `;
-
-//   // Add guidance based on category or reason
-//   if (scene.brandableReason) {
-//     prompt += `Placement idea: ${scene.brandableReason}. `;
-//   } else {
-//     // Add generic guidance if no reason provided
-//     prompt += `The product should appear naturally within the environment or be used subtly by characters. `;
-//   }
-
-//   prompt += `Ensure the product is identifiable but not overly prominent, maintaining the scene's realism and cinematic quality. Professional lighting and composition.`;
-
-//   // console.log(`Generated Prompt: ${prompt.substring(0,150)}...`) // Log less verbosely
-
-//   return prompt.substring(0, 1000); // Limit prompt length
-// }
-
-// // Helper to create description
+// // --- Helper to create basic description ---
 // function createPlacementDescription(request: GenerationRequest): string {
 //   const { scene, product, variationNumber } = request;
-//   return `Variation ${variationNumber}: ${product.name} placed in the scene. ${scene.heading}. Context: ${scene.brandableReason || "General placement"}`;
+//   return `Variation ${variationNumber}: ${product.name} in scene ${scene.sceneNumber} (${scene.heading}).`;
 // }
 
 
 // server/services/replicate-service.ts
 import Replicate from "replicate";
-import { Scene, Product, SceneVariation } from "@shared/schema"; // Use SceneVariation from schema
+import { Scene, Product, SceneVariation, ProductCategory } from "@shared/schema";
 import * as storage from "../storage";
-import { Buffer } from "buffer"; // Required for Buffer.concat
+import { Buffer } from "buffer";
 
 // --- Interfaces ---
 interface GenerationRequest {
   scene: Scene;
   product: Product;
   variationNumber: number;
-  prompt: string; // Expect prompt to be passed in
+  prompt: string;
 }
 
 interface GenerationResult {
@@ -444,12 +378,13 @@ interface PredictionStatusResult {
 }
 
 // --- Constants ---
-const FALLBACK_IMAGE_URL = "https://placehold.co/1024x576/grey/white?text=Image+Gen+Failed"; // Consistent size
+const FALLBACK_IMAGE_URL = "https://placehold.co/1024x576/grey/white?text=Image+Gen+Failed";
 const REPLICATE_IMAGE_MODEL = "stability-ai/sdxl";
 const REPLICATE_IMAGE_VERSION = "c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316";
-const REPLICATE_VIDEO_MODEL = "stability-ai/stable-video-diffusion";
-const REPLICATE_VIDEO_VERSION = "3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438";
-const MAX_PROMPT_LENGTH = 950; // Slightly less than 1000 for safety buffer
+// --- NEW VIDEO MODEL CONSTANTS ---
+const REPLICATE_VIDEO_MODEL = "lightricks/ltx-video";
+const REPLICATE_VIDEO_VERSION = "8c47da666861d081eeb4d1261853087de23923a268a69b63febdf5dc1dee08e4"; // Use LTX version
+const MAX_PROMPT_LENGTH = 950; // Keep prompt length limit
 
 // --- Utilities ---
 function isValidHttpUrl(urlString: string): boolean {
@@ -463,15 +398,14 @@ function isValidHttpUrl(urlString: string): boolean {
 }
 
 const getSanitizedImageUrl = (url: string | undefined | null): string => {
-  if (!url || typeof url !== 'string' || !isValidHttpUrl(url)) {
-    // Keep logging minimal in production unless debugging
-    // console.warn("Invalid or empty URL for sanitization, using fallback.", url);
-    return FALLBACK_IMAGE_URL;
-  }
-  return url.trim();
+  if (!url || typeof url !== 'string') return FALLBACK_IMAGE_URL;
+  const trimmedUrl = url.trim();
+  if (trimmedUrl.startsWith('data:image/')) return trimmedUrl;
+  if (isValidHttpUrl(trimmedUrl)) return trimmedUrl;
+  console.warn(`[Sanitize] URL is not HTTP/HTTPS or Data URI, using fallback: ${trimmedUrl.substring(0,50)}...`);
+  return FALLBACK_IMAGE_URL;
 };
 
-// Helper to initialize Replicate client
 function getReplicateClient(): Replicate {
     const apiToken = process.env.REPLICATE_API_TOKEN;
     if (!apiToken) {
@@ -481,7 +415,6 @@ function getReplicateClient(): Replicate {
     return new Replicate({ auth: apiToken });
 }
 
-// Enhanced error handling wrapper
 async function safeReplicateCall<T>(operation: () => Promise<T>, context: string): Promise<T> {
     try {
         return await operation();
@@ -489,30 +422,25 @@ async function safeReplicateCall<T>(operation: () => Promise<T>, context: string
         const replicateErrorDetail = error.response?.data?.detail || error.message || 'Unknown Replicate error';
         const statusCode = error.response?.status;
         console.error(`Replicate API error during [${context}] (Status: ${statusCode || 'N/A'}):`, replicateErrorDetail);
-        // Optionally log more details for internal debugging
-        // if (error.response?.data) console.error("Replicate full error data:", error.response.data);
         throw new Error(`Replicate failed [${context}]: ${replicateErrorDetail}`);
     }
 }
 
-// --- Image Generation ---
+// --- Image Generation (No changes from previous working version) ---
 export async function generateProductPlacement(request: GenerationRequest): Promise<GenerationResult> {
   const { scene, product, variationNumber, prompt } = request;
   const logPrefix = `[ImgGen S${scene.sceneNumber} V${variationNumber} P:${product.id}]`;
-
-  const description = createPlacementDescription(request); // Basic description
+  const description = createPlacementDescription(request);
 
   if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 10) {
        console.error(`${logPrefix} Invalid or empty prompt received: "${prompt}"`);
        return { imageUrl: FALLBACK_IMAGE_URL, description: "Error: Invalid generation prompt.", success: false };
    }
 
-  // Truncate prompt if too long
   const finalPrompt = prompt.length > MAX_PROMPT_LENGTH ? prompt.substring(0, MAX_PROMPT_LENGTH) + "..." : prompt;
   if (prompt.length > MAX_PROMPT_LENGTH) {
       console.warn(`${logPrefix} Prompt truncated to ${MAX_PROMPT_LENGTH} characters.`);
   }
-
 
   try {
     const replicate = getReplicateClient();
@@ -520,18 +448,18 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
 
     const input = {
         prompt: finalPrompt,
-        negative_prompt: "nsfw, nude, naked, offensive, violence, gore, explicit language, text, words, letters, watermark, signature, blurry, low quality, distorted, deformed, bad anatomy, extra limbs, disfigured", // Enhanced negative prompt
+        negative_prompt: "nsfw, nude, naked, offensive, violence, gore, explicit language, text, words, letters, watermark, signature, blurry, low quality, distorted, deformed, bad anatomy, extra limbs, disfigured, multiple views",
         width: 1024,
         height: 576,
         num_outputs: 1,
         scheduler: "K_EULER",
-        num_inference_steps: 30, // Slightly increased steps
-        guidance_scale: 7, // Slightly lower guidance can sometimes help safety
+        num_inference_steps: 30,
+        guidance_scale: 7,
         refine: "expert_ensemble_refiner",
-        refine_steps: 50, // Keep refiner steps reasonable
+        refine_steps: 50,
     };
 
-     console.log(`${logPrefix} Calling Replicate run (${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION})...`);
+    console.log(`${logPrefix} Calling Replicate run (${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION})...`);
 
     const output: any = await safeReplicateCall(() => replicate.run(
        `${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION}`,
@@ -539,101 +467,122 @@ export async function generateProductPlacement(request: GenerationRequest): Prom
     ), `Run Image Model Var ${variationNumber}`);
 
     let imageUrl: string | undefined;
-    if (Array.isArray(output) && output.length > 0 && typeof output[0] === 'string') {
-        imageUrl = output[0];
+    let failureReason = "Unexpected output format";
+
+    if (output && typeof output === 'object' && !Array.isArray(output) && output.error) {
+        failureReason = String(output.error);
+        console.error(`${logPrefix} Replicate run returned an error object:`, failureReason);
+    } else if (Array.isArray(output) && output.length > 0) {
+        const firstItem = output[0];
+        if (typeof firstItem === 'string' && isValidHttpUrl(firstItem)) {
+            imageUrl = firstItem;
+        }
+        else if (firstItem instanceof ReadableStream) {
+            console.log(`${logPrefix} Replicate output is a ReadableStream. Reading data...`);
+            try {
+                const reader = firstItem.getReader();
+                const chunks: Uint8Array[] = [];
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  if (value) { chunks.push(value); }
+                }
+                const imageBuffer = Buffer.concat(chunks);
+                imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+                console.log(`${logPrefix} Successfully read stream and created base64 data URI.`);
+            } catch (streamError: any) {
+                 console.error(`${logPrefix} Error reading Replicate stream:`, streamError);
+                 failureReason = `Error reading output stream: ${streamError.message}`;
+                 imageUrl = undefined;
+            }
+        }
+        else if (firstItem && typeof firstItem === 'object' && firstItem.error) {
+            failureReason = String(firstItem.error);
+            console.error(`${logPrefix} Replicate run returned an array containing an error object:`, failureReason);
+        } else {
+             console.error(`${logPrefix} Replicate run returned array with unexpected content type:`, typeof firstItem);
+        }
     } else {
-        // Handle cases where Replicate might return an error object within the array/output
-         const errorMsg = output?.error || (Array.isArray(output) && output[0]?.error) || "Unexpected output format";
-         console.error(`${logPrefix} Unexpected output format or error from Replicate:`, errorMsg);
-         // Check specifically for safety filter message if possible
-          if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('safety_checker') || errorMsg.toLowerCase().includes('safety filter')) {
+        console.error(`${logPrefix} Replicate run returned unexpected or empty output:`, output);
+    }
+
+    if (!imageUrl) {
+        if (failureReason.toLowerCase().includes('safety_checker') || failureReason.toLowerCase().includes('safety filter')) {
              console.warn(`${logPrefix} SAFETY FILTER likely triggered.`);
              return { imageUrl: FALLBACK_IMAGE_URL, description: "Generation failed due to safety filter.", success: false };
           }
-         return { imageUrl: FALLBACK_IMAGE_URL, description: `Generation failed: ${errorMsg}`, success: false };
+         return { imageUrl: FALLBACK_IMAGE_URL, description: `Generation failed: ${failureReason}`, success: false };
     }
 
     const sanitizedUrl = getSanitizedImageUrl(imageUrl);
     const success = sanitizedUrl !== FALLBACK_IMAGE_URL;
-    console.log(`${logPrefix} Image generation completed. Success: ${success}. URL: ${success ? sanitizedUrl.substring(0, 60) + '...' : 'FALLBACK'}`);
+    console.log(`${logPrefix} Image generation completed. Success: ${success}. Type: ${imageUrl.startsWith('data:') ? 'Data URI' : 'URL'}`);
 
-    return { imageUrl: sanitizedUrl, description, success };
+    return { imageUrl: imageUrl, description, success }; // Return original URL/DataURI
 
   } catch (error: any) {
-    // safeReplicateCall already logged the core Replicate error
     console.error(`${logPrefix} Overall error during image generation process:`, error.message || error);
-     // Propagate specific error message if available
     return { imageUrl: FALLBACK_IMAGE_URL, description: `Generation failed: ${error.message}`, success: false };
   }
 }
 
-// --- Video Generation ---
+// --- Video Generation (UPDATED for LTX Model) ---
 export async function generateVideoFromVariation(variationId: number): Promise<VideoGenerationResult> {
   const logPrefix = `[VidGen Var ${variationId}]`;
   try {
     const replicate = getReplicateClient();
 
-    // 1. Fetch variation details including the crucial Gemini prompt
+    // 1. Fetch variation details
     const variation = await storage.getSceneVariationById(variationId);
-    if (!variation) {
-        throw new Error(`Variation ${variationId} not found.`);
-    }
-
-    // *** CHECK: Prevent generation if image URL is the fallback ***
-    if (!variation.imageUrl || !isValidHttpUrl(variation.imageUrl) || variation.imageUrl === FALLBACK_IMAGE_URL) {
-        console.error(`${logPrefix} Cannot generate video. Invalid or fallback start image URL: ${variation.imageUrl}`);
+    if (!variation) throw new Error(`Variation ${variationId} not found.`);
+    if (!variation.imageUrl || variation.imageUrl === FALLBACK_IMAGE_URL || (!isValidHttpUrl(variation.imageUrl) && !variation.imageUrl.startsWith('data:image/'))) {
+        console.error(`${logPrefix} Cannot generate video. Invalid, missing, or fallback start image URL.`);
         throw new Error(`Cannot generate video for Variation ${variationId} due to invalid or missing source image.`);
     }
+    if (!variation.geminiPrompt) throw new Error(`Missing Gemini prompt for variation ${variationId}.`);
 
-    if (!variation.geminiPrompt) {
-        throw new Error(`Missing Gemini prompt for variation ${variationId}. Cannot generate video.`);
+    const scene = await storage.getSceneById(variation.sceneId); // Keep for context if needed
+    if (!scene) throw new Error(`Scene ${variation.sceneId} not found.`);
+    const product = await storage.getProductById(variation.productId);
+    if (!product) throw new Error(`Product ${variation.productId} not found.`);
+
+    // 2. Construct LTX video prompt (focus on text prompt, image is separate input)
+    // Use the detailed Gemini prompt as the main textual guidance.
+    const ltxPrompt = variation.geminiPrompt;
+
+    // --- LTX Model Input Parameters ---
+    const input = {
+      image_input: variation.imageUrl, // Use the generated image (URL or Data URI)
+      prompt: ltxPrompt.substring(0, MAX_PROMPT_LENGTH), // Main creative direction
+      style: "cinematic", // LTX specific: choose style ('cinematic', 'realistic', 'anime', etc.)
+      camera_control: "none", // LTX specific: 'none', 'pan_right', 'zoom_in', etc.
+      motion_control: "gentle_subtle_ambient", // LTX specific: 'gentle_wind', 'camera_shake', 'static', etc. Choose one that fits.
+      duration_seconds: 3, // LTX specific: duration
+      seed: Math.floor(Math.random() * 4294967295), // Standard 32-bit seed
+      // negative_prompt: "low quality, blurry, text, watermark", // LTX also supports negative prompts
+      // aspect_ratio: "16:9", // LTX might infer or require this
+    };
+    // --- End LTX Parameters ---
+
+    if (ltxPrompt.length > MAX_PROMPT_LENGTH) {
+        console.warn(`${logPrefix} LTX prompt truncated to ${MAX_PROMPT_LENGTH} characters.`);
     }
 
-    const scene = await storage.getSceneById(variation.sceneId);
-    if (!scene) throw new Error(`Scene ${variation.sceneId} not found for variation ${variationId}.`);
-    const product = await storage.getProductById(variation.productId);
-    if (!product) throw new Error(`Product ${variation.productId} not found for variation ${variationId}.`);
-
-    // 2. Construct video prompt using the stored Gemini prompt
-    const imageContextPrompt = variation.geminiPrompt;
-    const videoPrompt = `Animate this cinematic scene described as: "${imageContextPrompt}". Add subtle, natural, realistic motion consistent with the scene description (e.g., slight character shifts, gentle environmental effects like steam or wind). Maintain photorealism, existing lighting, and composition. Ensure the integrated product "${product.name}" remains clear and natural. Avoid jerky motion, drastic changes, text or watermarks.`;
-
-     // Truncate prompt if too long
-     const finalVideoPrompt = videoPrompt.length > MAX_PROMPT_LENGTH ? videoPrompt.substring(0, MAX_PROMPT_LENGTH) + "..." : videoPrompt;
-     if (videoPrompt.length > MAX_PROMPT_LENGTH) {
-         console.warn(`${logPrefix} Video prompt truncated to ${MAX_PROMPT_LENGTH} characters.`);
-     }
-
-
-    // --- CORRECTED INPUT PARAMETERS for Stable Video Diffusion ---
-    const input = {
-      input_image: variation.imageUrl, // Correct parameter name
-      prompt: finalVideoPrompt,
-      video_length: "25_frames_with_svd_xt", // Correct enum value
-      frames_per_second: 6, // SVD typical FPS
-      motion_bucket_id: 35, // Moderate motion
-      seed: Math.floor(Math.random() * 4294967295), // 32-bit seed
-      // SVD on Replicate might implicitly handle negative prompts based on main prompt quality
-    };
-    // --- END CORRECTIONS ---
-
     console.log(`${logPrefix} Calling Replicate create prediction (${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION})...`);
-    console.log(`${logPrefix} Start Image: ${variation.imageUrl}`);
-    // console.log(`${logPrefix} Video Input Payload:`, JSON.stringify(input, null, 2)); // Uncomment for deep debugging
+    console.log(`${logPrefix} Start Image Type: ${variation.imageUrl.startsWith('data:') ? 'Data URI' : 'URL'}`);
+    // console.log(`${logPrefix} LTX Input Payload:`, JSON.stringify(input, null, 2)); // Debug if needed
 
     // 3. Start prediction job
     const prediction = await safeReplicateCall(() => replicate.predictions.create({
-      version: REPLICATE_VIDEO_VERSION,
+      version: `${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION}`, // REPLICATE_VIDEO_VERSION, // Use LTX version
       input: input,
       // webhook: process.env.REPLICATE_WEBHOOK_URL,
-      // webhook_events_filter: ["completed", "failed"] // Listen for failures too
-    }), `Create Video Prediction Var ${variationId}`);
+      // webhook_events_filter: ["completed", "failed"]
+    }), `Create LTX Video Prediction Var ${variationId}`);
 
     console.log(`${logPrefix} Prediction started. ID: ${prediction.id}, Status: ${prediction.status}`);
 
     if (prediction.status === 'failed' || prediction.status === 'canceled') {
-      // The error should have been caught and logged by safeReplicateCall if it was an API error
-      // If status is failed/canceled, Replicate might provide details in prediction.error
       const errMsg = prediction.error ? String(prediction.error) : `Prediction immediately ${prediction.status}`;
       console.error(`${logPrefix} Prediction failed or canceled on start: ${errMsg}`);
       return {
@@ -649,7 +598,6 @@ export async function generateVideoFromVariation(variationId: number): Promise<V
     };
 
   } catch (error: any) {
-    // Catches errors from DB lookups or the safeReplicateCall wrapper
     console.error(`${logPrefix} Error starting video generation process:`, error.message || error);
     return {
       predictionId: null,
@@ -658,12 +606,56 @@ export async function generateVideoFromVariation(variationId: number): Promise<V
   }
 }
 
-// --- Prediction Status ---
+// --- Prediction Status (No changes needed) ---
+// export async function getPredictionStatus(predictionId: string): Promise<PredictionStatusResult> {
+//   const logPrefix = `[Poll Status ID ${predictionId}]`;
+//   try {
+//     const replicate = getReplicateClient();
+//     // console.log(`${logPrefix} Fetching prediction status...`); // Keep logs minimal
+
+//     const prediction = await safeReplicateCall(() =>
+//         replicate.predictions.get(predictionId),
+//         `Get Prediction Status ${predictionId}`
+//     );
+
+//     let status: PredictionStatusResult['status'] = 'unknown';
+//     if (['starting', 'processing', 'succeeded', 'failed', 'canceled'].includes(prediction.status)) {
+//       status = prediction.status as PredictionStatusResult['status'];
+//     } else {
+//         console.warn(`${logPrefix} Received unexpected status from Replicate: ${prediction.status}`);
+//     }
+
+//     // LTX output is typically a direct URL string
+//     const outputUrl = (prediction.output && typeof prediction.output === 'string' && isValidHttpUrl(prediction.output))
+//                       ? prediction.output
+//                       : null;
+
+//     if (status === 'succeeded' && !outputUrl) {
+//         console.warn(`${logPrefix} Prediction succeeded but output URL is invalid or missing. Output:`, prediction.output);
+//     }
+
+//     const errorString = prediction.error ? String(prediction.error) : null;
+
+//     return {
+//       status: status,
+//       outputUrl: outputUrl,
+//       error: errorString,
+//       logs: prediction.logs,
+//     };
+
+//   } catch (error: any) {
+//     console.error(`${logPrefix} Failed to fetch prediction status overall.`);
+//     return {
+//       status: 'failed',
+//       error: `Failed to fetch prediction status: ${error.message || 'Unknown error'}`,
+//     };
+//   }
+// }
+
 export async function getPredictionStatus(predictionId: string): Promise<PredictionStatusResult> {
   const logPrefix = `[Poll Status ID ${predictionId}]`;
   try {
     const replicate = getReplicateClient();
-    // console.log(`${logPrefix} Fetching prediction status...`); // Keep logs minimal
 
     const prediction = await safeReplicateCall(() =>
         replicate.predictions.get(predictionId),
@@ -677,30 +669,42 @@ export async function getPredictionStatus(predictionId: string): Promise<Predict
         console.warn(`${logPrefix} Received unexpected status from Replicate: ${prediction.status}`);
     }
 
-    // SVD output is typically a direct URL string
-    const outputUrl = (prediction.output && typeof prediction.output === 'string' && isValidHttpUrl(prediction.output))
-                      ? prediction.output
-                      : null;
+    // --- MODIFIED: Handle Array Output ---
+    let outputUrl: string | null = null;
+    if (prediction.output) {
+        if (Array.isArray(prediction.output) && prediction.output.length > 0 && typeof prediction.output[0] === 'string' && isValidHttpUrl(prediction.output[0])) {
+            // If it's an array with a valid URL string as the first element
+            outputUrl = prediction.output[0];
+            // console.log(`${logPrefix} Extracted URL from array output: ${outputUrl.substring(0, 60)}...`); // Optional debug log
+        } else if (typeof prediction.output === 'string' && isValidHttpUrl(prediction.output)) {
+             // Handle direct string URL output (fallback for other models potentially)
+            outputUrl = prediction.output;
+        } else {
+            // Log if output is present but not in expected format (array or string)
+             console.warn(`${logPrefix} Prediction output is present but not a valid URL string or array containing one. Output:`, prediction.output);
+        }
+    }
+    // --- END MODIFIED ---
+
 
     if (status === 'succeeded' && !outputUrl) {
-        console.warn(`${logPrefix} Prediction succeeded but output URL is invalid or missing. Output:`, prediction.output);
-         // Consider setting status to 'failed' here if URL is mandatory for success
+        // This warning might still trigger if the URL in the array is somehow invalid, but less likely now.
+        console.warn(`${logPrefix} Prediction succeeded but valid output URL could not be extracted. Output received:`, prediction.output);
+         // Optionally update status to failed if URL is critical for success state
          // status = 'failed';
-         // prediction.error = prediction.error || "Prediction succeeded but output URL is invalid.";
+         // prediction.error = prediction.error || "Prediction succeeded but output URL is invalid or missing.";
     }
 
-    // Ensure error is always a string or null
     const errorString = prediction.error ? String(prediction.error) : null;
 
     return {
       status: status,
-      outputUrl: outputUrl,
+      outputUrl: outputUrl, // Send the extracted URL
       error: errorString,
-      logs: prediction.logs, // Pass logs through for debugging on client/server
+      logs: prediction.logs,
     };
 
   } catch (error: any) {
-    // safeReplicateCall logs the specific Replicate error
     console.error(`${logPrefix} Failed to fetch prediction status overall.`);
     return {
       status: 'failed',
@@ -708,6 +712,7 @@ export async function getPredictionStatus(predictionId: string): Promise<Predict
     };
   }
 }
+
 
 // --- Helper to create basic description ---
 function createPlacementDescription(request: GenerationRequest): string {
