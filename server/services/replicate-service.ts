@@ -1,6 +1,11 @@
 // server/services/replicate-service.ts
 import Replicate from "replicate";
-import { Scene, Product, ProductCategory, SceneVariation } from "@shared/schema"; // Added SceneVariation
+import {
+  Scene,
+  Product,
+  ProductCategory,
+  SceneVariation,
+} from "@shared/schema"; // Added SceneVariation
 import * as storage from "../storage"; // Import all exports as 'storage'
 import { Buffer } from "buffer"; // Required for Buffer.concat
 
@@ -20,18 +25,23 @@ interface GenerationResult {
 
 // --- Video Generation Types ---
 interface VideoGenerationResult {
-    predictionId: string | null;
-    error?: string;
-    status?: string; // Initial status
+  predictionId: string | null;
+  error?: string;
+  status?: string; // Initial status
 }
 
 interface PredictionStatusResult {
-    status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled' | 'unknown';
-    outputUrl?: string | null; // URL of the generated video
-    error?: string | null;
-    logs?: string | null; // Include logs for debugging
+  status:
+    | "starting"
+    | "processing"
+    | "succeeded"
+    | "failed"
+    | "canceled"
+    | "unknown";
+  outputUrl?: string | null; // URL of the generated video
+  error?: string | null;
+  logs?: string | null; // Include logs for debugging
 }
-
 
 const FALLBACK_IMAGE_URL =
   "https://placehold.co/864x480/grey/white?text=Image+Gen+Failed";
@@ -39,7 +49,7 @@ const FALLBACK_VIDEO_URL = ""; // No fallback video, just indicate failure
 
 // Helper function to sanitize URLs and provide a specific fallback for errors
 const getSanitizedImageUrl = (url: string | undefined | null): string => {
-  if (!url || typeof url !== 'string') {
+  if (!url || typeof url !== "string") {
     console.warn(
       "Received invalid or empty URL for sanitization, using fallback.",
     );
@@ -77,22 +87,27 @@ export async function generateProductPlacement(
     );
 
     // stability-ai/sdxl model
-    const output: any = await replicate.run("stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316", {
-      input: {
-        prompt: prompt,
-        width: 1024,
-        height: 576,
-        // aspect_ratio: "custom", // Implicitly handled by width/height
-        seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+    const output: any = await replicate.run(
+      "stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316",
+      {
+        input: {
+          prompt: prompt,
+          width: 1024,
+          height: 576,
+          // aspect_ratio: "custom", // Implicitly handled by width/height
+          seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+        },
       },
-    });
+    );
 
     console.log(
       `Replicate Raw Output (S${scene.sceneNumber}V${variationNumber}):`,
       // Safely stringify and truncate, as output could be large or complex
-      (output && typeof output === 'object' && !(output instanceof ReadableStream)) ? 
-        (JSON.stringify(output, null, 2).substring(0, 500) + "...") : 
-        String(output).substring(0,500) + "..."
+      output &&
+        typeof output === "object" &&
+        !(output instanceof ReadableStream)
+        ? JSON.stringify(output, null, 2).substring(0, 500) + "..."
+        : String(output).substring(0, 500) + "...",
     );
 
     let imageUrl: string | undefined;
@@ -109,28 +124,31 @@ export async function generateProductPlacement(
           chunks.push(value);
         }
         const imageBuffer = Buffer.concat(chunks); // Ensure Buffer is imported
-        imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+        imageUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
       } else if (typeof output[0] === "string") {
         imageUrl = output[0];
       }
-    } else if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
+    } else if (
+      typeof output === "string" &&
+      (output.startsWith("http") || output.startsWith("data:"))
+    ) {
       imageUrl = output;
     }
     // Add check for non-array ReadableStream (though less common for 'run' method, defensive)
     else if (output instanceof ReadableStream) {
-        const reader = output.getReader();
-        const chunks = [];
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-        }
-        const imageBuffer = Buffer.concat(chunks);
-        imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+      const reader = output.getReader();
+      const chunks = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      const imageBuffer = Buffer.concat(chunks);
+      imageUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
     }
 
-
-    if (!imageUrl || typeof imageUrl !== 'string') { // Check if imageUrl was successfully extracted as a string
+    if (!imageUrl || typeof imageUrl !== "string") {
+      // Check if imageUrl was successfully extracted as a string
       console.error(
         `No valid image URL found or extracted for S${scene.sceneNumber}V${variationNumber}. Output received:`,
         output, // Log the problematic output again if it wasn't clear from raw log
@@ -144,7 +162,7 @@ export async function generateProductPlacement(
     //    `Generated Image URL (S${scene.sceneNumber}V${variationNumber}): ${sanitizedUrl}`
     // );
     console.log(
-      `Image generation process completed for S${scene.sceneNumber}V${variationNumber}. Success: ${sanitizedUrl !== FALLBACK_IMAGE_URL}`
+      `Image generation process completed for S${scene.sceneNumber}V${variationNumber}. Success: ${sanitizedUrl !== FALLBACK_IMAGE_URL}`,
     );
 
     return {
@@ -156,113 +174,151 @@ export async function generateProductPlacement(
     console.error(
       `Replicate API error (Image) for S${scene.sceneNumber}V${variationNumber} (Product: ${product.name}):`,
       error.message || error,
-      error.stack // Log stack for more details
+      error.stack, // Log stack for more details
     );
     return { imageUrl: FALLBACK_IMAGE_URL, description, success: false };
   }
 }
 
-
 // --- NEW: generateVideoFromVariation ---
-export async function generateVideoFromVariation(variationId: number): Promise<VideoGenerationResult> {
-    try {
-        const apiToken = process.env.REPLICATE_API_TOKEN;
-        if (!apiToken) {
-            throw new Error("REPLICATE_API_TOKEN environment variable is not set");
-        }
-        const replicate = new Replicate({ auth: apiToken });
-
-        // 1. Fetch variation details (including image URL, scene, product)
-        const variation = await storage.getSceneVariationById(variationId);
-        if (!variation || !variation.imageUrl || variation.imageUrl === FALLBACK_IMAGE_URL) {
-            throw new Error(`Variation ${variationId} not found or has no valid start image.`);
-        }
-        const scene = await storage.getSceneById(variation.sceneId);
-         if (!scene) {
-            throw new Error(`Scene ${variation.sceneId} for variation ${variationId} not found.`);
-        }
-        const product = await storage.getProductById(variation.productId);
-         if (!product) {
-            throw new Error(`Product ${variation.productId} for variation ${variationId} not found.`);
-        }
-
-
-        // 2. Construct the video prompt (enhance the still image context)
-        const stillImagePromptContext = createProductPlacementPrompt({ scene, product, variationNumber: variation.variationNumber });
-        const videoPrompt = `Animate this cinematic scene: ${stillImagePromptContext}. Add subtle natural motion fitting the scene context, like characters shifting slightly, background elements moving gently (e.g., steam from coffee, leaves rustling if outdoors), or camera slowly panning/dollying. Maintain photorealism and the established mood. The product "${product.name}" should remain naturally integrated.`;
-
-        console.log(`Replicate Call (Video): Var ${variation.id}. Start Image: ${variation.imageUrl}. Prompt: ${videoPrompt.substring(0, 150)}...`);
-
-
-        // 3. Call Replicate's prediction endpoint for Kling model
-        const prediction = await replicate.predictions.create({
-            // Correct model identifier: owner/model:version_hash
-            version: "05e14715e46e46b5c9bf97a382564060130a101307a9509a55e6f6c705060553", // Ensure this is the correct hash for kling-v1.6-standard
-            input: {
-                prompt: videoPrompt.substring(0, 1000), // Limit prompt length
-                start_image: variation.imageUrl,
-                // Add other Kling-specific parameters if needed, e.g., motion_level, fps
-            },
-            // webhook: "YOUR_WEBHOOK_URL", // Optional: Use webhooks instead of polling for better scalability
-            // webhook_events_filter: ["completed"]
-        });
-
-        console.log(`Started Replicate video prediction for Var ${variation.id}. Prediction ID: ${prediction.id}, Status: ${prediction.status}`);
-
-        if (prediction.status === 'failed' || prediction.status === 'canceled') {
-             return { predictionId: prediction.id, error: prediction.error ? String(prediction.error) : 'Prediction failed or was canceled', status: prediction.status };
-        }
-
-        return { predictionId: prediction.id, status: prediction.status as VideoGenerationResult['status'] }; // Cast status
-
-    } catch (error: any) {
-        console.error(`Error starting video generation for Variation ${variationId}:`, error.message || error);
-        return { predictionId: null, error: error.message || 'Failed to start video generation' };
+export async function generateVideoFromVariation(
+  variationId: number,
+): Promise<VideoGenerationResult> {
+  try {
+    const apiToken = process.env.REPLICATE_API_TOKEN;
+    if (!apiToken) {
+      throw new Error("REPLICATE_API_TOKEN environment variable is not set");
     }
+    const replicate = new Replicate({ auth: apiToken });
+
+    // 1. Fetch variation details (including image URL, scene, product)
+    const variation = await storage.getSceneVariationById(variationId);
+    if (
+      !variation ||
+      !variation.imageUrl ||
+      variation.imageUrl === FALLBACK_IMAGE_URL
+    ) {
+      throw new Error(
+        `Variation ${variationId} not found or has no valid start image.`,
+      );
+    }
+    const scene = await storage.getSceneById(variation.sceneId);
+    if (!scene) {
+      throw new Error(
+        `Scene ${variation.sceneId} for variation ${variationId} not found.`,
+      );
+    }
+    const product = await storage.getProductById(variation.productId);
+    if (!product) {
+      throw new Error(
+        `Product ${variation.productId} for variation ${variationId} not found.`,
+      );
+    }
+
+    // 2. Construct the video prompt (enhance the still image context)
+    const stillImagePromptContext = createProductPlacementPrompt({
+      scene,
+      product,
+      variationNumber: variation.variationNumber,
+    });
+    const videoPrompt = `Animate this cinematic scene: ${stillImagePromptContext}. Add subtle natural motion fitting the scene context, like characters shifting slightly, background elements moving gently (e.g., steam from coffee, leaves rustling if outdoors), or camera slowly panning/dollying. Maintain photorealism and the established mood. The product "${product.name}" should remain naturally integrated.`;
+
+    console.log(
+      `Replicate Call (Video): Var ${variation.id}. Start Image: ${variation.imageUrl}. Prompt: ${videoPrompt.substring(0, 150)}...`,
+    );
+
+    // 3. Call Replicate's prediction endpoint for Kling model
+    const prediction = await replicate.predictions.create({
+      // Correct model identifier: owner/model:version_hash
+      version: "kwaivgi/kling-v1.6-standard", // Ensure this is the correct hash for kling-v1.6-standard
+      input: {
+        prompt: videoPrompt.substring(0, 1000), // Limit prompt length
+        start_image: variation.imageUrl,
+        // Add other Kling-specific parameters if needed, e.g., motion_level, fps
+      },
+      // webhook: "YOUR_WEBHOOK_URL", // Optional: Use webhooks instead of polling for better scalability
+      // webhook_events_filter: ["completed"]
+    });
+
+    console.log(
+      `Started Replicate video prediction for Var ${variation.id}. Prediction ID: ${prediction.id}, Status: ${prediction.status}`,
+    );
+
+    if (prediction.status === "failed" || prediction.status === "canceled") {
+      return {
+        predictionId: prediction.id,
+        error: prediction.error
+          ? String(prediction.error)
+          : "Prediction failed or was canceled",
+        status: prediction.status,
+      };
+    }
+
+    return {
+      predictionId: prediction.id,
+      status: prediction.status as VideoGenerationResult["status"],
+    }; // Cast status
+  } catch (error: any) {
+    console.error(
+      `Error starting video generation for Variation ${variationId}:`,
+      error.message || error,
+    );
+    return {
+      predictionId: null,
+      error: error.message || "Failed to start video generation",
+    };
+  }
 }
 
 // --- NEW: getPredictionStatus ---
-export async function getPredictionStatus(predictionId: string): Promise<PredictionStatusResult> {
-    try {
-        const apiToken = process.env.REPLICATE_API_TOKEN;
-        if (!apiToken) {
-            throw new Error("REPLICATE_API_TOKEN environment variable is not set");
-        }
-        const replicate = new Replicate({ auth: apiToken });
-
-        const prediction = await replicate.predictions.get(predictionId);
-
-        // Map Replicate status to our defined status type
-        let status: PredictionStatusResult['status'] = 'unknown';
-        if (['starting', 'processing', 'succeeded', 'failed', 'canceled'].includes(prediction.status)) {
-            status = prediction.status as PredictionStatusResult['status'];
-        }
-
-
-         // Ensure output is treated as a string URL
-        const outputUrl = (prediction.output && typeof prediction.output === 'string')
-                          ? prediction.output
-                          : (Array.isArray(prediction.output) && typeof prediction.output[0] === 'string')
-                          ? prediction.output[0] // Kling might output an array with one URL
-                          : null;
-
-
-        return {
-            status: status,
-            outputUrl: outputUrl,
-            error: prediction.error ? String(prediction.error) : null, // Ensure error is string or null
-            logs: prediction.logs
-        };
-
-    } catch (error: any) {
-        console.error(`Error fetching prediction status for ID ${predictionId}:`, error.message || error);
-        return {
-            status: 'failed', // Consider it failed if we can't get status
-            error: `Failed to fetch prediction status: ${error.message || 'Unknown error'}`
-        };
+export async function getPredictionStatus(
+  predictionId: string,
+): Promise<PredictionStatusResult> {
+  try {
+    const apiToken = process.env.REPLICATE_API_TOKEN;
+    if (!apiToken) {
+      throw new Error("REPLICATE_API_TOKEN environment variable is not set");
     }
-}
+    const replicate = new Replicate({ auth: apiToken });
 
+    const prediction = await replicate.predictions.get(predictionId);
+
+    // Map Replicate status to our defined status type
+    let status: PredictionStatusResult["status"] = "unknown";
+    if (
+      ["starting", "processing", "succeeded", "failed", "canceled"].includes(
+        prediction.status,
+      )
+    ) {
+      status = prediction.status as PredictionStatusResult["status"];
+    }
+
+    // Ensure output is treated as a string URL
+    const outputUrl =
+      prediction.output && typeof prediction.output === "string"
+        ? prediction.output
+        : Array.isArray(prediction.output) &&
+            typeof prediction.output[0] === "string"
+          ? prediction.output[0] // Kling might output an array with one URL
+          : null;
+
+    return {
+      status: status,
+      outputUrl: outputUrl,
+      error: prediction.error ? String(prediction.error) : null, // Ensure error is string or null
+      logs: prediction.logs,
+    };
+  } catch (error: any) {
+    console.error(
+      `Error fetching prediction status for ID ${predictionId}:`,
+      error.message || error,
+    );
+    return {
+      status: "failed", // Consider it failed if we can't get status
+      error: `Failed to fetch prediction status: ${error.message || "Unknown error"}`,
+    };
+  }
+}
 
 // Helper to create the still image prompt (can be reused/adapted for video)
 function createProductPlacementPrompt(request: GenerationRequest): string {
@@ -275,13 +331,13 @@ function createProductPlacementPrompt(request: GenerationRequest): string {
   prompt += `Scene context: ${sceneContext}. `;
   prompt += `Integrate ${product.name} (${product.category.toLowerCase()}) naturally into the scene. `;
 
-   // Add guidance based on category or reason
-   if (scene.brandableReason) {
-     prompt += `Placement idea: ${scene.brandableReason}. `;
-   } else {
-      // Add generic guidance if no reason provided
-      prompt += `The product should appear naturally within the environment or be used subtly by characters. `;
-   }
+  // Add guidance based on category or reason
+  if (scene.brandableReason) {
+    prompt += `Placement idea: ${scene.brandableReason}. `;
+  } else {
+    // Add generic guidance if no reason provided
+    prompt += `The product should appear naturally within the environment or be used subtly by characters. `;
+  }
 
   prompt += `Ensure the product is identifiable but not overly prominent, maintaining the scene's realism and cinematic quality. Professional lighting and composition.`;
 
