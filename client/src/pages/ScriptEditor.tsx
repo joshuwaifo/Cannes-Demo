@@ -96,15 +96,27 @@ export default function ScriptEditor() {
         }
     }, []); // No dependencies, safe to useCallback
 
-    const pollPredictionStatus = useCallback(async (predictionId: string, variationId: number) => {
+    const MAX_RETRIES = 3;
+    const INITIAL_RETRY_DELAY = 1000;
+
+    const pollPredictionStatus = useCallback(async (predictionId: string, variationId: number, retryCount = 0) => {
         try {
             const response = await fetch(`/api/replicate/predictions/${predictionId}`);
-             // Check for specific error statuses first
+            
             if (!response.ok) {
-                // Handle non-OK responses (e.g., 404 if prediction ID is wrong, 500 for server errors)
                 const errorText = await response.text();
+                if (retryCount < MAX_RETRIES && response.status >= 500) {
+                    // Exponential backoff for retries
+                    const delay = INITIAL_RETRY_DELAY * Math.pow(2, retryCount);
+                    console.log(`Retrying prediction status check in ${delay}ms...`);
+                    setTimeout(() => {
+                        pollPredictionStatus(predictionId, variationId, retryCount + 1);
+                    }, delay);
+                    return;
+                }
                 throw new Error(`HTTP error ${response.status}: ${errorText || 'Failed to fetch status'}`);
             }
+            
             const data: { status: VideoGenerationStatus, outputUrl?: string, error?: string, logs?: string } = await response.json();
 
             console.log(`Poll Status for ${predictionId} (Var ${variationId}): ${data.status}`);

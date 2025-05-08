@@ -17,6 +17,35 @@ interface GenerationRequest {
   // sceneBaseSeed?: number; // Keep consistency if needed
 }
 
+
+// Utility function to validate URLs
+function isValidHttpUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// Enhanced error handling wrapper for Replicate API calls
+async function safeReplicateCall<T>(
+  operation: () => Promise<T>,
+  context: string
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.error || error.message || "Unknown error";
+    console.error(`Replicate API error (${context}):`, {
+      message: errorMessage,
+      details: error.response?.data,
+      logs: error.response?.data?.logs
+    });
+    throw new Error(`Replicate ${context} failed: ${errorMessage}`);
+  }
+}
+
 interface GenerationResult {
   imageUrl: string;
   description: string;
@@ -221,7 +250,34 @@ export async function generateVideoFromVariation(
       product,
       variationNumber: variation.variationNumber,
     });
-    const videoPrompt = `Animate this cinematic scene: ${stillImagePromptContext}. Add subtle natural motion fitting the scene context, like characters shifting slightly, background elements moving gently (e.g., steam from coffee, leaves rustling if outdoors), or camera slowly panning/dollying. Maintain photorealism and the established mood. The product "${product.name}" should remain naturally integrated.`;
+    // Validate image URL before proceeding
+    if (!variation.imageUrl || !isValidHttpUrl(variation.imageUrl)) {
+      throw new Error("Invalid or missing image URL for video generation");
+    }
+
+    const videoPrompt = `Create a cinematic animation from this scene. Primary focus: ${stillImagePromptContext}
+Key animation guidelines:
+- Maintain absolute photorealism and the established composition
+- Add minimal, natural motion: subtle character movements, gentle environmental effects
+- Keep the product "${product.name}" perfectly integrated and clear
+- Use smooth, cinematic camera work (slight dolly or pan if appropriate)
+- Preserve lighting quality and mood throughout
+
+Do not:
+- Add sudden movements or jerky motion
+- Change the scene composition drastically
+- Alter product placement or visibility
+- Modify the fundamental lighting or atmosphere`;
+
+    const generationParams = {
+      prompt: videoPrompt.substring(0, 1000),
+      start_image: variation.imageUrl,
+      num_frames: 90, // 3 seconds at 30fps
+      motion_bucket_id: 35, // Moderate motion level
+      fps: 30,
+      guidance_scale: 7.5, // Balance between prompt adherence and creativity
+      negative_prompt: "blurry, low quality, jerky motion, distortion, warping, artifacting",
+    };
 
     console.log(
       `Replicate Call (Video): Var ${variation.id}. Start Image: ${variation.imageUrl}. Prompt: ${videoPrompt.substring(0, 150)}...`,
@@ -229,13 +285,8 @@ export async function generateVideoFromVariation(
 
     // 3. Call Replicate's prediction endpoint for Kling model
     const prediction = await replicate.predictions.create({
-      // Correct model identifier: owner/model:version_hash
-      version: "kwaivgi/kling-v1.6-standard", // Ensure this is the correct hash for kling-v1.6-standard
-      input: {
-        prompt: videoPrompt.substring(0, 1000), // Limit prompt length
-        start_image: variation.imageUrl,
-        // Add other Kling-specific parameters if needed, e.g., motion_level, fps
-      },
+      version: "kwaivgi/kling-v1.6-standard",
+      input: generationParams,
       // webhook: "YOUR_WEBHOOK_URL", // Optional: Use webhooks instead of polling for better scalability
       // webhook_events_filter: ["completed"]
     });
