@@ -42,7 +42,7 @@ export default function BrandableScenes({
     return (
       <div>
         <h3 className="text-md font-semibold text-secondary mb-3">
-          Select a Brandable Scene
+          Select a Scene
         </h3>
         <div className="bg-muted p-6 rounded-lg text-center border border-dashed">
           <Info className="h-10 w-10 text-gray-400 mx-auto mb-3" />
