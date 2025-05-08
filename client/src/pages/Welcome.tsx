@@ -202,7 +202,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
             <ol className="list-decimal list-inside space-y-3 text-gray-600">
               <li>Upload your script PDF file</li>
               <li>Vadis AI will extract scenes from the script and analyze brand sponsorship opportunities</li>
-              <li>Manage your product database with branded items</li>
+              <li>Select the brand sponsors you'd like to feature in the scenes from your script</li>
               <li>Generate AI-powered product placement visuals for each scene</li>
               <li>Select your preferred placements and export for production</li>
             </ol>
