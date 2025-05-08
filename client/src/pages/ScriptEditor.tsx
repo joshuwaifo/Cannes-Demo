@@ -274,7 +274,8 @@ export default function ScriptEditor() {
         {scenes.length > 0 && (
           <div className="bg-white rounded-lg shadow p-4">
             <BrandableScenes
-              brandableScenes={brandableSceneObjects} // Pass full scene objects that are brandable
+              brandableScenes={brandableSceneObjects}
+              scenes={scenes}
               productVariations={sceneVariations}
               isLoading={
                 isLoadingVariations ||

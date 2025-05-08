@@ -17,11 +17,12 @@ import { Scene } from "@shared/schema";
 
 export default function BrandableScenes({
   brandableScenes,
+  scenes,
   productVariations,
   isLoading, // This prop is true if variations are loading OR a selection is being processed by the parent
   selectedSceneId,
   onOptionSelect,
-}: BrandableScenesProps) {
+}: BrandableScenesProps & { scenes: Scene[] }) {
   const currentScene = brandableScenes.find(
     (scene) => scene.id === selectedSceneId,
   );
@@ -143,6 +144,9 @@ export default function BrandableScenes({
           <p className="text-sm text-muted-foreground mb-4">
             Suggested Categories:{" "}
             {currentScene.suggestedCategories?.join(", ") || "N/A"}
+          </p>
+          <p className="text-sm text-yellow-800 mb-2 font-medium">
+            AI has identified {brandableScenes.length} of {scenes.length} scenes with product placement potential:
           </p>
         </>
       )}
