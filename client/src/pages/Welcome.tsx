@@ -185,8 +185,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
                 Get Started
               </h2>
               <p className="text-gray-600 mb-6">
-                Upload your screenplay PDF file to begin the analysis process. Our AI will identify
-                the best opportunities for product placement.
+                Upload your script PDF file to begin the analysis process. Vadis AI will identify Brand Sponsorship Opportunities by scene from your script.
               </p>
               <FileUpload 
                 onFileUpload={handleFileUpload} 
