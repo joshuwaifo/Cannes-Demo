@@ -158,7 +158,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
         <div className="flex justify-center mb-4">
           <Film className="h-16 w-16 text-primary" />
         </div>
-        <h1 className="text-3xl font-bold mb-2">Welcome to VadisMedia</h1>
+        <h1 className="text-3xl font-bold mb-2">Vadis Brand Marketplace</h1>
         <p className="text-xl text-gray-600 mb-6">
           AI-powered script analysis for strategic product placement
         </p>
