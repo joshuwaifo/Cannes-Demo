@@ -172,7 +172,6 @@ export default function Contact() {
                 <div>
                   <h3 className="font-medium">Email</h3>
                   <p>contact@vadis-media.com</p>
-                  <p>support@vadismedia.com</p>
                 </div>
               </div>
               
