@@ -1,11 +1,15 @@
 // server/services/replicate-service.ts
 import Replicate from "replicate";
-import { Scene, Product, ProductCategory } from "@shared/schema";
+import { Scene, Product, ProductCategory, SceneVariation } from "@shared/schema"; // Added SceneVariation
+import * as storage from "../storage"; // Import all exports as 'storage'
+import { Buffer } from "buffer"; // Required for Buffer.concat
 
 interface GenerationRequest {
   scene: Scene;
   product: Product;
   variationNumber: number;
+  // sceneBasePrompt?: string; // Keep consistency if needed
+  // sceneBaseSeed?: number; // Keep consistency if needed
 }
 
 interface GenerationResult {
@@ -14,12 +18,28 @@ interface GenerationResult {
   success: boolean; // Added to indicate if generation was successful
 }
 
+// --- Video Generation Types ---
+interface VideoGenerationResult {
+    predictionId: string | null;
+    error?: string;
+    status?: string; // Initial status
+}
+
+interface PredictionStatusResult {
+    status: 'starting' | 'processing' | 'succeeded' | 'failed' | 'canceled' | 'unknown';
+    outputUrl?: string | null; // URL of the generated video
+    error?: string | null;
+    logs?: string | null; // Include logs for debugging
+}
+
+
 const FALLBACK_IMAGE_URL =
   "https://placehold.co/864x480/grey/white?text=Image+Gen+Failed";
+const FALLBACK_VIDEO_URL = ""; // No fallback video, just indicate failure
 
 // Helper function to sanitize URLs and provide a specific fallback for errors
 const getSanitizedImageUrl = (url: string | undefined | null): string => {
-  if (!url || typeof url !== "string") {
+  if (!url || typeof url !== 'string') {
     console.warn(
       "Received invalid or empty URL for sanitization, using fallback.",
     );
@@ -35,11 +55,12 @@ const getSanitizedImageUrl = (url: string | undefined | null): string => {
   }
 };
 
+// --- generateProductPlacement (Still Image Generation - CORRECTED) ---
 export async function generateProductPlacement(
   request: GenerationRequest,
 ): Promise<GenerationResult> {
   const { scene, product, variationNumber } = request;
-  const description = createPlacementDescription(request);
+  const description = createPlacementDescription(request); // Use helper
 
   try {
     const apiToken = process.env.REPLICATE_API_TOKEN;
@@ -49,37 +70,34 @@ export async function generateProductPlacement(
     }
 
     const replicate = new Replicate({ auth: apiToken });
-    const prompt = createProductPlacementPrompt(request);
+    const prompt = createProductPlacementPrompt(request); // Use helper
 
     console.log(
-      `Replicate Call: Scene ${scene.sceneNumber}, Var ${variationNumber}, Product ${product.name}. Prompt (start): ${prompt.substring(0, 100)}...`,
+      `Replicate Call (Image): Scene ${scene.sceneNumber}, Var ${variationNumber}, Product ${product.name}. Prompt (start): ${prompt.substring(0, 100)}...`,
     );
 
-    // flux-1.1-pro model expects input like this
-    const output = await replicate.run("stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316", {
+    // stability-ai/sdxl model
+    const output: any = await replicate.run("stability-ai/sdxl:c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316", {
       input: {
         prompt: prompt,
         width: 1024,
         height: 576,
-        aspect_ratio: "custom",
-        // prompt_upsampling: true, // Not a direct parameter for this model version, control through prompt detail
-        // output_format: "webp", // This model usually outputs png or jpg based on default, or specified in prompt techniques
-        // output_quality: 80, // Quality controlled by model / prompt
-        // safety_tolerance: 2, // Handled by Replicate's platform-level safety
+        // aspect_ratio: "custom", // Implicitly handled by width/height
         seed: Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
-        // num_inference_steps: 50, // Example, if you want to control this
-        // guidance_scale: 7.5, // Example
       },
     });
 
     console.log(
       `Replicate Raw Output (S${scene.sceneNumber}V${variationNumber}):`,
-      JSON.stringify(output, null, 2).substring(0, 500) + "...",
+      // Safely stringify and truncate, as output could be large or complex
+      (output && typeof output === 'object' && !(output instanceof ReadableStream)) ? 
+        (JSON.stringify(output, null, 2).substring(0, 500) + "...") : 
+        String(output).substring(0,500) + "..."
     );
 
     let imageUrl: string | undefined;
 
-    // Handle ReadableStream response
+    // Restore original output handling logic to correctly process potential ReadableStream
     if (Array.isArray(output) && output.length > 0) {
       if (output[0] instanceof ReadableStream) {
         // The stream contains the image directly - return base64 data URL
@@ -90,28 +108,45 @@ export async function generateProductPlacement(
           if (done) break;
           chunks.push(value);
         }
-        const imageBuffer = Buffer.concat(chunks);
+        const imageBuffer = Buffer.concat(chunks); // Ensure Buffer is imported
         imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
       } else if (typeof output[0] === "string") {
         imageUrl = output[0];
       }
-    } else if (typeof output === "string" && output.startsWith("http")) {
+    } else if (typeof output === "string" && (output.startsWith("http") || output.startsWith("data:"))) {
       imageUrl = output;
     }
+    // Add check for non-array ReadableStream (though less common for 'run' method, defensive)
+    else if (output instanceof ReadableStream) {
+        const reader = output.getReader();
+        const chunks = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        const imageBuffer = Buffer.concat(chunks);
+        imageUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+    }
 
-    if (!imageUrl) {
+
+    if (!imageUrl || typeof imageUrl !== 'string') { // Check if imageUrl was successfully extracted as a string
       console.error(
-        `No valid image URL found for S${scene.sceneNumber}V${variationNumber}. Output:`,
-        output,
+        `No valid image URL found or extracted for S${scene.sceneNumber}V${variationNumber}. Output received:`,
+        output, // Log the problematic output again if it wasn't clear from raw log
       );
       return { imageUrl: FALLBACK_IMAGE_URL, description, success: false };
     }
 
     const sanitizedUrl = getSanitizedImageUrl(imageUrl);
+    // Log the actual sanitized URL for verification if needed, but be mindful of console spam
+    // console.log(
+    //    `Generated Image URL (S${scene.sceneNumber}V${variationNumber}): ${sanitizedUrl}`
+    // );
     console.log(
-      // `Generated Image URL (S${scene.sceneNumber}V${variationNumber}): ${sanitizedUrl}`,
-      'Toluwani'
+      `Image generation process completed for S${scene.sceneNumber}V${variationNumber}. Success: ${sanitizedUrl !== FALLBACK_IMAGE_URL}`
     );
+
     return {
       imageUrl: sanitizedUrl,
       description,
@@ -119,13 +154,117 @@ export async function generateProductPlacement(
     };
   } catch (error: any) {
     console.error(
-      `Replicate API error for S${scene.sceneNumber}V${variationNumber} (Product: ${product.name}):`,
+      `Replicate API error (Image) for S${scene.sceneNumber}V${variationNumber} (Product: ${product.name}):`,
       error.message || error,
+      error.stack // Log stack for more details
     );
     return { imageUrl: FALLBACK_IMAGE_URL, description, success: false };
   }
 }
 
+
+// --- NEW: generateVideoFromVariation ---
+export async function generateVideoFromVariation(variationId: number): Promise<VideoGenerationResult> {
+    try {
+        const apiToken = process.env.REPLICATE_API_TOKEN;
+        if (!apiToken) {
+            throw new Error("REPLICATE_API_TOKEN environment variable is not set");
+        }
+        const replicate = new Replicate({ auth: apiToken });
+
+        // 1. Fetch variation details (including image URL, scene, product)
+        const variation = await storage.getSceneVariationById(variationId);
+        if (!variation || !variation.imageUrl || variation.imageUrl === FALLBACK_IMAGE_URL) {
+            throw new Error(`Variation ${variationId} not found or has no valid start image.`);
+        }
+        const scene = await storage.getSceneById(variation.sceneId);
+         if (!scene) {
+            throw new Error(`Scene ${variation.sceneId} for variation ${variationId} not found.`);
+        }
+        const product = await storage.getProductById(variation.productId);
+         if (!product) {
+            throw new Error(`Product ${variation.productId} for variation ${variationId} not found.`);
+        }
+
+
+        // 2. Construct the video prompt (enhance the still image context)
+        const stillImagePromptContext = createProductPlacementPrompt({ scene, product, variationNumber: variation.variationNumber });
+        const videoPrompt = `Animate this cinematic scene: ${stillImagePromptContext}. Add subtle natural motion fitting the scene context, like characters shifting slightly, background elements moving gently (e.g., steam from coffee, leaves rustling if outdoors), or camera slowly panning/dollying. Maintain photorealism and the established mood. The product "${product.name}" should remain naturally integrated.`;
+
+        console.log(`Replicate Call (Video): Var ${variation.id}. Start Image: ${variation.imageUrl}. Prompt: ${videoPrompt.substring(0, 150)}...`);
+
+
+        // 3. Call Replicate's prediction endpoint for Kling model
+        const prediction = await replicate.predictions.create({
+            // Correct model identifier: owner/model:version_hash
+            version: "05e14715e46e46b5c9bf97a382564060130a101307a9509a55e6f6c705060553", // Ensure this is the correct hash for kling-v1.6-standard
+            input: {
+                prompt: videoPrompt.substring(0, 1000), // Limit prompt length
+                start_image: variation.imageUrl,
+                // Add other Kling-specific parameters if needed, e.g., motion_level, fps
+            },
+            // webhook: "YOUR_WEBHOOK_URL", // Optional: Use webhooks instead of polling for better scalability
+            // webhook_events_filter: ["completed"]
+        });
+
+        console.log(`Started Replicate video prediction for Var ${variation.id}. Prediction ID: ${prediction.id}, Status: ${prediction.status}`);
+
+        if (prediction.status === 'failed' || prediction.status === 'canceled') {
+             return { predictionId: prediction.id, error: prediction.error ? String(prediction.error) : 'Prediction failed or was canceled', status: prediction.status };
+        }
+
+        return { predictionId: prediction.id, status: prediction.status as VideoGenerationResult['status'] }; // Cast status
+
+    } catch (error: any) {
+        console.error(`Error starting video generation for Variation ${variationId}:`, error.message || error);
+        return { predictionId: null, error: error.message || 'Failed to start video generation' };
+    }
+}
+
+// --- NEW: getPredictionStatus ---
+export async function getPredictionStatus(predictionId: string): Promise<PredictionStatusResult> {
+    try {
+        const apiToken = process.env.REPLICATE_API_TOKEN;
+        if (!apiToken) {
+            throw new Error("REPLICATE_API_TOKEN environment variable is not set");
+        }
+        const replicate = new Replicate({ auth: apiToken });
+
+        const prediction = await replicate.predictions.get(predictionId);
+
+        // Map Replicate status to our defined status type
+        let status: PredictionStatusResult['status'] = 'unknown';
+        if (['starting', 'processing', 'succeeded', 'failed', 'canceled'].includes(prediction.status)) {
+            status = prediction.status as PredictionStatusResult['status'];
+        }
+
+
+         // Ensure output is treated as a string URL
+        const outputUrl = (prediction.output && typeof prediction.output === 'string')
+                          ? prediction.output
+                          : (Array.isArray(prediction.output) && typeof prediction.output[0] === 'string')
+                          ? prediction.output[0] // Kling might output an array with one URL
+                          : null;
+
+
+        return {
+            status: status,
+            outputUrl: outputUrl,
+            error: prediction.error ? String(prediction.error) : null, // Ensure error is string or null
+            logs: prediction.logs
+        };
+
+    } catch (error: any) {
+        console.error(`Error fetching prediction status for ID ${predictionId}:`, error.message || error);
+        return {
+            status: 'failed', // Consider it failed if we can't get status
+            error: `Failed to fetch prediction status: ${error.message || 'Unknown error'}`
+        };
+    }
+}
+
+
+// Helper to create the still image prompt (can be reused/adapted for video)
 function createProductPlacementPrompt(request: GenerationRequest): string {
   const { scene, product } = request;
   const sceneLocation = scene.heading || "A dynamic film scene";
@@ -134,89 +273,25 @@ function createProductPlacementPrompt(request: GenerationRequest): string {
   // Base prompt incorporating scene details
   let prompt = `Cinematic film still, photorealistic, high detail. Scene: ${sceneLocation}. `;
   prompt += `Scene context: ${sceneContext}. `;
-  
-  // Detailed product placement instructions
   prompt += `Integrate ${product.name} (${product.category.toLowerCase()}) naturally into the scene. `;
 
-  // // Category-specific placement strategies
-  // if (product.category === ProductCategory.BEVERAGE) {
-  //   prompt += `Show the ${product.name} in a natural drinking/serving moment - on a table, in someone's hand, or being poured. The product should be clearly identifiable but not feel forced.`;
-  // } else if (product.category === ProductCategory.ELECTRONICS) {
-  //   prompt += `Show the ${product.name} being used naturally within the scene - integrated into the action, not just placed as a prop. Ensure the brand is recognizable.`;
-  // } else if (product.category === ProductCategory.AUTOMOTIVE) {
-  //   prompt += `Feature the ${product.name} as part of the scene's environment - whether parked, driving by, or as a key story element. Show the distinctive design features of the vehicle.`;
-  // } else if (product.category === ProductCategory.FASHION) {
-  //   prompt += `Have a character wearing or interacting with the ${product.name} in a way that fits the scene's context. The brand should be visible but not overly prominent.`;
-  // } else if (product.category === ProductCategory.FOOD) {
-  //   prompt += `Include the ${product.name} in a natural eating/dining scenario within the scene. The packaging or presentation should be clearly visible but feel organic to the moment.`;
-  // } else {
-  //   prompt += `Integrate the ${product.name} naturally into the scene's environment, making it visible but not distracting from the scene's narrative.`;
-  // }
+   // Add guidance based on category or reason
+   if (scene.brandableReason) {
+     prompt += `Placement idea: ${scene.brandableReason}. `;
+   } else {
+      // Add generic guidance if no reason provided
+      prompt += `The product should appear naturally within the environment or be used subtly by characters. `;
+   }
 
-  // Add scene-specific context from brandable reason
-  if (scene.brandableReason) {
-    prompt += ` ${scene.brandableReason}`;
-  }
+  prompt += `Ensure the product is identifiable but not overly prominent, maintaining the scene's realism and cinematic quality. Professional lighting and composition.`;
 
-  // Technical specifications for quality
-  prompt += ` Create a high-quality cinematic shot with professional lighting, sharp focus, and natural color grading. Make the product integration feel authentic to the scene.`;
+  // console.log(`Generated Prompt: ${prompt.substring(0,150)}...`) // Log less verbosely
 
-  console.log(`Generated Prompt: ${prompt}...`)
-
-  return prompt.substring(0, 1000);
+  return prompt.substring(0, 1000); // Limit prompt length
 }
 
+// Helper to create description
 function createPlacementDescription(request: GenerationRequest): string {
   const { scene, product, variationNumber } = request;
   return `Variation ${variationNumber}: ${product.name} placed in the scene. ${scene.heading}. Context: ${scene.brandableReason || "General placement"}`;
 }
-
-// function createProductPlacementPrompt(request: GenerationRequest): {
-//   prompt: string;
-//   negative_prompt: string;
-// } {
-//   const { scene, product } = request;
-
-//   // Extract key details
-//   const sceneLocation = scene.heading || "A dynamic film scene";
-//   // Limit context to prevent overly long prompts, focus on action/dialogue snippets
-//   const sceneContext = scene.content
-//     ? scene.content.split('\n').slice(0, 5).join(' ').substring(0, 300)
-//     : "No specific action described.";
-//   const productName = product.name;
-//   const productCategory = product.category.toLowerCase();
-//   const placementReason = scene.brandableReason || `Suitable setting for a ${productCategory} product.`;
-
-//   // Define cinematic style keywords
-//   const cinematicStyle = "cinematic film still, photorealistic, high detail, professional cinematography, sharp focus, natural lighting, realistic textures, shot on 35mm film aesthetic";
-
-//   // Construct the main prompt
-//   let prompt = `${cinematicStyle}. `;
-//   prompt += `Scene: ${sceneLocation}. `;
-//   // Integrate context carefully
-//   prompt += `The scene involves: "${sceneContext}". `;
-//   // Explicitly state the goal: natural integration
-//   prompt += `Naturally and seamlessly integrate the product "${productName}" (category: ${productCategory}) into this scene. `;
-//   // Provide guidance based on the placement reason
-//   prompt += `Placement context: ${placementReason}. `;
-//   // Guide the AI on how to place it believably
-//   prompt += `The product should appear as a believable element of the scene's environment or be used naturally by characters if implied by the context. It should be subtly visible and recognizable without feeling like an advertisement. `;
-//   // Reinforce visual quality
-//   prompt += `Focus on realism, believable scale, and context-appropriate integration.`;
-
-//   // Construct the negative prompt
-//   const negative_prompt = `advertisement, commercial, billboard, poster, text, words, letters, signature, watermark, blurry, low quality, noisy, distorted, deformed, ugly, cartoon, drawing, illustration, 3d render, video game graphics, floating object, unrealistic scale, out of place, forced placement, multiple products, cluttered scene, generic background`;
-
-//   // Return both prompts, ensuring they don't exceed reasonable limits
-//   return {
-//     prompt: prompt.substring(0, 1000), // Keep a safeguard limit
-//     negative_prompt: negative_prompt.substring(0, 500)
-//   };
-// }
-
-
-// function createPlacementDescription(request: GenerationRequest): string {
-//   const { scene, product, variationNumber } = request;
-//   // Keep description concise for UI
-//   return `Var ${variationNumber}: ${product.name} in ${scene.heading}. Notes: ${scene.brandableReason || "Standard placement."}`;
-// }
