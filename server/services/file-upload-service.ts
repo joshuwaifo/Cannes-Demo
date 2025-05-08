@@ -393,6 +393,7 @@
 
 
 // server/services/file-upload-service.ts
+// server/services/file-upload-service.ts
 import {
   GoogleGenerativeAI,
   HarmCategory,
@@ -406,6 +407,36 @@ import os from "os";
 import { v4 as uuidv4 } from "uuid";
 import pdfParse from "./pdf-parse-wrapper"; // Assuming the wrapper is correctly set up
 import { ProductCategory, Scene, Product } from "@shared/schema"; // Import Scene, Product type
+
+// --- Utility to Sanitize Text for Safety Filters ---
+/**
+ * Basic sanitization to remove potentially problematic words.
+ * This is a simple approach; more sophisticated NLP might be needed.
+ * @param text The input text.
+ * @returns Sanitized text.
+ */
+export function sanitizeForSafetyFilter(text: string): string {
+    if (!text) return "";
+    // Case-insensitive replacement using regex with word boundaries
+    const profanityMap: Record<string, string> = {
+        'shit': 'stuff',
+        'damn': 'darn',
+        'fuckin\'': 'really',
+        'fucking': 'really',
+        'hell': 'heck', // Add more as needed
+        // Add variations if needed (e.g., 'asshole': 'person')
+    };
+    let sanitized = text;
+    for (const word in profanityMap) {
+        // Use RegExp constructor for dynamic pattern with word boundaries and case insensitivity
+        const regex = new RegExp(`\\b${word}\\b`, 'gi');
+        sanitized = sanitized.replace(regex, profanityMap[word]);
+    }
+    // Also remove potential null characters just in case
+    sanitized = sanitized.replace(/\u0000/g, "");
+    return sanitized;
+}
+
 
 // --- Gemini Client Initialization ---
 let genAIInstance: GoogleGenerativeAI | null = null;
@@ -453,7 +484,6 @@ async function bufferToTempFile(buffer: Buffer, extension: string): Promise<stri
     }
 }
 
-
 function fileToGenerativePart(filePath: string, mimeType: string): Part { // Return type is Part
   try {
      const fileData = fs.readFileSync(filePath);
@@ -473,8 +503,8 @@ async function cleanupTempFile(filePath: string) {
     try {
         const dirPath = path.dirname(filePath);
         await fs.promises.unlink(filePath);
-        // Optionally remove the directory if it's empty, requires careful checking
-         await fs.promises.rmdir(dirPath).catch(() => {}); // Attempt to remove dir, ignore errors if not empty
+        // Optionally remove the directory if it's empty
+        await fs.promises.rmdir(dirPath).catch(() => { /* Ignore error if dir not empty */ });
         // console.log(`Cleaned up temp file: ${filePath}`);
     } catch (cleanupErr) {
         console.warn(`Failed to clean up temp file ${filePath}:`, cleanupErr);
@@ -486,16 +516,16 @@ async function cleanupTempFile(filePath: string) {
 export async function extractTextFromImage(imageBuffer: Buffer, mimeType: string): Promise<string> {
   let imagePath: string | null = null;
   try {
-    const extension = mimeType.includes('jpeg') || mimeType.includes('jpg') ? '.jpg' : '.png'; // Simplified extension logic
+    const extension = mimeType.includes('jpeg') || mimeType.includes('jpg') ? '.jpg' : '.png';
     imagePath = await bufferToTempFile(imageBuffer, extension);
 
     const { genAI, safetySettings } = initializeGeminiClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings }); // Use 1.5 Flash
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
 
     const imagePart = fileToGenerativePart(imagePath, mimeType);
-    const prompt = "Extract all text from this image. If it's a screenplay format it correctly. If no text, describe the image.";
+    const prompt = "Extract all text content from this image. If it appears to be a film script or screenplay, format it properly with scene headings, action, and dialogue. If no text is visible, describe the image.";
 
-    const result = await model.generateContent([prompt, imagePart]); // Prompt first often works better
+    const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
     const extractedText = response.text();
 
@@ -503,7 +533,6 @@ export async function extractTextFromImage(imageBuffer: Buffer, mimeType: string
     return extractedText;
   } catch (error) {
     console.error("Error extracting text from image with Gemini:", error);
-    // Return a more informative error or rethrow
     return `Error: Failed to extract text from image. ${error instanceof Error ? error.message : 'Unknown Gemini error'}`;
   } finally {
       if (imagePath) {
@@ -514,19 +543,19 @@ export async function extractTextFromImage(imageBuffer: Buffer, mimeType: string
 
 export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
   try {
-    // Try pdf-parse first as it's often faster and sufficient
+    // Try pdf-parse first
     const pdfData = await pdfParse(pdfBuffer);
     const extractedText = pdfData?.text || "";
 
-    if (extractedText.length > 100) { // Basic check if extraction seems reasonable
+    if (extractedText.length > 100) {
       console.log("Successfully extracted text from PDF using pdf-parse.");
       return extractedText;
     }
     console.log("pdf-parse extraction insufficient, trying Gemini AI for enhancement...");
-     // Fallback to Gemini if pdf-parse fails or gives poor results
 
+    // Fallback to Gemini
      const { genAI, safetySettings } = initializeGeminiClient();
-     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings }); // Use 1.5 Flash
+     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
 
      const prompt = `The following text was extracted from a PDF, but might be incomplete or badly formatted.
      Please analyze it. If it appears to be a film script or screenplay, reformat it accurately with scene headings (INT./EXT.), action lines, character names (centered), and dialogue.
@@ -534,9 +563,9 @@ export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
 
      Extracted Text:
      ---
-     ${extractedText.substring(0, 15000)}
+     ${extractedText.substring(0, 25000)}
      ---
-     Formatted Output:`; // Added instruction for output start
+     Formatted Output:`; // Increased limit slightly
 
      const result = await model.generateContent(prompt);
      const response = await result.response;
@@ -546,7 +575,6 @@ export async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
 
   } catch (error) {
     console.error("Error processing PDF with pdf-parse and/or Gemini:", error);
-    // Final fallback: return a clear error message
     return `Error: Failed to process PDF. ${error instanceof Error ? error.message : 'Unknown processing error'}`;
   }
 }
@@ -571,7 +599,6 @@ export async function identifyBrandableScenesWithGemini(
     }
 
     console.log(`[Gemini Analysis] Analyzing ${scenes.length} scenes for ${targetBrandableSceneCount} brandable candidates...`);
-    let tempFilePath: string | null = null; // For potential file-based input if needed
 
     try {
         const { genAI, safetySettings } = initializeGeminiClient();
@@ -580,14 +607,18 @@ export async function identifyBrandableScenesWithGemini(
             safetySettings,
             generationConfig: {
                 responseMimeType: "application/json",
-                temperature: 0.3, // Slightly increased for potentially better reasoning
-                maxOutputTokens: 4096, // Increased slightly for more complex analysis if needed
+                temperature: 0.3,
+                maxOutputTokens: 4096,
             } as GenerationConfig,
         });
 
-        // Prepare scene data for the prompt more efficiently
+        // Prepare scene data, sanitizing potentially problematic content
         const scenesTextForPrompt = scenes
-            .map((scene) => `SCENE_ID: ${scene.id}\nHEADING: ${scene.heading}\nCONTENT_SNIPPET: ${scene.content.substring(0, 500)}...\n---`)
+            .map((scene) => {
+                const safeHeading = sanitizeForSafetyFilter(scene.heading);
+                const safeContent = sanitizeForSafetyFilter(scene.content.substring(0, 500)); // Sanitize snippet
+                return `SCENE_ID: ${scene.id}\nHEADING: ${safeHeading}\nCONTENT_SNIPPET: ${safeContent}...\n---`;
+            })
             .join("\n");
 
         // Optimized prompt
@@ -600,6 +631,7 @@ export async function identifyBrandableScenesWithGemini(
         - Natural Integration: The product wouldn't feel forced (e.g., consuming food/drinks, using electronics, driving cars, wearing clothes).
         - Context Relevance: The product category aligns with the scene's setting and action.
         - Sufficient Detail: The summary provides enough context to make a judgment.
+        - Safety: Prioritize scenes less likely to involve explicit content, violence, or controversial themes that might conflict with brand safety.
 
         RESPONSE FORMAT:
         Return ONLY a valid JSON object. The JSON object must have a single key "brandableScenes".
@@ -626,7 +658,7 @@ export async function identifyBrandableScenesWithGemini(
         // console.log("[Gemini Analysis] Raw response:", responseText); // Log raw for debugging if needed
 
         try {
-            const parsedResponse: { brandableScenes?: BrandableSceneAnalysis[] } = JSON.parse(responseText); // Use optional chaining for safety
+            const parsedResponse: { brandableScenes?: BrandableSceneAnalysis[] } = JSON.parse(responseText);
 
             if (!parsedResponse.brandableScenes || !Array.isArray(parsedResponse.brandableScenes)) {
                 console.error("[Gemini Analysis] Response is not in the expected format (missing or invalid 'brandableScenes' array). Raw text:", responseText);
@@ -652,11 +684,12 @@ export async function identifyBrandableScenesWithGemini(
                           console.warn(`[Gemini Validation] Invalid suggestedProducts array for sceneId ${sceneId} at index ${index}. Skipping.`);
                          return false;
                      }
-                     if (!bs.suggestedProducts.every(p => validCategories.has(p))) {
+                     if (!bs.suggestedProducts.every(p => validCategories.has(p as ProductCategory))) { // Ensure type check
                          console.warn(`[Gemini Validation] Invalid category found in suggestedProducts for sceneId ${sceneId} at index ${index}. Skipping.`);
                          return false;
                      }
                     bs.sceneId = sceneId; // Ensure it's a number
+                    bs.suggestedProducts = bs.suggestedProducts.filter(p => validCategories.has(p as ProductCategory)); // Clean array just in case
                     return true;
                 })
                 .slice(0, targetBrandableSceneCount); // Ensure we don't exceed the target count
@@ -666,24 +699,23 @@ export async function identifyBrandableScenesWithGemini(
 
         } catch (parseError) {
             console.error("[Gemini Analysis] Failed to parse Gemini JSON response:", parseError, "\nRaw Response Text:", responseText);
-            // Optionally add the retry logic here if desired:
-            // return await retryWithExplicitJsonPrompt(scenes, targetBrandableSceneCount, model);
             return { brandableScenes: [] }; // Return empty on parse error
         }
     } catch (error: any) {
         console.error("[Gemini Analysis] Error analyzing scenes with Gemini:", error.message || error);
         return { brandableScenes: [] }; // Return empty on API error
-    } finally {
-         if (tempFilePath) {
-            await cleanupTempFile(tempFilePath);
-         }
     }
 }
 
-// --- NEW: Creative Prompt Generation ---
+
+// --- Creative Prompt Generation ---
 export async function generateCreativePlacementPrompt(scene: Scene, product: Product): Promise<string> {
-  console.log(`[Gemini Creative] Generating prompt for Scene ${scene.sceneNumber}, Product ${product.name}`);
-  const fallbackPrompt = `Cinematic film still, ${scene.heading}. A ${product.name} is naturally integrated into the scene. Photorealistic, high detail.`;
+  const logPrefix = `[Gemini Creative S:${scene.sceneNumber}/P:${product.id}]`;
+  console.log(`${logPrefix} Generating prompt...`);
+
+  // Prepare a fallback prompt in case Gemini fails
+  const safeHeadingFallback = sanitizeForSafetyFilter(scene.heading);
+  const fallbackPrompt = `Cinematic film still, ${safeHeadingFallback}. A ${product.name} is naturally integrated into the scene. Photorealistic, high detail.`;
 
   try {
     const { genAI, safetySettings } = initializeGeminiClient();
@@ -691,23 +723,27 @@ export async function generateCreativePlacementPrompt(scene: Scene, product: Pro
         model: "gemini-1.5-flash",
         safetySettings,
         generationConfig: {
-             responseMimeType: "text/plain", // Expect plain text
-             temperature: 0.7,
-             maxOutputTokens: 150,
-             // stopSequences: ["\n\n"] // Optional: Try to stop rambling
+             responseMimeType: "text/plain",
+             temperature: 0.7, // Balance creativity and relevance
+             maxOutputTokens: 150, // Slightly more than 100 target for flexibility
+             stopSequences: ["\n\n", "---"] // Try to prevent extra text
         } as GenerationConfig
     });
 
-    const sceneContextSummary = scene.content?.substring(0, 500) || "No scene content provided."; // Increased context
+    // Sanitize context before sending
+    const safeSceneContextSummary = sanitizeForSafetyFilter(scene.content?.substring(0, 500) || "No scene content provided.");
+    const safeHeading = sanitizeForSafetyFilter(scene.heading);
+    const safeReason = sanitizeForSafetyFilter(scene.brandableReason || 'N/A');
+
     const promptToGemini = `
       Act as a creative director for film product placement.
       Generate a single, descriptive, visually rich prompt (max 100 tokens) for an AI image generator (like SDXL).
       The prompt must depict the following scene and naturally incorporate the specified product.
 
       SCENE CONTEXT:
-      - Heading: ${scene.heading}
-      - Summary: ${sceneContextSummary}...
-      - Brandable Reason (if available): ${scene.brandableReason || 'N/A'}
+      - Heading: ${safeHeading}
+      - Summary: ${safeSceneContextSummary}...
+      - Brandable Reason (if available): ${safeReason}
 
       PRODUCT TO INTEGRATE:
       - Name: ${product.name}
@@ -719,38 +755,39 @@ export async function generateCreativePlacementPrompt(scene: Scene, product: Pro
       - Emphasize photorealism, cinematic lighting, and high detail.
       - Ensure the integration feels natural and not forced.
       - Adhere strictly to the ~100 token limit.
+      - IMPORTANT: Maintain a neutral, professional tone. Avoid generating prompts containing or explicitly depicting violence, explicit language, or controversial elements, even if hinted at in the source context. Focus solely on the visual composition and product integration.
 
-      OUTPUT: Respond ONLY with the generated prompt text. No introductions, explanations, or formatting.
+      OUTPUT: Respond ONLY with the generated prompt text. No introductions, explanations, or formatting. Start the response directly with the prompt.
     `;
 
-    console.log("[Gemini Creative] Prompting Gemini...");
+    console.log(`${logPrefix} Prompting Gemini...`);
     const result = await model.generateContent(promptToGemini);
     const response = await result.response;
     let generatedPrompt = response.text().trim();
 
     // Cleanup and validation
     generatedPrompt = generatedPrompt.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
-    generatedPrompt = generatedPrompt.replace(/^Prompt:\s*/i, ''); // Remove "Prompt: " prefix if added
-    generatedPrompt = generatedPrompt.split('\n')[0]; // Take only the first line if multiple are generated
+    generatedPrompt = generatedPrompt.replace(/^Prompt:\s*/i, ''); // Remove "Prompt: " prefix
+    generatedPrompt = generatedPrompt.split('\n')[0]; // Take only the first line
 
     if (!generatedPrompt) {
-      console.warn("[Gemini Creative] Gemini returned an empty prompt. Using fallback.");
+      console.warn(`${logPrefix} Gemini returned an empty prompt. Using fallback.`);
       return fallbackPrompt;
     }
 
     // Simple token check (approximation by words)
     const approxTokens = generatedPrompt.split(/\s+/).filter(Boolean).length;
     if (approxTokens > 110) { // Allow slightly more overshoot
-        console.warn(`[Gemini Creative] Prompt too long (${approxTokens} words), truncating.`);
+        console.warn(`${logPrefix} Prompt too long (${approxTokens} words), truncating.`);
         generatedPrompt = generatedPrompt.split(/\s+/).slice(0, 100).join(' ') + '...';
     }
 
-    console.log(`[Gemini Creative] Received prompt: ${generatedPrompt.substring(0, 100)}...`);
+    console.log(`${logPrefix} Received prompt: ${generatedPrompt.substring(0, 100)}...`);
     return generatedPrompt;
 
   } catch (error: any) {
-    console.error(`[Gemini Creative] Failed for S:${scene.sceneNumber}/P:${product.name}:`, error);
-    console.warn("[Gemini Creative] Using fallback prompt due to error.");
+    console.error(`${logPrefix} Failed to generate creative prompt:`, error);
+    console.warn(`${logPrefix} Using fallback prompt due to error.`);
     return fallbackPrompt;
   }
 }
