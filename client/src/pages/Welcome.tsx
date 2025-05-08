@@ -200,7 +200,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
               How It Works
             </h2>
             <ol className="list-decimal list-inside space-y-3 text-gray-600">
-              <li>Upload your screenplay PDF file</li>
+              <li>Upload your script PDF file</li>
               <li>Our AI analyzes the script and identifies brandable scenes</li>
               <li>Manage your product database with branded items</li>
               <li>Generate AI-powered product placement visuals for each scene</li>
