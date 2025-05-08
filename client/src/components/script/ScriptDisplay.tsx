@@ -2,7 +2,7 @@ import { ScriptDisplayProps } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Save, RefreshCw, Wand2 } from "lucide-react";
+
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -111,49 +111,6 @@ export default function ScriptDisplay({
             : "Script Editor"}
         </h2>
         <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? (
-              <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-1" />
-            )}
-            Save
-          </Button>
-          <Button 
-            variant="default" 
-            size="sm"
-            onClick={handleReanalyze}
-            disabled={isReanalyzing}
-          >
-            {isReanalyzing ? (
-              <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-1" />
-            )}
-            Re-analyze
-          </Button>
-          
-          {onGeneratePlacements && (
-            <Button 
-              variant="default" 
-              className="bg-green-600 hover:bg-green-700 text-white"
-              size="sm"
-              onClick={handleGeneratePlacements}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4 mr-1" />
-              )}
-              Generate Placements
-            </Button>
-          )}
         </div>
       </div>
 
