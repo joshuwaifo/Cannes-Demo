@@ -323,22 +323,42 @@ export type ScriptDisplayProps = {
 };
 
 // Update BrandableScenesProps for video generation request
+// export type BrandableScenesProps = {
+//   brandableScenes: Scene[];
+//   scenes: Scene[]; // Pass all scenes for context
+//   productVariations: SceneVariation[]; // Use updated SceneVariation type
+//   isLoading: boolean; // General loading state
+//   selectedSceneId: number | null;
+//   onGenerateVideoRequest: (variationId: number) => void; // Changed from onOptionSelect
+//   videoGenerationStates: {
+//     // Pass down video generation status
+//     [variationId: number]: {
+//       status: "idle" | "pending" | "generating" | "succeeded" | "failed";
+//       videoUrl?: string | null;
+//       error?: string | null;
+//     };
+//   };
+//   onViewVideo: (videoUrl: string, title: string) => void; // Handler to open video modal
+// };
+
 export type BrandableScenesProps = {
-  brandableScenes: Scene[];
+  // brandableScenes: Scene[]; // This might become less important if any scene can have placements
+  activeSceneDetails: Scene | null | undefined; // Pass the full details of the currently selected scene
   scenes: Scene[]; // Pass all scenes for context
   productVariations: SceneVariation[]; // Use updated SceneVariation type
-  isLoading: boolean; // General loading state
+  isLoading: boolean; // General loading state for variations of the active scene
   selectedSceneId: number | null;
-  onGenerateVideoRequest: (variationId: number) => void; // Changed from onOptionSelect
+  onGenerateVideoRequest: (variationId: number) => void;
   videoGenerationStates: {
-    // Pass down video generation status
     [variationId: number]: {
-      status: "idle" | "pending" | "generating" | "succeeded" | "failed";
+      status: 'idle' | 'pending' | 'generating' | 'succeeded' | 'failed';
       videoUrl?: string | null;
       error?: string | null;
+      progress?: number; // For progress bar
+      stageMessage?: string; // For progress stage
     };
   };
-  onViewVideo: (videoUrl: string, title: string) => void; // Handler to open video modal
+  onViewVideo: (videoUrl: string, title: string) => void;
 };
 
 export type SceneBreakdownProps = {

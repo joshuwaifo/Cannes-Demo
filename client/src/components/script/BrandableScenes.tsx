@@ -1,5 +1,5 @@
 // // client/src/components/script/BrandableScenes.tsx
-// import { BrandableScenesProps, SceneVariation } from "@/lib/types"; // Use updated SceneVariation
+// import { BrandableScenesProps, SceneVariation } from "@/lib/types";
 // import { Button } from "@/components/ui/button";
 // import { Card, CardContent, CardFooter } from "@/components/ui/card";
 // import { Skeleton } from "@/components/ui/skeleton";
@@ -12,16 +12,17 @@
 //   Video,
 //   PlayCircle,
 //   AlertTriangle,
-//   Download,
-//   RefreshCcw, // Icon for regenerate
+//   RefreshCcw,
+//   Replace,
 // } from "lucide-react";
 // import { Progress } from "@/components/ui/progress";
 // import { Scene } from "@shared/schema";
-// import { Textarea } from "@/components/ui/textarea"; // Import Textarea
-// import { useState, useEffect } from "react"; // Import useState and useEffect
-// import { useMutation, useQueryClient } from "@tanstack/react-query"; // For mutation
-// import { apiRequest } from "@/lib/queryClient"; // For API requests
-// import { useToast } from "@/hooks/use-toast"; // For toasts
+// import { Textarea } from "@/components/ui/textarea";
+// import { useState, useEffect } from "react";
+// import { useMutation, useQueryClient } from "@tanstack/react-query";
+// import { apiRequest } from "@/lib/queryClient";
+// import { useToast } from "@/hooks/use-toast";
+// import ChangeProductModal from "./ChangeProductModal";
 
 // export default function BrandableScenes({
 //   brandableScenes,
@@ -38,8 +39,11 @@
 //   const [editedPrompts, setEditedPrompts] = useState<{
 //     [variationId: number]: string;
 //   }>({});
+//   const [isChangeProductModalOpen, setIsChangeProductModalOpen] =
+//     useState(false);
+//   const [changingProductForVariationId, setChangingProductForVariationId] =
+//     useState<number | null>(null);
 
-//   // Effect to initialize editedPrompts when variations or selectedSceneId change
 //   useEffect(() => {
 //     const initialPrompts: { [variationId: number]: string } = {};
 //     if (productVariations && selectedSceneId) {
@@ -71,7 +75,7 @@
 //     setEditedPrompts((prev) => ({ ...prev, [variationId]: newPrompt }));
 //   };
 
-//   const regenerateImageMutation = useMutation({
+//   const updateAssetsMutation = useMutation({
 //     mutationFn: async ({
 //       variationId,
 //       newPrompt,
@@ -85,123 +89,93 @@
 //         { newPrompt },
 //       );
 //     },
-//     onSuccess: (data, variables) => {
+//     onSuccess: (updatedVariationData: any, variables) => {
 //       toast({
-//         title: "Image Regenerated",
-//         description: `Image for variation ${variables.variationId} has been updated.`,
+//         title: "Image Updated",
+//         description: `Image for variation ${variables.variationId} has been updated. Starting video generation...`,
 //       });
 //       queryClient.invalidateQueries({
 //         queryKey: ["/api/scripts/scene-variations", selectedSceneId],
 //       });
-//       // Reset the edited prompt for this variation to the newly saved one from the backend
-//       // The query invalidation will refetch, and the useEffect will update editedPrompts
+//       onGenerateVideoRequest(variables.variationId);
 //     },
 //     onError: (error: Error, variables) => {
 //       toast({
 //         variant: "destructive",
-//         title: "Image Regeneration Failed",
-//         description: `Could not regenerate image for variation ${variables.variationId}: ${error.message}`,
+//         title: "Asset Update Failed",
+//         description: `Could not update image for variation ${variables.variationId}: ${error.message}`,
 //       });
 //     },
 //   });
 
-//   const handleRegenerateImage = (variationId: number) => {
+//   const handleChangeProductMutation = useMutation({
+//     mutationFn: async ({
+//       variationId,
+//       newProductId,
+//     }: {
+//       variationId: number;
+//       newProductId: number;
+//     }) => {
+//       return apiRequest(
+//         "PUT",
+//         `/api/variations/${variationId}/change-product`,
+//         { newProductId },
+//       );
+//     },
+//     onSuccess: (data, variables) => {
+//       toast({
+//         title: "Product Changed",
+//         description: `Product for variation ${variables.variationId} has been updated. Image & video will regenerate.`,
+//       });
+//       setIsChangeProductModalOpen(false);
+//       setChangingProductForVariationId(null);
+//       queryClient.invalidateQueries({
+//         queryKey: ["/api/scripts/scene-variations", selectedSceneId],
+//       });
+//        onGenerateVideoRequest(variables.variationId);
+//     },
+//     onError: (error: Error, variables) => {
+//       toast({
+//         variant: "destructive",
+//         title: "Product Change Failed",
+//         description: `Could not change product for variation ${variables.variationId}: ${error.message}`,
+//       });
+//       setIsChangeProductModalOpen(false);
+//       setChangingProductForVariationId(null);
+//     },
+//   });
+
+//   const handleUpdateAssets = (variationId: number) => {
 //     const newPrompt = editedPrompts[variationId];
 //     if (newPrompt) {
-//       regenerateImageMutation.mutate({ variationId, newPrompt });
+//       updateAssetsMutation.mutate({ variationId, newPrompt });
 //     } else {
 //       toast({
 //         variant: "destructive",
 //         title: "No Prompt",
-//         description: "Please enter a prompt to regenerate.",
+//         description: "Please ensure the prompt is not empty.",
 //       });
 //     }
 //   };
 
-//   if (!selectedSceneId) {
-//     return (
-//       <div>
-//         <h3 className="text-md font-semibold text-secondary mb-3">
-//           Select a Scene
-//         </h3>
-//         <div className="bg-muted p-6 rounded-lg text-center border border-dashed">
-//           <Info className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-//           <p className="text-muted-foreground">
-//             Select a scene marked with the{" "}
-//             <Info className="inline h-4 w-4 text-primary align-middle" /> icon
-//             from the "Scene Breakdown" list to view or generate product
-//             placement options.
-//           </p>
-//         </div>
-//       </div>
-//     );
-//   }
+//   const openChangeProductModal = (variationId: number) => {
+//     setChangingProductForVariationId(variationId);
+//     setIsChangeProductModalOpen(true);
+//   };
 
-//   if (selectedSceneId && !currentScene) {
-//     return (
-//       <div>
-//         <h3 className="text-md font-semibold text-secondary mb-3">
-//           Scene Not Brandable
-//         </h3>
-//         <div className="bg-muted p-6 rounded-lg text-center border border-dashed">
-//           <p className="text-muted-foreground">
-//             This scene is not currently identified as brandable. Try
-//             re-analyzing the script or selecting another scene.
-//           </p>
-//         </div>
-//       </div>
-//     );
-//   }
+//   const handleProductSelectedFromModal = (newProductId: number) => {
+//     if (changingProductForVariationId !== null) {
+//       handleChangeProductMutation.mutate({
+//         variationId: changingProductForVariationId,
+//         newProductId,
+//       });
+//     }
+//   };
 
-//   if (isLoading && currentSceneVariations.length === 0) {
-//     return (
-//       <div>
-//         <h3 className="text-md font-semibold text-secondary mb-3">
-//           Scene {currentScene?.sceneNumber || selectedSceneId}: Product
-//           Placement Options
-//         </h3>
-//         <div className="text-center py-8">
-//           <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-3" />
-//           <p className="text-muted-foreground">Loading placement options...</p>
-//         </div>
-//         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-//           {Array.from({ length: 3 }).map((_, i) => (
-//             <Card key={i} className="overflow-hidden animate-pulse">
-//               <Skeleton className="h-48 w-full bg-gray-200" />
-//               <CardContent className="p-3">
-//                 <Skeleton className="h-8 w-8 rounded-full bg-gray-200 inline-block mr-2" />
-//                 <Skeleton className="h-4 w-24 bg-gray-200 inline-block" />
-//                 <Skeleton className="h-10 w-full bg-gray-200 mt-2" />
-//               </CardContent>
-//               <CardFooter className="p-3 pt-0 flex justify-end">
-//                 <Skeleton className="h-9 w-32 bg-gray-200" />
-//               </CardFooter>
-//             </Card>
-//           ))}
-//         </div>
-//       </div>
-//     );
-//   }
-
-//   if (currentSceneVariations.length === 0 && currentScene && !isLoading) {
-//     return (
-//       <div>
-//         <h3 className="text-md font-semibold text-secondary mb-3">
-//           Scene {currentScene?.sceneNumber}: Product Placement Options
-//         </h3>
-//         <div className="bg-muted p-6 rounded-lg text-center border border-dashed">
-//           <ImageOff className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-//           <p className="text-muted-foreground mb-3">
-//             No placement options generated yet for Scene{" "}
-//             {currentScene?.sceneNumber}.
-//           </p>
-//           <p className="text-sm text-gray-500">
-//             Use the "Generate Placements" button above to create visual options.
-//           </p>
-//         </div>
-//       </div>
-//     );
-//   }
+//   if (!selectedSceneId) { /* ... same as before ... */ }
+//   if (selectedSceneId && !currentScene) { /* ... same as before ... */ }
+//   if (isLoading && currentSceneVariations.length === 0) { /* ... same as before ... */ }
+//   if (currentSceneVariations.length === 0 && currentScene && !isLoading) { /* ... same as before ... */ }
 
 //   return (
 //     <div>
@@ -228,24 +202,34 @@
 //       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 //         {currentSceneVariations.map((variation) => {
 //           const videoState = videoGenerationStates[variation.id] || {
-//             status: "idle",
+//             status: "idle", progress: 0, stageMessage: ""
 //           };
-//           const isGeneratingThisVideo =
-//             videoState.status === "pending" ||
-//             videoState.status === "generating";
+//           const isUpdatingThisAsset =
+//             updateAssetsMutation.isPending &&
+//             updateAssetsMutation.variables?.variationId === variation.id;
+//           const isChangingThisProduct =
+//             handleChangeProductMutation.isPending &&
+//             handleChangeProductMutation.variables?.variationId === variation.id;
 
-//           const isRegeneratingThisImage =
-//             regenerateImageMutation.isPending &&
-//             regenerateImageMutation.variables?.variationId === variation.id;
+//           // Condition for showing the progress overlay
+//           const showProgressOverlay = 
+//             isUpdatingThisAsset || 
+//             isChangingThisProduct || 
+//             videoState.status === 'pending' || 
+//             videoState.status === 'generating' ||
+//             (videoState.status === 'succeeded' && !videoState.videoUrl); // Keep showing if succeeded but no URL yet
+
 //           const currentPromptText =
 //             editedPrompts[variation.id] ?? variation.geminiPrompt ?? "";
-//           const isPromptUnchanged =
-//             currentPromptText === (variation.geminiPrompt || "");
+//           const isPromptUnchangedOrEmpty =
+//             !currentPromptText || (currentPromptText === (variation.geminiPrompt || ""));
+
+//           const cardDisabledClass = showProgressOverlay ? "opacity-70 cursor-not-allowed" : "";
 
 //           return (
 //             <Card
 //               key={variation.id}
-//               className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${isGeneratingThisVideo || isRegeneratingThisImage ? "opacity-70 cursor-not-allowed" : ""}`}
+//               className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${cardDisabledClass}`}
 //             >
 //               <div className="relative aspect-video bg-gray-100">
 //                 <img
@@ -258,17 +242,23 @@
 //                     e.currentTarget.alt = "Error loading image";
 //                   }}
 //                 />
-//                 {(isGeneratingThisVideo || isRegeneratingThisImage) && (
+//                 {showProgressOverlay && (
 //                   <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-4 text-center">
 //                     <Loader2 className="h-8 w-8 animate-spin mb-2" />
 //                     <p className="text-sm font-medium">
-//                       {isRegeneratingThisImage
-//                         ? "Regenerating Image..."
-//                         : "Generating Video..."}
+//                       {isUpdatingThisAsset
+//                         ? "Updating Image..."
+//                         : isChangingThisProduct
+//                           ? "Changing Product..."
+//                           : videoState.stageMessage || "Processing Video..."}
 //                     </p>
+//                     {(videoState.status === 'pending' || videoState.status === 'generating' || (videoState.status === 'succeeded' && !videoState.videoUrl)) && 
+//                      videoState.progress !== undefined && videoState.progress > 0 && videoState.progress <= 100 && (
+//                        <Progress value={videoState.progress} className="w-3/4 h-1.5 mt-2 bg-gray-600 [&>div]:bg-primary" />
+//                     )}
 //                   </div>
 //                 )}
-//                 {videoState.status === "succeeded" && videoState.videoUrl && (
+//                  {videoState.status === "succeeded" && videoState.videoUrl && !showProgressOverlay && (
 //                   <div
 //                     className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full shadow-lg"
 //                     title="Video Ready"
@@ -276,7 +266,7 @@
 //                     <Video className="h-4 w-4" />
 //                   </div>
 //                 )}
-//                 {videoState.status === "failed" && (
+//                 {videoState.status === "failed" && !showProgressOverlay && (
 //                   <div
 //                     className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"
 //                     title={`Video Failed: ${videoState.error || ""}`}
@@ -292,22 +282,17 @@
 //               </div>
 
 //               <CardContent className="p-3">
-//                 <div className="flex items-center space-x-2 mb-1.5">
+//                  <div className="flex items-center space-x-2 mb-1.5">
 //                   <div className="w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center overflow-hidden border">
 //                     <img
 //                       src={variation.productImageUrl}
 //                       alt={variation.productName}
 //                       className="w-full h-full object-contain"
-//                       onError={(e) => {
-//                         (e.currentTarget as HTMLImageElement).style.display =
-//                           "none";
+//                       onError={(e) => { 
+//                         (e.target as HTMLImageElement).style.display = "none";
 //                         const parent = e.currentTarget.parentElement;
-//                         if (
-//                           parent &&
-//                           !parent.querySelector(".placeholder-icon")
-//                         ) {
-//                           parent.innerHTML +=
-//                             '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 placeholder-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
+//                         if (parent && !parent.querySelector(".placeholder-icon")) {
+//                           parent.innerHTML += '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 placeholder-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
 //                         }
 //                       }}
 //                     />
@@ -322,15 +307,14 @@
 //                   </div>
 //                 </div>
 
-//                 {/* Prompt Textarea */}
 //                 <Textarea
 //                   value={currentPromptText}
 //                   onChange={(e) =>
 //                     handlePromptChange(variation.id, e.target.value)
 //                   }
-//                   placeholder="Edit prompt for image/video generation..."
+//                   placeholder="Edit prompt for asset generation..."
 //                   className="text-xs mt-2 min-h-[60px] max-h-[100px] resize-y"
-//                   disabled={isGeneratingThisVideo || isRegeneratingThisImage}
+//                   disabled={showProgressOverlay}
 //                 />
 
 //                 {videoState.status === "failed" ? (
@@ -342,7 +326,7 @@
 //                   </p>
 //                 ) : (
 //                   <p
-//                     className="text-xs text-gray-600 line-clamp-2 mt-1" // Kept original description for fallback
+//                     className="text-xs text-gray-600 line-clamp-2 mt-1"
 //                     title={variation.description}
 //                   >
 //                     {variation.description}
@@ -350,20 +334,27 @@
 //                 )}
 //               </CardContent>
 
-//               <CardFooter className="p-3 pt-2 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
+//               <CardFooter className="p-3 pt-2 grid grid-cols-2 gap-2">
 //                 <Button
 //                   variant="outline"
 //                   size="sm"
-//                   onClick={() => handleRegenerateImage(variation.id)}
-//                   disabled={
-//                     isGeneratingThisVideo ||
-//                     isRegeneratingThisImage ||
-//                     isPromptUnchanged ||
-//                     regenerateImageMutation.isPending
-//                   }
-//                   className="w-full sm:w-auto"
+//                   onClick={() => openChangeProductModal(variation.id)}
+//                   disabled={showProgressOverlay || handleChangeProductMutation.isPending}
 //                 >
-//                   {isRegeneratingThisImage ? (
+//                   <Replace className="mr-1 h-3.5 w-3.5" />
+//                   Change Product
+//                 </Button>
+//                 <Button 
+//                   variant="outline"
+//                   size="sm"
+//                   onClick={() => handleUpdateAssets(variation.id)}
+//                   disabled={
+//                     showProgressOverlay ||
+//                     isPromptUnchangedOrEmpty ||
+//                     updateAssetsMutation.isPending
+//                   }
+//                 >
+//                   {isUpdatingThisAsset ? (
 //                     <>
 //                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />
 //                       Updating...
@@ -371,12 +362,12 @@
 //                   ) : (
 //                     <>
 //                       <RefreshCcw className="mr-1 h-4 w-4" />
-//                       Update Image
+//                       Update Assets
 //                     </>
 //                   )}
 //                 </Button>
 
-//                 {videoState.status === "succeeded" && videoState.videoUrl && (
+//                 {videoState.status === "succeeded" && videoState.videoUrl && !showProgressOverlay && (
 //                   <Button
 //                     variant="default"
 //                     size="sm"
@@ -386,34 +377,27 @@
 //                         `Scene ${currentScene?.sceneNumber} - ${variation.productName}`,
 //                       )
 //                     }
-//                     disabled={isLoading || isRegeneratingThisImage}
-//                     className="w-full sm:w-auto"
+//                     disabled={isLoading /* General page loading might still be relevant for disabling */}
+//                     className="col-span-2"
 //                   >
 //                     <PlayCircle className="mr-1 h-4 w-4" />
 //                     View Video
 //                   </Button>
 //                 )}
 
-//                 {videoState.status !== "succeeded" && (
+//                 {/* Show Generate/Retry button only if not succeeded OR if succeeded but no URL (handled by showProgressOverlay) */}
+//                 {/* And ensure it's not shown if the progress overlay is active */}
+//                 {!showProgressOverlay && videoState.status !== "succeeded" && (
 //                   <Button
 //                     variant={
 //                       videoState.status === "failed" ? "destructive" : "outline"
 //                     }
 //                     size="sm"
-//                     onClick={() => onGenerateVideoRequest(variation.id)}
-//                     disabled={
-//                       isGeneratingThisVideo ||
-//                       isLoading ||
-//                       isRegeneratingThisImage
-//                     }
-//                     className="w-full sm:w-auto"
+//                     onClick={() => onGenerateVideoRequest(variation.id)} 
+//                     disabled={isLoading}
+//                     className="col-span-2"
 //                   >
-//                     {isGeneratingThisVideo ? (
-//                       <>
-//                         <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-//                         Generating...
-//                       </>
-//                     ) : videoState.status === "failed" ? (
+//                     {videoState.status === "failed" ? (
 //                       <>
 //                         <AlertTriangle className="mr-1 h-4 w-4" />
 //                         Retry Video
@@ -431,12 +415,30 @@
 //           );
 //         })}
 //       </div>
+
+//       {isChangeProductModalOpen && changingProductForVariationId !== null && (
+//         <ChangeProductModal
+//           isOpen={isChangeProductModalOpen}
+//           onClose={() => {
+//             setIsChangeProductModalOpen(false);
+//             setChangingProductForVariationId(null);
+//           }}
+//           currentProductId={
+//             productVariations.find(
+//               (v) => v.id === changingProductForVariationId,
+//             )?.productId || 0
+//           }
+//           onProductSelect={handleProductSelectedFromModal}
+//           isSubmitting={handleChangeProductMutation.isPending}
+//         />
+//       )}
 //     </div>
 //   );
 // }
 
+
 // client/src/components/script/BrandableScenes.tsx
-import { BrandableScenesProps, SceneVariation } from "@/lib/types"; // Use updated SceneVariation
+import { BrandableScenesProps, SceneVariation } from "@/lib/types"; // Ensure this type is updated
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -449,12 +451,11 @@ import {
   Video,
   PlayCircle,
   AlertTriangle,
-  Download,
   RefreshCcw,
   Replace,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Scene } from "@shared/schema";
+import { Scene } from "@shared/schema"; // Keep Scene type
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -463,11 +464,11 @@ import { useToast } from "@/hooks/use-toast";
 import ChangeProductModal from "./ChangeProductModal";
 
 export default function BrandableScenes({
-  brandableScenes,
-  scenes,
+  activeSceneDetails, 
+  scenes, 
   productVariations,
   isLoading,
-  selectedSceneId,
+  selectedSceneId, 
   onGenerateVideoRequest,
   videoGenerationStates,
   onViewVideo,
@@ -494,12 +495,10 @@ export default function BrandableScenes({
     setEditedPrompts(initialPrompts);
   }, [productVariations, selectedSceneId]);
 
-  const currentScene = brandableScenes.find(
-    (scene) => scene.id === selectedSceneId,
-  );
+  const currentSceneToDisplay = activeSceneDetails; 
 
   const currentSceneVariations = productVariations
-    .filter((variation) => variation.sceneId === selectedSceneId)
+    .filter((variation) => variation.sceneId === selectedSceneId) 
     .map((variation) => ({
       ...variation,
       imageUrl: getSafeImageUrl(
@@ -513,7 +512,7 @@ export default function BrandableScenes({
     setEditedPrompts((prev) => ({ ...prev, [variationId]: newPrompt }));
   };
 
-  const regenerateImageMutation = useMutation({
+  const updateAssetsMutation = useMutation({
     mutationFn: async ({
       variationId,
       newPrompt,
@@ -527,20 +526,21 @@ export default function BrandableScenes({
         { newPrompt },
       );
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (updatedVariationData: any, variables) => { 
       toast({
-        title: "Image Regenerated",
-        description: `Image for variation ${variables.variationId} has been updated.`,
+        title: "Image Updated",
+        description: `Image for variation ${variables.variationId} has been updated. Starting video generation...`,
       });
       queryClient.invalidateQueries({
         queryKey: ["/api/scripts/scene-variations", selectedSceneId],
       });
+      onGenerateVideoRequest(variables.variationId);
     },
     onError: (error: Error, variables) => {
       toast({
         variant: "destructive",
-        title: "Image Regeneration Failed",
-        description: `Could not regenerate image for variation ${variables.variationId}: ${error.message}`,
+        title: "Asset Update Failed",
+        description: `Could not update image for variation ${variables.variationId}: ${error.message}`,
       });
     },
   });
@@ -562,13 +562,14 @@ export default function BrandableScenes({
     onSuccess: (data, variables) => {
       toast({
         title: "Product Changed",
-        description: `Product for variation ${variables.variationId} has been updated and image is regenerating.`,
+        description: `Product for variation ${variables.variationId} has been updated. Image & video will regenerate.`,
       });
       setIsChangeProductModalOpen(false);
       setChangingProductForVariationId(null);
       queryClient.invalidateQueries({
         queryKey: ["/api/scripts/scene-variations", selectedSceneId],
       });
+       onGenerateVideoRequest(variables.variationId);
     },
     onError: (error: Error, variables) => {
       toast({
@@ -581,15 +582,15 @@ export default function BrandableScenes({
     },
   });
 
-  const handleRegenerateImage = (variationId: number) => {
+  const handleUpdateAssets = (variationId: number) => {
     const newPrompt = editedPrompts[variationId];
     if (newPrompt) {
-      regenerateImageMutation.mutate({ variationId, newPrompt });
+      updateAssetsMutation.mutate({ variationId, newPrompt });
     } else {
       toast({
         variant: "destructive",
         title: "No Prompt",
-        description: "Please enter a prompt to regenerate.",
+        description: "Please ensure the prompt is not empty.",
       });
     }
   };
@@ -608,7 +609,7 @@ export default function BrandableScenes({
     }
   };
 
-  if (!selectedSceneId) {
+  if (!selectedSceneId) { 
     return (
       <div>
         <h3 className="text-md font-semibold text-secondary mb-3">
@@ -617,38 +618,19 @@ export default function BrandableScenes({
         <div className="bg-muted p-6 rounded-lg text-center border border-dashed">
           <Info className="h-10 w-10 text-gray-400 mx-auto mb-3" />
           <p className="text-muted-foreground">
-            Select a scene marked with the{" "}
-            <Info className="inline h-4 w-4 text-primary align-middle" /> icon
-            from the "Scene Breakdown" list to view or generate product
-            placement options.
+            Select a scene from the "Scene Breakdown" list to view or generate product
+            placement options. Scenes initially identified by AI are marked with a <Info className="inline h-4 w-4 text-primary align-middle" /> icon.
           </p>
         </div>
       </div>
     );
   }
 
-  if (selectedSceneId && !currentScene) {
-    return (
+  if (isLoading && currentSceneVariations.length === 0) { 
+      return (
       <div>
         <h3 className="text-md font-semibold text-secondary mb-3">
-          Scene Not Brandable
-        </h3>
-        <div className="bg-muted p-6 rounded-lg text-center border border-dashed">
-          <p className="text-muted-foreground">
-            This scene is not currently identified as brandable. Try
-            re-analyzing the script or selecting another scene.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading && currentSceneVariations.length === 0) {
-    return (
-      <div>
-        <h3 className="text-md font-semibold text-secondary mb-3">
-          Scene {currentScene?.sceneNumber || selectedSceneId}: Product
-          Placement Options
+          Scene {currentSceneToDisplay?.sceneNumber || selectedSceneId}: Product Placement Options
         </h3>
         <div className="text-center py-8">
           <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-3" />
@@ -672,100 +654,120 @@ export default function BrandableScenes({
       </div>
     );
   }
-
-  if (currentSceneVariations.length === 0 && currentScene && !isLoading) {
-    return (
+  if (currentSceneVariations.length === 0 && currentSceneToDisplay && !isLoading) { 
+      return (
       <div>
         <h3 className="text-md font-semibold text-secondary mb-3">
-          Scene {currentScene?.sceneNumber}: Product Placement Options
+          Scene {currentSceneToDisplay?.sceneNumber}: Product Placement Options
         </h3>
         <div className="bg-muted p-6 rounded-lg text-center border border-dashed">
           <ImageOff className="h-10 w-10 text-gray-400 mx-auto mb-3" />
           <p className="text-muted-foreground mb-3">
             No placement options generated yet for Scene{" "}
-            {currentScene?.sceneNumber}.
+            {currentSceneToDisplay?.sceneNumber}.
           </p>
           <p className="text-sm text-gray-500">
-            Use the "Generate Placements" button above to create visual options.
+            Variations are generated automatically when a scene is selected. If none appear, the scene might not have suggested categories or products.
           </p>
         </div>
       </div>
     );
   }
+  if (!currentSceneToDisplay && !isLoading) { // Check isLoading to avoid showing this during initial load
+      return (
+           <div>
+            <h3 className="text-md font-semibold text-secondary mb-3">Scene Details Unavailable</h3>
+             <div className="bg-muted p-6 rounded-lg text-center border border-dashed">
+                <Info className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                <p className="text-muted-foreground">Details for the selected scene could not be loaded. Try selecting another scene.</p>
+             </div>
+           </div>
+      );
+  }
+
 
   return (
     <div>
       <h3 className="text-md font-semibold text-secondary mb-3">
-        Scene {currentScene?.sceneNumber}: Product Placement Options
+        Scene {currentSceneToDisplay?.sceneNumber || selectedSceneId}: Product Placement Options 
+        {/* Fallback to selectedSceneId if details somehow aren't there yet but variations are */}
       </h3>
-      {currentScene && (
+      {currentSceneToDisplay && (
         <>
           <p className="text-sm text-muted-foreground mb-1">
-            Reason: {currentScene.brandableReason || "Suitable for placement."}
+            Reason: {currentSceneToDisplay.brandableReason || (currentSceneToDisplay.isBrandable ? "Suitable for placement." : "Not initially identified as brandable by AI; categories/placements generated on demand.")}
           </p>
           <p className="text-sm text-muted-foreground mb-4">
             Suggested Categories:{" "}
-            {currentScene.suggestedCategories?.join(", ") || "N/A"}
+            {currentSceneToDisplay.suggestedCategories?.join(", ") || (isLoading ? "Loading categories..." : "None suggested yet")}
           </p>
-          {brandableScenes.length > 0 && scenes.length > 0 && (
-            <p className="text-sm text-yellow-800 mb-2 font-medium">
-              AI has identified {brandableScenes.length} of {scenes.length}{" "}
-              scenes with product placement potential.
-            </p>
-          )}
+           {scenes.length > 0 && ( 
+                <p className="text-sm text-yellow-800 mb-2 font-medium">
+                    AI has initially identified {scenes.filter(s => s.isBrandable).length} of {scenes.length}{" "}
+                    scenes with product placement potential. You can generate options for any scene.
+                </p>
+            )}
         </>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {currentSceneVariations.map((variation) => {
           const videoState = videoGenerationStates[variation.id] || {
-            status: "idle",
+            status: "idle", progress: 0, stageMessage: ""
           };
-          const isGeneratingThisVideo =
-            videoState.status === "pending" ||
-            videoState.status === "generating";
-
-          const isRegeneratingThisImage =
-            regenerateImageMutation.isPending &&
-            regenerateImageMutation.variables?.variationId === variation.id;
-          const currentPromptText =
-            editedPrompts[variation.id] ?? variation.geminiPrompt ?? "";
-          const isPromptUnchanged =
-            currentPromptText === (variation.geminiPrompt || "");
+          const isUpdatingThisAsset =
+            updateAssetsMutation.isPending &&
+            updateAssetsMutation.variables?.variationId === variation.id;
           const isChangingThisProduct =
             handleChangeProductMutation.isPending &&
             handleChangeProductMutation.variables?.variationId === variation.id;
 
+          const showProgressOverlay = 
+            isUpdatingThisAsset || 
+            isChangingThisProduct || 
+            videoState.status === 'pending' || 
+            videoState.status === 'generating' ||
+            (videoState.status === 'succeeded' && !videoState.videoUrl);
+
+          const currentPromptText =
+            editedPrompts[variation.id] ?? variation.geminiPrompt ?? "";
+          const isPromptUnchangedOrEmpty =
+            !currentPromptText || (currentPromptText === (variation.geminiPrompt || ""));
+
+          const cardDisabledClass = showProgressOverlay ? "opacity-70 cursor-not-allowed" : "";
+
           return (
             <Card
               key={variation.id}
-              className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${isGeneratingThisVideo || isRegeneratingThisImage || isChangingThisProduct ? "opacity-70 cursor-not-allowed" : ""}`}
+              className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${cardDisabledClass}`}
             >
               <div className="relative aspect-video bg-gray-100">
                 <img
                   src={variation.imageUrl}
-                  alt={`Option ${variation.variationNumber}: ${variation.productName} in ${currentScene?.heading}`}
+                  alt={`Option ${variation.variationNumber}: ${variation.productName} in ${currentSceneToDisplay?.heading}`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    e.currentTarget.src =
+                    (e.target as HTMLImageElement).src =
                       "https://placehold.co/864x480/grey/white?text=Image+Error";
-                    e.currentTarget.alt = "Error loading image";
+                    (e.target as HTMLImageElement).alt = "Error loading image";
                   }}
                 />
-                {(isGeneratingThisVideo ||
-                  isRegeneratingThisImage ||
-                  isChangingThisProduct) && (
+                {showProgressOverlay && (
                   <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-4 text-center">
                     <Loader2 className="h-8 w-8 animate-spin mb-2" />
                     <p className="text-sm font-medium">
-                      {isChangingThisProduct
-                        ? "Changing Product..."
-                        : isRegeneratingThisImage
-                          ? "Updating Image..."
-                          : "Generating Video..."}
+                      {isUpdatingThisAsset
+                        ? "Updating Image..."
+                        : isChangingThisProduct
+                          ? "Changing Product..."
+                          : videoState.stageMessage || "Processing Video..."}
                     </p>
+                    {(videoState.status === 'pending' || videoState.status === 'generating' || (videoState.status === 'succeeded' && !videoState.videoUrl)) && 
+                     videoState.progress !== undefined && videoState.progress > 0 && videoState.progress <= 100 && (
+                       <Progress value={videoState.progress} className="w-3/4 h-1.5 mt-2 bg-gray-600 [&>div]:bg-primary" />
+                    )}
                   </div>
                 )}
-                {videoState.status === "succeeded" && videoState.videoUrl && (
+                 {videoState.status === "succeeded" && videoState.videoUrl && !showProgressOverlay && (
                   <div
                     className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full shadow-lg"
                     title="Video Ready"
@@ -773,7 +775,7 @@ export default function BrandableScenes({
                     <Video className="h-4 w-4" />
                   </div>
                 )}
-                {videoState.status === "failed" && (
+                {videoState.status === "failed" && !showProgressOverlay && (
                   <div
                     className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"
                     title={`Video Failed: ${videoState.error || ""}`}
@@ -789,22 +791,17 @@ export default function BrandableScenes({
               </div>
 
               <CardContent className="p-3">
-                <div className="flex items-center space-x-2 mb-1.5">
+                 <div className="flex items-center space-x-2 mb-1.5">
                   <div className="w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center overflow-hidden border">
                     <img
                       src={variation.productImageUrl}
                       alt={variation.productName}
                       className="w-full h-full object-contain"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display =
-                          "none";
+                      onError={(e) => { 
+                        (e.target as HTMLImageElement).style.display = "none";
                         const parent = e.currentTarget.parentElement;
-                        if (
-                          parent &&
-                          !parent.querySelector(".placeholder-icon")
-                        ) {
-                          parent.innerHTML +=
-                            '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 placeholder-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
+                        if (parent && !parent.querySelector(".placeholder-icon")) {
+                          parent.innerHTML += '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 placeholder-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
                         }
                       }}
                     />
@@ -824,13 +821,9 @@ export default function BrandableScenes({
                   onChange={(e) =>
                     handlePromptChange(variation.id, e.target.value)
                   }
-                  placeholder="Edit prompt for image/video generation..."
+                  placeholder="Edit prompt for asset generation..."
                   className="text-xs mt-2 min-h-[60px] max-h-[100px] resize-y"
-                  disabled={
-                    isGeneratingThisVideo ||
-                    isRegeneratingThisImage ||
-                    isChangingThisProduct
-                  }
+                  disabled={showProgressOverlay}
                 />
 
                 {videoState.status === "failed" ? (
@@ -855,29 +848,22 @@ export default function BrandableScenes({
                   variant="outline"
                   size="sm"
                   onClick={() => openChangeProductModal(variation.id)}
-                  disabled={
-                    isGeneratingThisVideo ||
-                    isRegeneratingThisImage ||
-                    isChangingThisProduct ||
-                    handleChangeProductMutation.isPending
-                  }
+                  disabled={showProgressOverlay || handleChangeProductMutation.isPending}
                 >
                   <Replace className="mr-1 h-3.5 w-3.5" />
                   Change Product
                 </Button>
-                <Button
+                <Button 
                   variant="outline"
                   size="sm"
-                  onClick={() => handleRegenerateImage(variation.id)}
+                  onClick={() => handleUpdateAssets(variation.id)}
                   disabled={
-                    isGeneratingThisVideo ||
-                    isRegeneratingThisImage ||
-                    isChangingThisProduct ||
-                    isPromptUnchanged ||
-                    regenerateImageMutation.isPending
+                    showProgressOverlay ||
+                    isPromptUnchangedOrEmpty ||
+                    updateAssetsMutation.isPending
                   }
                 >
-                  {isRegeneratingThisImage ? (
+                  {isUpdatingThisAsset ? (
                     <>
                       <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                       Updating...
@@ -885,26 +871,22 @@ export default function BrandableScenes({
                   ) : (
                     <>
                       <RefreshCcw className="mr-1 h-4 w-4" />
-                      Update Image
+                      Update Assets
                     </>
                   )}
                 </Button>
 
-                {videoState.status === "succeeded" && videoState.videoUrl && (
+                {videoState.status === "succeeded" && videoState.videoUrl && !showProgressOverlay && (
                   <Button
                     variant="default"
                     size="sm"
                     onClick={() =>
                       onViewVideo(
                         videoState.videoUrl!,
-                        `Scene ${currentScene?.sceneNumber} - ${variation.productName}`,
+                        `Scene ${currentSceneToDisplay?.sceneNumber} - ${variation.productName}`,
                       )
                     }
-                    disabled={
-                      isLoading ||
-                      isRegeneratingThisImage ||
-                      isChangingThisProduct
-                    }
+                    disabled={isLoading}
                     className="col-span-2"
                   >
                     <PlayCircle className="mr-1 h-4 w-4" />
@@ -912,25 +894,20 @@ export default function BrandableScenes({
                   </Button>
                 )}
 
-                {videoState.status !== "succeeded" && (
+                {!showProgressOverlay && videoState.status !== "succeeded" && (
                   <Button
                     variant={
                       videoState.status === "failed" ? "destructive" : "outline"
                     }
                     size="sm"
-                    onClick={() => onGenerateVideoRequest(variation.id)}
-                    disabled={
-                      isGeneratingThisVideo ||
-                      isLoading ||
-                      isRegeneratingThisImage ||
-                      isChangingThisProduct
-                    }
+                    onClick={() => onGenerateVideoRequest(variation.id)} 
+                    disabled={isLoading}
                     className="col-span-2"
                   >
-                    {isGeneratingThisVideo ? (
-                      <>
+                    {videoState.status === "pending" || videoState.status === "generating" ? (
+                       <>
                         <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                        Generating...
+                        {videoState.stageMessage || "Generating..."}
                       </>
                     ) : videoState.status === "failed" ? (
                       <>
