@@ -61,6 +61,9 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Custom colors
+        "vadis-purple": "hsl(var(--vadis-purple))",
+        "vadis-blue-ai": "hsl(var(--vadis-blue-ai))",
       },
       keyframes: {
         "accordion-down": {

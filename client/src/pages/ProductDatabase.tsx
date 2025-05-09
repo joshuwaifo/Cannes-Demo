@@ -552,7 +552,9 @@ export default function ProductDatabase() {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold text-secondary">Brand Database</h2>
+        <h2 className="text-lg font-semibold text-foreground">
+          Brand Database
+        </h2>
         <Button
           onClick={() => setIsAddModalOpen(true)}
           className="bg-primary text-white"

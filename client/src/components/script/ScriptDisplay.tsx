@@ -6,13 +6,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function ScriptDisplay({ 
-  script, 
+export default function ScriptDisplay({
+  script,
   isLoading,
   onSave,
   onReanalyze,
   onGeneratePlacements,
-  activeScene
+  activeScene,
 }: ScriptDisplayProps) {
   const [editorContent, setEditorContent] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
@@ -65,10 +65,10 @@ export default function ScriptDisplay({
       setIsReanalyzing(false);
     }
   };
-  
+
   const handleGeneratePlacements = async () => {
     if (!onGeneratePlacements) return;
-    
+
     try {
       setIsGenerating(true);
       await onGeneratePlacements();
@@ -91,7 +91,9 @@ export default function ScriptDisplay({
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-secondary">Script Editor</h2>
+          <h2 className="text-lg font-semibold text-secondary">
+            Script Editor
+          </h2>
           <div className="flex space-x-2">
             <Skeleton className="h-10 w-20" />
             <Skeleton className="h-10 w-32" />
@@ -105,13 +107,12 @@ export default function ScriptDisplay({
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg font-semibold text-secondary">
-          {activeScene 
-            ? `Scene ${activeScene.sceneNumber}: ${activeScene.heading}` 
+        <h2 className="text-lg font-semibold text-foreground">
+          {activeScene
+            ? `Scene ${activeScene.sceneNumber}: ${activeScene.heading}`
             : "Script Editor"}
         </h2>
-        <div className="flex space-x-2">
-        </div>
+        <div className="flex space-x-2"></div>
       </div>
 
       <Textarea
