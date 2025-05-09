@@ -573,3 +573,52 @@ export type VideoPlayerModalProps = {
   videoUrl: string | null;
   title: string;
 };
+
+// client/src/lib/types.ts
+// ... (previous types remain the same) ...
+
+// --- Location Suggestion Types ---
+export interface SuggestedLocation {
+  id: number;
+  country: string;
+  region: string;
+  incentiveProgram: string;
+  incentiveDetails: string;
+  estimatedIncentiveValue?: string; // e.g., "$100,000 (25% of $400,000 spend)"
+  matchReason?: string; // Why AI suggested this location
+  imageUrl?: string | null;
+}
+
+export interface SuggestedLocationsProps {
+  activeScene: Scene | null;
+  projectBudget?: number; // Optional: project budget to estimate incentives
+  isLoading: boolean;
+}
+
+// --- Character and Actor Suggestion Types ---
+export interface ScriptCharacter {
+  name: string;
+  // Potentially add more details if extracted, like first appearance scene number
+}
+
+export interface ActorSuggestion extends Actor { // Extends existing Actor type
+  matchReason?: string;
+  controversyFlag?: boolean; // Simple flag, real implementation is complex
+}
+
+export interface CharacterCastingProps {
+  scriptId: number | null;
+  isLoading: boolean;
+  filmGenre?: string; // To help with actor suggestions
+  projectBudgetTier?: 'low' | 'medium' | 'high'; // Simplified budget
+}
+
+export interface ActorSuggestionCardProps {
+  actor: ActorSuggestion;
+  // any other props for interaction
+}
+
+// Update ScriptEditorProps if project budget is managed there
+export type ScriptEditorProps = { // Assuming this exists or can be created
+    // ... any existing props ...
+};
