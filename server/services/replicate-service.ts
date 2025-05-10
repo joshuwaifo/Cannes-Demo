@@ -45,17 +45,15 @@ interface PredictionStatusResult {
 // --- Constants ---
 const FALLBACK_IMAGE_URL =
   "https://placehold.co/1024x576/grey/white?text=Image+Gen+Failed";
-
-// New image model - Flux
-const REPLICATE_IMAGE_MODEL = "black-forest-labs/flux-dev-lora";
+const REPLICATE_IMAGE_MODEL = "stability-ai/sdxl";
 const REPLICATE_IMAGE_VERSION =
-  "c1e1c01d94a9281ec65a8e29cb3716e4695b3420daae37c7a9e0dcd36519fc9a";
-
-// New video model - WAN  
-const REPLICATE_VIDEO_MODEL = "wavespeedai/wan-2.1-i2v-480p";
+  "c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316";
+// --- NEW VIDEO MODEL CONSTANTS ---
+const REPLICATE_VIDEO_MODEL = "lightricks/ltx-video";
 const REPLICATE_VIDEO_VERSION =
-  "19f0e73c14779211b3c4d95123dbf2dbd5d182801f104a7df9b2a51889614cc2";
-
+  "8c47da666861d081eeb4d1261853087de23923a268a69b63febdf5dc1dee08e4"; // Use LTX version
+// const REPLICATE_VIDEO_MODEL = "lightricks/ltx-video";
+// const REPLICATE_VIDEO_VERSION = "8c47da666861d081eeb4d1261853087de23923a268a69b63febdf5dc1dee08e4"; // Use LTX version
 const MAX_PROMPT_LENGTH = 950; // Keep prompt length limit
 
 // --- Utilities ---
@@ -144,32 +142,22 @@ export async function generateProductPlacement(
       `${logPrefix} Using Gemini Prompt (len ${finalPrompt.length}): ${finalPrompt.substring(0, 100)}...`,
     );
 
-    // Get product image URL to use as reference for the Flux model
-    if (!product.imageUrl || !isValidHttpUrl(product.imageUrl)) {
-      console.error(`${logPrefix} Product ${product.id} has invalid or missing image URL: ${product.imageUrl}`);
-      return {
-        imageUrl: FALLBACK_IMAGE_URL,
-        description: "Generation failed: Missing brand image reference",
-        success: false,
-      };
-    }
-
-    // Prepare input for Flux model
     const input = {
       prompt: finalPrompt,
-      negative_prompt: "nsfw, nude, naked, offensive, violence, gore, explicit language, text, words, letters, watermark, signature, blurry, low quality, distorted, deformed, bad anatomy, extra limbs, disfigured, multiple views",
-      image: product.imageUrl, // Pass the brand image URL as reference
+      negative_prompt:
+        "nsfw, nude, naked, offensive, violence, gore, explicit language, text, words, letters, watermark, signature, blurry, low quality, distorted, deformed, bad anatomy, extra limbs, disfigured, multiple views",
       width: 1024,
       height: 576,
-      num_inference_steps: 30,
-      guidance_scale: 7.5,
       num_outputs: 1,
-      strength: 0.65, // Control how much influence the reference image has (0.0 to 1.0)
-      seed: Math.floor(Math.random() * 2147483647), // Random seed
+      scheduler: "K_EULER",
+      num_inference_steps: 30,
+      guidance_scale: 7,
+      refine: "expert_ensemble_refiner",
+      refine_steps: 50,
     };
 
     console.log(
-      `${logPrefix} Calling Flux model (${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION}) with product image: ${product.imageUrl.substring(0, 60)}...`,
+      `${logPrefix} Calling Replicate run (${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION})...`,
     );
 
     const output: any = await safeReplicateCall(
@@ -177,7 +165,7 @@ export async function generateProductPlacement(
         replicate.run(`${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION}`, {
           input,
         }),
-      `Run Flux Image Model Var ${variationNumber}`,
+      `Run Image Model Var ${variationNumber}`,
     );
 
     let imageUrl: string | undefined;
@@ -287,7 +275,7 @@ export async function generateProductPlacement(
   }
 }
 
-// --- Video Generation (UPDATED for WAN 2.1 I2V model) ---
+// --- Video Generation (UPDATED for LTX Model) ---
 export async function generateVideoFromVariation(
   variationId: number,
 ): Promise<VideoGenerationResult> {
@@ -314,54 +302,53 @@ export async function generateVideoFromVariation(
     if (!variation.geminiPrompt)
       throw new Error(`Missing Gemini prompt for variation ${variationId}.`);
 
-    const scene = await storage.getSceneById(variation.sceneId);
+    const scene = await storage.getSceneById(variation.sceneId); // Keep for context if needed
     if (!scene) throw new Error(`Scene ${variation.sceneId} not found.`);
     const product = await storage.getProductById(variation.productId);
     if (!product) throw new Error(`Product ${variation.productId} not found.`);
 
-    // 2. Create a concise prompt for the WAN model
-    // The WAN model uses the image as primary input and the prompt as guidance
-    const videoPrompt = variation.geminiPrompt;
+    // 2. Construct LTX video prompt (focus on text prompt, image is separate input)
+    // Use the detailed Gemini prompt as the main textual guidance.
+    const ltxPrompt = variation.geminiPrompt;
 
-    // Prepare a shortened prompt if necessary
-    const shortenedPrompt = videoPrompt.length > MAX_PROMPT_LENGTH
-      ? videoPrompt.substring(0, MAX_PROMPT_LENGTH) + "..."
-      : videoPrompt;
+    // --- LTX Model Input Parameters ---
+    const input = {
+      image_input: variation.imageUrl, // Use the generated image (URL or Data URI)
+      prompt: ltxPrompt.substring(0, MAX_PROMPT_LENGTH), // Main creative direction
+      style: "cinematic", // LTX specific: choose style ('cinematic', 'realistic', 'anime', etc.)
+      camera_control: "none", // LTX specific: 'none', 'pan_right', 'zoom_in', etc.
+      motion_control: "gentle_subtle_ambient", // LTX specific: 'gentle_wind', 'camera_shake', 'static', etc. Choose one that fits.
+      duration_seconds: 3, // LTX specific: duration
+      seed: Math.floor(Math.random() * 4294967295), // Standard 32-bit seed
+      // negative_prompt: "low quality, blurry, text, watermark", // LTX also supports negative prompts
+      // aspect_ratio: "16:9", // LTX might infer or require this
+    };
+    // --- End LTX Parameters ---
 
-    if (videoPrompt.length > MAX_PROMPT_LENGTH) {
+    if (ltxPrompt.length > MAX_PROMPT_LENGTH) {
       console.warn(
-        `${logPrefix} Video prompt truncated to ${MAX_PROMPT_LENGTH} characters.`,
+        `${logPrefix} LTX prompt truncated to ${MAX_PROMPT_LENGTH} characters.`,
       );
     }
 
-    // --- WAN 2.1 Model Input Parameters ---
-    const input = {
-      image: variation.imageUrl, // The generated image to animate
-      prompt: shortenedPrompt, // Description for guidance
-      video_length: 32, // Number of frames (default for this model)
-      sizing_strategy: "maintain_aspect_ratio", // How to handle the image size
-      motion_bucket_id: 40, // Controls the amount of motion (0-255), higher = more motion
-      negative_prompt: "blurry, distorted, low quality, glitch, text, watermark",
-      frames_per_second: 8, // Output video FPS
-      seed: Math.floor(Math.random() * 2147483647), // Random seed for deterministic results
-    };
-    // --- End WAN Parameters ---
-
     console.log(
-      `${logPrefix} Calling WAN 2.1 video generator (${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION})...`,
+      `${logPrefix} Calling Replicate create prediction (${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION})...`,
     );
     console.log(
-      `${logPrefix} Input Image Type: ${variation.imageUrl.startsWith("data:") ? "Data URI" : "URL"}`,
+      `${logPrefix} Start Image Type: ${variation.imageUrl.startsWith("data:") ? "Data URI" : "URL"}`,
     );
+    // console.log(`${logPrefix} LTX Input Payload:`, JSON.stringify(input, null, 2)); // Debug if needed
 
     // 3. Start prediction job
     const prediction = await safeReplicateCall(
       () =>
         replicate.predictions.create({
-          version: `${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION}`,
+          version: `${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION}`, // REPLICATE_VIDEO_VERSION, // Use LTX version
           input: input,
+          // webhook: process.env.REPLICATE_WEBHOOK_URL,
+          // webhook_events_filter: ["completed", "failed"]
         }),
-      `Create WAN Video Prediction for Var ${variationId}`,
+      `Create LTX Video Prediction Var ${variationId}`,
     );
 
     console.log(
@@ -469,69 +456,50 @@ export async function getPredictionStatus(
       );
     }
 
-    // --- UPDATED: Handle WAN 2.1 model output format ---
+    // --- MODIFIED: Handle Array Output ---
     let outputUrl: string | null = null;
     if (prediction.output) {
-      // Case 1: WAN model typically outputs an object with 'video' property that contains the URL
       if (
-        typeof prediction.output === "object" &&
-        !Array.isArray(prediction.output) &&
-        prediction.output.video &&
-        typeof prediction.output.video === "string" &&
-        isValidHttpUrl(prediction.output.video)
-      ) {
-        outputUrl = prediction.output.video;
-        console.log(`${logPrefix} Extracted URL from WAN output object video property`);
-      }
-      // Case 2: Array output (for compatibility with other models)
-      else if (
         Array.isArray(prediction.output) &&
-        prediction.output.length > 0
+        prediction.output.length > 0 &&
+        typeof prediction.output[0] === "string" &&
+        isValidHttpUrl(prediction.output[0])
       ) {
-        const firstItem = prediction.output[0];
-        if (typeof firstItem === "string" && isValidHttpUrl(firstItem)) {
-          outputUrl = firstItem;
-          console.log(`${logPrefix} Extracted URL from array output first element`);
-        }
-      }
-      // Case 3: Direct string URL
-      else if (
+        // If it's an array with a valid URL string as the first element
+        outputUrl = prediction.output[0];
+        // console.log(`${logPrefix} Extracted URL from array output: ${outputUrl.substring(0, 60)}...`); // Optional debug log
+      } else if (
         typeof prediction.output === "string" &&
         isValidHttpUrl(prediction.output)
       ) {
+        // Handle direct string URL output (fallback for other models potentially)
         outputUrl = prediction.output;
-        console.log(`${logPrefix} Extracted direct URL string from output`);
-      }
-      // Case 4: Unknown format
-      else {
+      } else {
+        // Log if output is present but not in expected format (array or string)
         console.warn(
-          `${logPrefix} Prediction output is present but not in a recognized format:`,
-          typeof prediction.output === 'object' ? JSON.stringify(prediction.output).substring(0, 300) : prediction.output
+          `${logPrefix} Prediction output is present but not a valid URL string or array containing one. Output:`,
+          prediction.output,
         );
       }
     }
-    // --- END UPDATED ---
+    // --- END MODIFIED ---
 
     if (status === "succeeded" && !outputUrl) {
+      // This warning might still trigger if the URL in the array is somehow invalid, but less likely now.
       console.warn(
-        `${logPrefix} Prediction succeeded but valid output URL could not be extracted.`
+        `${logPrefix} Prediction succeeded but valid output URL could not be extracted. Output received:`,
+        prediction.output,
       );
-      // We'll log the output structure to help diagnose the issue
-      if (prediction.output) {
-        console.warn(`Output type: ${typeof prediction.output}`);
-        if (typeof prediction.output === 'object') {
-          console.warn(`Output keys: ${Object.keys(prediction.output).join(', ')}`);
-        }
-      } else {
-        console.warn(`Output is null or undefined`);
-      }
+      // Optionally update status to failed if URL is critical for success state
+      // status = 'failed';
+      // prediction.error = prediction.error || "Prediction succeeded but output URL is invalid or missing.";
     }
 
     const errorString = prediction.error ? String(prediction.error) : null;
 
     return {
       status: status,
-      outputUrl: outputUrl,
+      outputUrl: outputUrl, // Send the extracted URL
       error: errorString,
       logs: prediction.logs,
     };
