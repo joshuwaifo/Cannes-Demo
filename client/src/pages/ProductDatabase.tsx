@@ -560,7 +560,7 @@ export default function ProductDatabase() {
           className="bg-primary text-white"
         >
           <Plus className="h-5 w-5 mr-1" />
-          Add New Brand
+          Add New Product
         </Button>
       </div>
 
