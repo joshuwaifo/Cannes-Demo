@@ -87,7 +87,7 @@ export default function AddProductModal({
                 <FormItem>
                   <FormLabel>Brand Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter company name" {...field} />
+                    <Input placeholder="Enter brand name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
