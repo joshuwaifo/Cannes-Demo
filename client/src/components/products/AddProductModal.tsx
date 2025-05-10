@@ -113,7 +113,7 @@ export default function AddProductModal({
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category</FormLabel>
+                  <FormLabel>Product Category</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
