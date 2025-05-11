@@ -165,7 +165,7 @@ export default function AddProductModal({
                     </FormControl>
                     <SelectContent>
                       {Object.entries(FilmRatingEnum).map(([key, value]) => (
-                        <SelectItem key={key} value={value}>
+                        <SelectItem key={key} value={key}>
                           {value}
                         </SelectItem>
                       ))}
@@ -193,7 +193,7 @@ export default function AddProductModal({
                     </FormControl>
                     <SelectContent>
                       {Object.entries(DemographicGenderEnum).map(([key, value]) => (
-                        <SelectItem key={key} value={value}>
+                        <SelectItem key={key} value={key}>
                           {value}
                         </SelectItem>
                       ))}
