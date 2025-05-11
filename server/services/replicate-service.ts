@@ -153,6 +153,7 @@ export async function generateProductPlacement(
       scheduler: "euler_a",
       num_inference_steps: 8,
       guidance_scale: 2.5,
+      input_image: product.imageUrl,
     };
 
     console.log(
