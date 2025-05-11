@@ -66,6 +66,21 @@ export const DemographicAgeEnum = {
 } as const;
 export type DemographicAgeType = keyof typeof DemographicAgeEnum;
 
+export const GenreEnum = {
+  "Action": "Action",
+  "Comedy": "Comedy",
+  "Drama": "Drama",
+  "Horror": "Horror",
+  "Sci-Fi": "Sci-Fi",
+  "Romance": "Romance",
+  "Adventure": "Adventure",
+  "Thriller": "Thriller",
+  "Documentary": "Documentary",
+  "Animation": "Animation",
+  "Fantasy": "Fantasy",
+  "Any": "Any",
+} as const;
+export type GenreType = keyof typeof GenreEnum;
 
 export type ProductCategory = keyof typeof ProductCategory;
 
@@ -78,6 +93,7 @@ export const products = pgTable("products", {
   filmRating: text("film_rating").$type<FilmRatingType | null>(),
   demographicGender: text("demographic_gender").$type<DemographicGenderType | null>(),
   demographicAge: jsonb("demographic_age").$type<DemographicAgeType[] | null>().default(sql`'{}'::jsonb`),
+  genre: text("genre").$type<GenreType | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -100,6 +116,7 @@ export const insertProductSchema = createInsertSchema(products, {
   filmRating: z.nativeEnum(FilmRatingEnum).optional().nullable(),
   demographicGender: z.nativeEnum(DemographicGenderEnum).optional().nullable(),
   demographicAge: z.array(z.nativeEnum(DemographicAgeEnum)).optional().nullable(),
+  genre: z.nativeEnum(GenreEnum).optional().nullable(),
 });
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;

@@ -11,6 +11,7 @@ import {
   FilmRatingEnum, FilmRatingType,
   DemographicGenderEnum, DemographicGenderType,
   DemographicAgeEnum, DemographicAgeType,
+  GenreEnum, GenreType,
 } from "@shared/schema";
 import { ControversyLevel } from "../../../server/services/ai-suggestion-service"; // Import from server types if needed on client, or define client-side
 
