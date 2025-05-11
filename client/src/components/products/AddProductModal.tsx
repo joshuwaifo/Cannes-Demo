@@ -209,7 +209,7 @@ export default function AddProductModal({
               render={() => (
                 <FormItem>
                   <div className="mb-2">
-                    <FormLabel>Demographic Age Ranges</FormLabel>
+                    <FormLabel>Age</FormLabel>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                   {Object.entries(DemographicAgeEnum).map(([key, value]) => (
