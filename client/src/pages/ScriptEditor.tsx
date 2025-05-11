@@ -1068,7 +1068,7 @@ export default function ScriptEditor() {
                         {/* Location Suggestions */}
                         <div className="bg-white rounded-lg shadow p-4">
                             <h3 className="text-lg font-semibold text-foreground mb-3">
-                                Suggested Filming Locations
+                                Optimizing funding: Suggested Filming Locations & Incentives
                             </h3>
                             <div className="mb-4">
                                 <Label
