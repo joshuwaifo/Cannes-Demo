@@ -70,9 +70,7 @@ export default function SceneBreakdown({
           </h3>
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
             <p className="text-sm text-yellow-800 mb-2 font-medium">
-              {brandableSceneIds.length === 0
-                ? "AI has identified no scene with product placement potential."
-                : `AI has identified ${brandableSceneIds.length} scene${brandableSceneIds.length === 1 ? "" : "s"} with product placement potential:`}
+              {`There are ${scenes.length} scenes with product placement potential. AI has suggested the following scenes for their branding potential:`}
             </p>
             <ul className="text-xs text-yellow-700 space-y-1">
               {scenes
