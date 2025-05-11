@@ -133,7 +133,7 @@
 //         {/* <h1 className="text-3xl font-bold mb-2 text-vadis-dark-text">Vadis Brand Marketplace</h1> */}{" "}
 //         {/* Title from current app screenshot - can be kept or removed */}
 //         <p className="text-lg md:text-xl text-gray-600 mb-6">
-//           AI-powered script analysis for Brand Sponsorship Opportunities
+//           AI-powered script analysis for Optimizing Funding and Casting
 //         </p>
 //         <div className="space-y-8">
 //           {isProcessingScript ? ( // Show progress if mutation is pending or in redirect phase
@@ -296,7 +296,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
       await queryClient.invalidateQueries({
         queryKey: ["/api/scripts/current"],
         exact: true,
-      });
+        });
       await queryClient.invalidateQueries({
         queryKey: ["/api/scripts/scenes"],
         exact: true,
@@ -354,7 +354,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
         {/* <h1 className="text-3xl font-bold mb-2 text-vadis-dark-text">Vadis Brand Marketplace</h1> */}{" "}
         {/* Title from current app screenshot - can be kept or removed */}
         <p className="text-lg md:text-xl text-gray-600 mb-6">
-          AI-powered script analysis for Brand Sponsorship Opportunities
+          AI-powered script analysis for Optimizing Funding and Casting
         </p>
         <div className="space-y-8">
           {isProcessingScript ? ( // Show progress if mutation is pending or in redirect phase
