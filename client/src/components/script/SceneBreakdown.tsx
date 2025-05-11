@@ -31,7 +31,7 @@ export default function SceneBreakdown({
   return (
     <div className="lg:col-span-1 bg-white p-4 rounded-lg shadow">
       <h2 className="text-lg font-semibold mb-4 text-foreground">
-        Scene Breakdown for {script?.title || "Untitled Script"}
+        Scene Breakdown
       </h2>
 
       <div className="h-[400px] overflow-hidden">
