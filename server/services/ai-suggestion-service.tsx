@@ -5,12 +5,10 @@
 //   HarmBlockThreshold,
 //   GenerationConfig,
 // } from "@google/generative-ai";
-// import { Actor as DbActor } from "@shared/schema"; // Use aliased DbActor
-// import { sanitizeForSafetyFilter } from "./file-upload-service"; // Reuse sanitization
+// import { Actor as DbActor, Location as DbLocation, Scene as DbScene } from "@shared/schema";
+// import { sanitizeForSafetyFilter, ExtractedCharacter } from "./file-upload-service"; // Import ExtractedCharacter
 
-// // Initialize Gemini Client (can be shared or re-initialized)
-// // For simplicity, copying the initialization logic from file-upload-service
-// // In a larger app, this would be a shared utility.
+// // --- Gemini Client Initialization (can be shared or re-initialized) ---
 // let genAIInstance: GoogleGenerativeAI | null = null;
 // let geminiSafetySettings: any[] | null = null;
 
@@ -33,16 +31,16 @@
 //   return { genAI: genAIInstance, safetySettings: geminiSafetySettings };
 // }
 
+// // --- Actor Suggestions ---
 // export interface ActorAISuggestion {
-//   actorName: string; // Gemini should return the exact name from the provided actor list
+//   actorName: string;
 //   matchReason: string;
-//   confidenceScore?: number; // Optional: 0.0 to 1.0
+//   confidenceScore?: number;
+//   // We don't add actor's age here, Gemini will use its knowledge and mention it in matchReason if relevant
 // }
-
 // interface GeminiActorSuggestionResponse {
 //   suggestedActors: ActorAISuggestion[];
 // }
-
 // function formatActorsForPrompt(actorsToFormat: DbActor[]): string {
 //   return actorsToFormat.map(actor => {
 //     return `
@@ -55,81 +53,63 @@
 // Recent Popularity: ${actor.recentPopularity}
 // Est. Salary Range: ${actor.estSalaryRange}
 // Availability: ${actor.availability}
-// Strategic Fit Notes: ${actor.bestSuitedRolesStrategic}
-// ---`;
+// Strategic Fit Notes: ${sanitizeForSafetyFilter(actor.bestSuitedRolesStrategic)} 
+// ---`; // Sanitized strategic fit notes
 //   }).join("\n");
 // }
 
 // export async function suggestActorsForCharacterViaGemini(
 //   scriptContent: string,
-//   characterNameToCast: string,
+//   characterToCast: ExtractedCharacter, // Now accepts ExtractedCharacter with age
 //   availableActorsFromDb: DbActor[],
 //   criteria: { filmGenre?: string; roleType?: string; budgetTier?: string },
-//   numberOfSuggestions: number = 3, // How many suggestions to ask for
+//   numberOfSuggestions: number = 3,
 // ): Promise<ActorAISuggestion[]> {
-//   const logPrefix = `[Gemini Actor Suggestion for "${characterNameToCast}"]`;
-//   console.log(`${logPrefix} Starting... Criteria: Genre=${criteria.filmGenre}, Role=${criteria.roleType}, Budget=${criteria.budgetTier}`);
+//   const characterNameToCast = characterToCast.name;
+//   const characterEstimatedAge = characterToCast.estimatedAgeRange || "Not Specified";
+//   const logPrefix = `[Gemini Actor Suggestion for "${characterNameToCast}" (Age: ${characterEstimatedAge})]`;
 
-//   if (!scriptContent || scriptContent.trim().length < 50) {
-//     console.warn(`${logPrefix} Script content is too short. Cannot provide meaningful suggestions.`);
-//     return [];
-//   }
-//   if (availableActorsFromDb.length === 0) {
-//     console.warn(`${logPrefix} No actors provided in the database list.`);
-//     return [];
-//   }
+//   if (!scriptContent || scriptContent.trim().length < 50) { console.warn(`${logPrefix} Script content too short.`); return []; }
+//   if (availableActorsFromDb.length === 0) { console.warn(`${logPrefix} No actors in DB list.`); return []; }
 
 //   const formattedActorsString = formatActorsForPrompt(availableActorsFromDb);
-//   const safeScriptContent = sanitizeForSafetyFilter(scriptContent.substring(0, 700000)); // Generous limit for script part
+//   const safeScriptContent = sanitizeForSafetyFilter(scriptContent.substring(0, 700000));
 //   const safeCharacterName = sanitizeForSafetyFilter(characterNameToCast);
 
 //   try {
 //     const { genAI, safetySettings } = initializeGeminiClient();
 //     const model = genAI.getGenerativeModel({
-//       model: "gemini-1.5-flash",
-//       safetySettings,
-//       generationConfig: {
-//         responseMimeType: "application/json",
-//         temperature: 0.4, // Slightly creative but still grounded
-//         maxOutputTokens: 2048, // Enough for a few actor suggestions with reasons
-//       } as GenerationConfig,
+//       model: "gemini-1.5-flash", safetySettings,
+//       generationConfig: { responseMimeType: "application/json", temperature: 0.4, maxOutputTokens: 2048 } as GenerationConfig,
 //     });
 
 //     const prompt = `
-//     You are an expert Casting Director AI. Your task is to recommend ${numberOfSuggestions} suitable actors for a specific character in a screenplay, based on the script content and a provided database of actors.
+//     You are an expert Casting Director AI. Recommend ${numberOfSuggestions} suitable actors for a specific character in a screenplay.
 
 //     INPUTS:
-//     1.  CHARACTER_NAME_TO_CAST: "${safeCharacterName}"
-//     2.  USER_CRITERIA:
+//     1.  CHARACTER_TO_CAST:
+//         - Name: "${safeCharacterName}"
+//         - Estimated Age Range (from script analysis): "${characterEstimatedAge}"
+//     2.  USER_CRITERIA_FOR_FILM:
 //         - Film Genre: "${criteria.filmGenre || 'Not Specified'}"
-//         - Role Type: "${criteria.roleType || 'Not Specified'}" (e.g., lead, supporting, cameo)
-//         - Project Budget Tier: "${criteria.budgetTier || 'Not Specified'}" (e.g., low, medium, high - consider actor's salary range)
-//     3.  AVAILABLE_ACTORS_DATABASE (excerpt below, full list provided in context):
-//         ${formattedActorsString.substring(0, 1000)}... (Full list has ${availableActorsFromDb.length} actors)
-//     4.  SCRIPT_CONTENT (excerpt below, full script provided in context):
-//         ${safeScriptContent.substring(0, 2000)}...
+//         - Role Type (for this character): "${criteria.roleType || 'Not Specified'}" (e.g., lead, supporting, cameo)
+//         - Project Budget Tier: "${criteria.budgetTier || 'Not Specified'}" (e.g., low, medium, high)
+//     3.  AVAILABLE_ACTORS_DATABASE (full list provided in context block): Contains actor profiles with details like gender, nationality, notable roles, genres, typical roles, estimated salary range, availability, and strategic fit notes.
+//     4.  SCRIPT_CONTENT (full script provided in context block).
 
 //     INSTRUCTIONS:
-//     -   Analyze the SCRIPT_CONTENT to understand the character "${safeCharacterName}": their personality, actions, dialogue, age (if implied), physical characteristics (if described), and overall role in the story.
-//     -   From the AVAILABLE_ACTORS_DATABASE, select the ${numberOfSuggestions} actors who best fit this character.
-//     -   Consider the USER_CRITERIA:
-//         - Match actor's typical genres and roles with the Film Genre and Role Type.
-//         - Match actor's Est. Salary Range with the Project Budget Tier (e.g., A-List for high budget).
-//         - Prioritize actors whose 'Availability' is 'Active' or suitable.
-//     -   For each suggested actor, provide a concise "matchReason" (1-2 sentences) explaining why they are a good fit, referencing both script details and actor profile.
-//     -   Optionally, provide a "confidenceScore" (0.0 to 1.0) for each suggestion.
+//     -   Analyze the SCRIPT_CONTENT to deeply understand "${safeCharacterName}": personality, actions, dialogue, relationships, and their role.
+//     -   Compare this character profile against the AVAILABLE_ACTORS_DATABASE.
+//     -   Crucially, consider the character's ESTIMATED_AGE_RANGE ("${characterEstimatedAge}"). Select actors from the database whose perceived age and typical roles align with this. You will need to use your general knowledge about actors for their perceived age, as it's not in the database.
+//     -   Also consider USER_CRITERIA_FOR_FILM: Match actor's genres/roles with Film Genre/Role Type, and their salary range with Budget Tier. Prioritize 'Active' availability.
+//     -   For each suggested actor, provide:
+//         -   "actorName": The EXACT name from the AVAILABLE_ACTORS_DATABASE.
+//         -   "matchReason": A concise (1-2 sentences) explanation. Justify why the actor is a good fit, referencing character traits, script context, the character's estimated age, and the actor's profile (including suitability for the character's age, typical roles, or past performances).
+//         -   "confidenceScore": (Optional) A number between 0.0 and 1.0.
 
 //     OUTPUT FORMAT:
-//     Return ONLY a valid JSON object. The JSON object must have a single key "suggestedActors".
-//     The value of "suggestedActors" must be an array of exactly ${numberOfSuggestions} objects (or fewer if not enough good matches). Each object MUST contain these exact keys:
-//     -   "actorName": string (The EXACT name of the actor from the AVAILABLE_ACTORS_DATABASE)
-//     -   "matchReason": string
-//     -   "confidenceScore": number (optional, between 0.0 and 1.0)
-
-//     Example of a single element in the "suggestedActors" array:
-//     { "actorName": "Tom Hanks", "matchReason": "Tom Hanks' portrayal of everyman heroes aligns well with ${safeCharacterName}'s journey in the script. His experience in [User Genre] and suitable salary range make him a strong contender.", "confidenceScore": 0.85 }
-
-//     IMPORTANT: Only suggest actors present in the provided AVAILABLE_ACTORS_DATABASE. Ensure actor names in the output match exactly. Do not invent actors. If you cannot find ${numberOfSuggestions} good matches, return as many as you confidently can.
+//     Return ONLY a valid JSON object: { "suggestedActors": [ { "actorName": "EXACT_DB_NAME", "matchReason": "...", "confidenceScore": 0.85 }, ... ] }
+//     Return up to ${numberOfSuggestions} best matches. If fewer good matches, return fewer. Do NOT invent actors.
 
 //     CONTEXT_BLOCK_ACTORS:
 //     ${formattedActorsString}
@@ -137,51 +117,99 @@
 //     CONTEXT_BLOCK_SCRIPT:
 //     ${safeScriptContent}
 //     `;
+//     // console.log(`${logPrefix} Sending request to Gemini for actor suggestions... (Prompt length: ~${prompt.length} chars)`); // Less verbose
 
-//     console.log(`${logPrefix} Sending request to Gemini for actor suggestions... (Prompt length: ~${prompt.length} chars)`);
 //     const result = await model.generateContent(prompt);
 //     const responseText = result.response.text();
-//     // console.log(`${logPrefix} Raw Gemini response:`, responseText); // Debug if needed
 
 //     try {
 //       const parsedResponse: GeminiActorSuggestionResponse = JSON.parse(responseText);
-//       if (!parsedResponse.suggestedActors || !Array.isArray(parsedResponse.suggestedActors)) {
-//         console.error(`${logPrefix} Gemini response format error. Raw:`, responseText);
-//         return [];
-//       }
-
-//       // Validate actor names against the provided list (case-insensitive check for robustness)
+//       if (!parsedResponse.suggestedActors || !Array.isArray(parsedResponse.suggestedActors)) { console.error(`${logPrefix} Format error. Raw:`, responseText); return []; }
 //       const validActorNames = new Set(availableActorsFromDb.map(a => a.name.toUpperCase()));
 //       const validatedSuggestions = parsedResponse.suggestedActors.filter(sugg => {
-//         if (!sugg.actorName || typeof sugg.actorName !== 'string' || !sugg.matchReason || typeof sugg.matchReason !== 'string') {
-//             console.warn(`${logPrefix} Invalid suggestion structure from Gemini:`, sugg);
-//             return false;
-//         }
-//         if (!validActorNames.has(sugg.actorName.toUpperCase())) {
-//             console.warn(`${logPrefix} Gemini suggested actor "${sugg.actorName}" not in provided database. Skipping.`);
-//             return false;
-//         }
-//         // Find the original casing for the actor's name
+//         if (!sugg.actorName || typeof sugg.actorName !== 'string' || !sugg.matchReason || typeof sugg.matchReason !== 'string') return false;
+//         if (!validActorNames.has(sugg.actorName.toUpperCase())) { console.warn(`${logPrefix} Suggested actor "${sugg.actorName}" not in DB.`); return false; }
 //         const originalActor = availableActorsFromDb.find(a => a.name.toUpperCase() === sugg.actorName.toUpperCase());
-//         if (originalActor) {
-//             sugg.actorName = originalActor.name; // Use original casing
-//         }
+//         if (originalActor) sugg.actorName = originalActor.name; // Ensure original casing
 //         return true;
-//       });
-
-//       console.log(`${logPrefix} Received ${validatedSuggestions.length} valid suggestions from Gemini.`);
+//       }).slice(0, numberOfSuggestions);
+//       console.log(`${logPrefix} Received ${validatedSuggestions.length} valid suggestions.`);
 //       return validatedSuggestions;
+//     } catch (parseError) { console.error(`${logPrefix} Parse JSON error:`, parseError, "\nRaw:", responseText); return []; }
+//   } catch (error: any) { console.error(`${logPrefix} Error:`, error.message || error); if (error.response?.data) console.error("Details:", error.response.data); return []; }
+// }
 
-//     } catch (parseError) {
-//       console.error(`${logPrefix} Failed to parse Gemini JSON response:`, parseError, "\nRaw Response:", responseText);
-//       return [];
-//     }
-
-//   } catch (error: any) {
-//     console.error(`${logPrefix} Error suggesting actors with Gemini:`, error.message || error);
-//     if (error.response?.data) console.error("Gemini API error details:", error.response.data);
-//     return [];
-//   }
+// // --- Location Suggestions (remains the same as your previous version) ---
+// export interface LocationAISuggestion {
+//   locationId: number;
+//   matchReason: string;
+//   estimatedIncentiveNotes: string;
+//   confidenceScore?: number;
+// }
+// interface GeminiLocationSuggestionResponse {
+//   suggestedLocations: LocationAISuggestion[];
+// }
+// function formatLocationsForPrompt(locationsToFormat: DbLocation[]): string {
+//   return locationsToFormat.map(loc => {
+//     return `
+// Location ID: ${loc.id}
+// Country: ${loc.country}
+// Region: ${loc.region || 'N/A'}
+// Incentive Program: ${loc.incentiveProgram || 'N/A'}
+// Incentive Details (Summary): ${sanitizeForSafetyFilter((loc.incentiveDetails || 'N/A').substring(0, 150))}...
+// Minimum Spend: ${loc.minimumSpend || 'N/A'}
+// Eligible Production Types: ${sanitizeForSafetyFilter(loc.eligibleProductionTypes || 'N/A')}
+// ---`;
+//   }).join("\n");
+// }
+// export async function suggestLocationsForSceneViaGemini(
+//   scene: DbScene,
+//   availableLocationsFromDb: DbLocation[],
+//   projectBudget: number | undefined,
+//   numberOfSuggestions: number = 3,
+// ): Promise<LocationAISuggestion[]> {
+//   const logPrefix = `[Gemini Location Suggestion for Scene ID:${scene.id}]`;
+//   // console.log(`${logPrefix} Starting... Budget: ${projectBudget === undefined ? 'N/A' : `$${projectBudget.toLocaleString()}`}`); // Less verbose
+//   if (availableLocationsFromDb.length === 0) { console.warn(`${logPrefix} No locations provided in the database list.`); return []; }
+//   const formattedLocationsString = formatLocationsForPrompt(availableLocationsFromDb);
+//   const safeSceneHeading = sanitizeForSafetyFilter(scene.heading);
+//   const safeSceneContent = sanitizeForSafetyFilter(scene.content.substring(0, 1500));
+//   try {
+//     const { genAI, safetySettings } = initializeGeminiClient();
+//     const model = genAI.getGenerativeModel({
+//       model: "gemini-1.5-flash", safetySettings,
+//       generationConfig: { responseMimeType: "application/json", temperature: 0.5, maxOutputTokens: 2048 } as GenerationConfig,
+//     });
+//     const prompt = `
+//     You are an expert Location Scout AI. Recommend ${numberOfSuggestions} locations for a scene.
+//     INPUTS:
+//     1. SCENE_DETAILS: Scene ID: ${scene.id}, Heading: "${safeSceneHeading}", Content: "${safeSceneContent}..."
+//     2. PROJECT_BUDGET: "${projectBudget !== undefined ? `$${projectBudget.toLocaleString()}` : 'Not Specified'}"
+//     3. AVAILABLE_LOCATIONS_DATABASE (full list in context): ${formattedLocationsString.substring(0, 800)}...
+//     INSTRUCTIONS: Analyze scene for setting, mood, period. Select up to ${numberOfSuggestions} locations. For each: "matchReason" (why fit?), "estimatedIncentiveNotes" (relevance to budget/scene), "confidenceScore" (optional).
+//     OUTPUT: ONLY JSON: { "suggestedLocations": [ { "locationId": DB_ID, "matchReason": "...", "estimatedIncentiveNotes": "...", "confidenceScore": 0.9 }, ... ] }
+//     Only use IDs from AVAILABLE_LOCATIONS_DATABASE.
+//     CONTEXT_BLOCK_LOCATIONS_DATABASE:
+//     ${formattedLocationsString}
+//     `;
+//     // console.log(`${logPrefix} Sending request to Gemini for location suggestions... (Prompt len: ~${prompt.length})`); // Less verbose
+//     const result = await model.generateContent(prompt);
+//     const responseText = result.response.text();
+//     try {
+//       const parsedResponse: GeminiLocationSuggestionResponse = JSON.parse(responseText);
+//       if (!parsedResponse.suggestedLocations || !Array.isArray(parsedResponse.suggestedLocations)) { console.error(`${logPrefix} Format error. Raw:`, responseText); return []; }
+//       const validLocationIds = new Set(availableLocationsFromDb.map(loc => loc.id));
+//       const validatedSuggestions = parsedResponse.suggestedLocations.filter(sugg => {
+//          const locId = typeof sugg.locationId === 'string' ? parseInt(sugg.locationId, 10) : sugg.locationId;
+//         if (isNaN(locId) || !validLocationIds.has(locId)) { console.warn(`${logPrefix} Invalid locationId "${sugg.locationId}".`); return false; }
+//         if (!sugg.matchReason || typeof sugg.matchReason !== 'string' || !sugg.estimatedIncentiveNotes || typeof sugg.estimatedIncentiveNotes !== 'string' ) { console.warn(`${logPrefix} Suggestion for locId ${locId} missing fields.`); return false; }
+//         sugg.locationId = locId;
+//         return true;
+//       }).slice(0, numberOfSuggestions);
+//       console.log(`${logPrefix} Received ${validatedSuggestions.length} valid location suggestions.`);
+//       return validatedSuggestions;
+//     } catch (parseError) { console.error(`${logPrefix} Parse JSON error:`, parseError, "\nRaw:", responseText); return []; }
+//   } catch (error: any) { console.error(`${logPrefix} Error:`, error.message || error); if (error.response?.data) console.error("Details:", error.response.data); return []; }
 // }
 
 // server/services/ai-suggestion-service.ts
@@ -192,9 +220,9 @@ import {
   GenerationConfig,
 } from "@google/generative-ai";
 import { Actor as DbActor, Location as DbLocation, Scene as DbScene } from "@shared/schema";
-import { sanitizeForSafetyFilter } from "./file-upload-service";
+import { sanitizeForSafetyFilter, ExtractedCharacter } from "./file-upload-service";
 
-// --- Gemini Client Initialization ---
+// --- Gemini Client Initialization (remains the same) ---
 let genAIInstance: GoogleGenerativeAI | null = null;
 let geminiSafetySettings: any[] | null = null;
 
@@ -218,14 +246,18 @@ function initializeGeminiClient() {
 }
 
 // --- Actor Suggestions ---
+export type ControversyLevel = 'none' | 'low' | 'medium' | 'high'; // Define type for clarity
+
 export interface ActorAISuggestion {
   actorName: string;
   matchReason: string;
   confidenceScore?: number;
+  controversyLevel?: ControversyLevel; // NEW: Added controversy level
 }
 interface GeminiActorSuggestionResponse {
   suggestedActors: ActorAISuggestion[];
 }
+
 function formatActorsForPrompt(actorsToFormat: DbActor[]): string {
   return actorsToFormat.map(actor => {
     return `
@@ -238,19 +270,22 @@ Typical Roles: ${(Array.isArray(actor.typicalRoles) ? actor.typicalRoles : []).j
 Recent Popularity: ${actor.recentPopularity}
 Est. Salary Range: ${actor.estSalaryRange}
 Availability: ${actor.availability}
-Strategic Fit Notes: ${actor.bestSuitedRolesStrategic}
+Strategic Fit Notes: ${sanitizeForSafetyFilter(actor.bestSuitedRolesStrategic)}
 ---`;
   }).join("\n");
 }
+
 export async function suggestActorsForCharacterViaGemini(
   scriptContent: string,
-  characterNameToCast: string,
+  characterToCast: ExtractedCharacter,
   availableActorsFromDb: DbActor[],
   criteria: { filmGenre?: string; roleType?: string; budgetTier?: string },
   numberOfSuggestions: number = 3,
 ): Promise<ActorAISuggestion[]> {
-  const logPrefix = `[Gemini Actor Suggestion for "${characterNameToCast}"]`;
-  // console.log(`${logPrefix} Starting... Criteria: Genre=${criteria.filmGenre}, Role=${criteria.roleType}, Budget=${criteria.budgetTier}`); // Less verbose
+  const characterNameToCast = characterToCast.name;
+  const characterEstimatedAge = characterToCast.estimatedAgeRange || "Not Specified";
+  const logPrefix = `[Gemini Actor Suggestion for "${characterNameToCast}" (Age: ${characterEstimatedAge})]`;
+
   if (!scriptContent || scriptContent.trim().length < 50) { console.warn(`${logPrefix} Script content too short.`); return []; }
   if (availableActorsFromDb.length === 0) { console.warn(`${logPrefix} No actors in DB list.`); return []; }
 
@@ -262,39 +297,74 @@ export async function suggestActorsForCharacterViaGemini(
     const { genAI, safetySettings } = initializeGeminiClient();
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash", safetySettings,
-      generationConfig: { responseMimeType: "application/json", temperature: 0.4, maxOutputTokens: 2048 } as GenerationConfig,
+      generationConfig: { responseMimeType: "application/json", temperature: 0.4, maxOutputTokens: 4096 } as GenerationConfig, // Increased tokens for more detail
     });
+
     const prompt = `
-    You are an expert Casting Director AI. Recommend ${numberOfSuggestions} actors for "${safeCharacterName}" based on SCRIPT_CONTENT, USER_CRITERIA (Genre: "${criteria.filmGenre || 'N/A'}", Role: "${criteria.roleType || 'N/A'}", Budget: "${criteria.budgetTier || 'N/A'}"), and AVAILABLE_ACTORS_DATABASE.
-    Prioritize actors matching genre, role type, salary to budget, and 'Active' availability.
-    OUTPUT: ONLY JSON: { "suggestedActors": [ { "actorName": "EXACT_DB_NAME", "matchReason": "Concise reason linking script & actor profile.", "confidenceScore": 0.0-1.0 (optional) }, ... ] }
-    Only suggest actors from AVAILABLE_ACTORS_DATABASE. Match names EXACTLY.
+    You are an expert Casting Director AI. Recommend ${numberOfSuggestions} suitable actors for a specific character in a screenplay.
+
+    INPUTS:
+    1.  CHARACTER_TO_CAST:
+        - Name: "${safeCharacterName}"
+        - Estimated Age Range (from script analysis): "${characterEstimatedAge}"
+    2.  USER_CRITERIA_FOR_FILM:
+        - Film Genre: "${criteria.filmGenre || 'Not Specified'}"
+        - Role Type (for this character): "${criteria.roleType || 'Not Specified'}"
+        - Project Budget Tier: "${criteria.budgetTier || 'Not Specified'}"
+    3.  AVAILABLE_ACTORS_DATABASE (full list in context block).
+    4.  SCRIPT_CONTENT (full script in context block).
+
+    INSTRUCTIONS:
+    -   Analyze SCRIPT_CONTENT for "${safeCharacterName}" details.
+    -   Compare with AVAILABLE_ACTORS_DATABASE, considering character's ESTIMATED_AGE_RANGE ("${characterEstimatedAge}"). Use general knowledge for actors' perceived age.
+    -   Factor in USER_CRITERIA_FOR_FILM.
+    -   For each suggested actor, provide:
+        -   "actorName": EXACT name from AVAILABLE_ACTORS_DATABASE.
+        -   "matchReason": Concise justification (1-2 sentences) linking character (traits, age) to actor's profile (age suitability, roles).
+        -   "controversyLevel": Assess general public perception based on your knowledge. Use ONE of: "none", "low", "medium", "high". If unknown or truly none, use "none".
+        -   "confidenceScore": (Optional) 0.0 to 1.0.
+
+    OUTPUT FORMAT:
+    Return ONLY a valid JSON object: { "suggestedActors": [ { "actorName": "...", "matchReason": "...", "controversyLevel": "low", "confidenceScore": 0.85 }, ... ] }
+    Up to ${numberOfSuggestions} best matches. Do NOT invent actors.
+
     CONTEXT_BLOCK_ACTORS:
     ${formattedActorsString}
+
     CONTEXT_BLOCK_SCRIPT:
     ${safeScriptContent}
     `;
+
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
+
     try {
       const parsedResponse: GeminiActorSuggestionResponse = JSON.parse(responseText);
       if (!parsedResponse.suggestedActors || !Array.isArray(parsedResponse.suggestedActors)) { console.error(`${logPrefix} Format error. Raw:`, responseText); return []; }
       const validActorNames = new Set(availableActorsFromDb.map(a => a.name.toUpperCase()));
+      const validControversyLevels: ControversyLevel[] = ['none', 'low', 'medium', 'high'];
+
       const validatedSuggestions = parsedResponse.suggestedActors.filter(sugg => {
         if (!sugg.actorName || typeof sugg.actorName !== 'string' || !sugg.matchReason || typeof sugg.matchReason !== 'string') return false;
         if (!validActorNames.has(sugg.actorName.toUpperCase())) { console.warn(`${logPrefix} Suggested actor "${sugg.actorName}" not in DB.`); return false; }
+        if (sugg.controversyLevel && !validControversyLevels.includes(sugg.controversyLevel)) {
+            console.warn(`${logPrefix} Invalid controversyLevel "${sugg.controversyLevel}" for actor "${sugg.actorName}". Defaulting to 'none'.`);
+            sugg.controversyLevel = 'none';
+        }
+        if (!sugg.controversyLevel) sugg.controversyLevel = 'none'; // Default if not provided
+
         const originalActor = availableActorsFromDb.find(a => a.name.toUpperCase() === sugg.actorName.toUpperCase());
         if (originalActor) sugg.actorName = originalActor.name;
         return true;
-      }).slice(0, numberOfSuggestions); // Ensure we don't exceed the requested number
-      console.log(`${logPrefix} Received ${validatedSuggestions.length} valid suggestions.`);
+      }).slice(0, numberOfSuggestions);
+      console.log(`${logPrefix} Received ${validatedSuggestions.length} valid suggestions with controversy levels.`);
       return validatedSuggestions;
     } catch (parseError) { console.error(`${logPrefix} Parse JSON error:`, parseError, "\nRaw:", responseText); return []; }
   } catch (error: any) { console.error(`${logPrefix} Error:`, error.message || error); if (error.response?.data) console.error("Details:", error.response.data); return []; }
 }
 
-
-// --- Location Suggestions ---
+// --- Location Suggestions (remains the same) ---
+// ... (rest of the location suggestion code) ...
 export interface LocationAISuggestion {
   locationId: number;
   matchReason: string;
@@ -304,10 +374,8 @@ export interface LocationAISuggestion {
 interface GeminiLocationSuggestionResponse {
   suggestedLocations: LocationAISuggestion[];
 }
-
 function formatLocationsForPrompt(locationsToFormat: DbLocation[]): string {
   return locationsToFormat.map(loc => {
-    // Basic formatting, can be expanded
     return `
 Location ID: ${loc.id}
 Country: ${loc.country}
@@ -319,7 +387,6 @@ Eligible Production Types: ${sanitizeForSafetyFilter(loc.eligibleProductionTypes
 ---`;
   }).join("\n");
 }
-
 export async function suggestLocationsForSceneViaGemini(
   scene: DbScene,
   availableLocationsFromDb: DbLocation[],
@@ -327,100 +394,43 @@ export async function suggestLocationsForSceneViaGemini(
   numberOfSuggestions: number = 3,
 ): Promise<LocationAISuggestion[]> {
   const logPrefix = `[Gemini Location Suggestion for Scene ID:${scene.id}]`;
-  console.log(`${logPrefix} Starting... Budget: ${projectBudget === undefined ? 'N/A' : `$${projectBudget.toLocaleString()}`}`);
-
-  if (availableLocationsFromDb.length === 0) {
-    console.warn(`${logPrefix} No locations provided in the database list.`);
-    return [];
-  }
-
+  if (availableLocationsFromDb.length === 0) { console.warn(`${logPrefix} No locations provided in the database list.`); return []; }
   const formattedLocationsString = formatLocationsForPrompt(availableLocationsFromDb);
   const safeSceneHeading = sanitizeForSafetyFilter(scene.heading);
-  const safeSceneContent = sanitizeForSafetyFilter(scene.content.substring(0, 1500)); // Increased snippet size for better context
-
+  const safeSceneContent = sanitizeForSafetyFilter(scene.content.substring(0, 1500));
   try {
     const { genAI, safetySettings } = initializeGeminiClient();
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      safetySettings,
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.5,
-        maxOutputTokens: 2048,
-      } as GenerationConfig,
+      model: "gemini-1.5-flash", safetySettings,
+      generationConfig: { responseMimeType: "application/json", temperature: 0.5, maxOutputTokens: 2048 } as GenerationConfig,
     });
-
     const prompt = `
-    You are an expert Location Scout AI. Your task is to recommend ${numberOfSuggestions} suitable filming locations for a specific screenplay scene, based on the scene's content and a provided database of locations with their incentive programs.
-
+    You are an expert Location Scout AI. Recommend ${numberOfSuggestions} locations for a scene.
     INPUTS:
-    1.  SCENE_DETAILS:
-        - Scene ID: ${scene.id}
-        - Scene Heading: "${safeSceneHeading}"
-        - Scene Content Snippet (Focus on setting, mood, key elements): "${safeSceneContent}..."
-    2.  PROJECT_BUDGET (Optional): "${projectBudget !== undefined ? `$${projectBudget.toLocaleString()}` : 'Not Specified'}"
-    3.  AVAILABLE_LOCATIONS_DATABASE (excerpt below, full list provided in context block):
-        ${formattedLocationsString.substring(0, 800)}... (Full list has ${availableLocationsFromDb.length} locations)
-
-    INSTRUCTIONS:
-    -   Analyze the SCENE_DETAILS for its core requirements: setting type (e.g., urban, rural, desert, modern office, period mansion), mood (e.g., tense, romantic, desolate), time period (if inferable), and any specific visual cues or actions that impact location choice.
-    -   From the AVAILABLE_LOCATIONS_DATABASE, select up to ${numberOfSuggestions} locations whose general characteristics (country, region, incentive types) seem most aligned with the scene.
-    -   For each selected location, provide:
-        -   "matchReason": A concise (1-2 sentences) explanation of why this location *could* be a good fit for the scene, considering its general profile.
-        -   "estimatedIncentiveNotes": A brief (1-2 sentences) commentary on the incentive program's potential relevance. If PROJECT_BUDGET is provided, relate the incentive to it (e.g., "The tax credit might be substantial for a budget of this size." or "Minimum spend for incentive might be too high/low for this budget."). If no budget, state "Incentive potential cannot be estimated without project budget."
-    -   Optionally, include a "confidenceScore" (0.0 to 1.0) reflecting your confidence in the match.
-
-    OUTPUT FORMAT:
-    Return ONLY a valid JSON object. The JSON object must have a single key "suggestedLocations".
-    The value of "suggestedLocations" must be an array of up to ${numberOfSuggestions} objects. Each object MUST contain these exact keys: "locationId" (number, from DB), "matchReason" (string), "estimatedIncentiveNotes" (string), and optionally "confidenceScore" (number).
-
-    Example:
-    { "suggestedLocations": [ { "locationId": 789, "matchReason": "The 'Old Warehouse District' in this location matches the gritty urban setting described.", "estimatedIncentiveNotes": "Offers a 20% tax credit, which could be significant for the specified $5M budget.", "confidenceScore": 0.9 } ] }
-
-    IMPORTANT: Only use location IDs from the provided AVAILABLE_LOCATIONS_DATABASE.
-
+    1. SCENE_DETAILS: Scene ID: ${scene.id}, Heading: "${safeSceneHeading}", Content: "${safeSceneContent}..."
+    2. PROJECT_BUDGET: "${projectBudget !== undefined ? `$${projectBudget.toLocaleString()}` : 'Not Specified'}"
+    3. AVAILABLE_LOCATIONS_DATABASE (full list in context): ${formattedLocationsString.substring(0, 800)}...
+    INSTRUCTIONS: Analyze scene for setting, mood, period. Select up to ${numberOfSuggestions} locations. For each: "matchReason" (why fit?), "estimatedIncentiveNotes" (relevance to budget/scene), "confidenceScore" (optional).
+    OUTPUT: ONLY JSON: { "suggestedLocations": [ { "locationId": DB_ID, "matchReason": "...", "estimatedIncentiveNotes": "...", "confidenceScore": 0.9 }, ... ] }
+    Only use IDs from AVAILABLE_LOCATIONS_DATABASE.
     CONTEXT_BLOCK_LOCATIONS_DATABASE:
     ${formattedLocationsString}
     `;
-
-    console.log(`${logPrefix} Sending request to Gemini for location suggestions... (Prompt len: ~${prompt.length})`);
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-    // console.log(`${logPrefix} Raw Gemini location response:`, responseText); // For debugging
-
     try {
       const parsedResponse: GeminiLocationSuggestionResponse = JSON.parse(responseText);
-      if (!parsedResponse.suggestedLocations || !Array.isArray(parsedResponse.suggestedLocations)) {
-        console.error(`${logPrefix} Gemini response format error. Raw:`, responseText);
-        return [];
-      }
-
+      if (!parsedResponse.suggestedLocations || !Array.isArray(parsedResponse.suggestedLocations)) { console.error(`${logPrefix} Format error. Raw:`, responseText); return []; }
       const validLocationIds = new Set(availableLocationsFromDb.map(loc => loc.id));
       const validatedSuggestions = parsedResponse.suggestedLocations.filter(sugg => {
          const locId = typeof sugg.locationId === 'string' ? parseInt(sugg.locationId, 10) : sugg.locationId;
-        if (isNaN(locId) || !validLocationIds.has(locId)) {
-            console.warn(`${logPrefix} Gemini suggested invalid locationId "${sugg.locationId}". Skipping.`);
-            return false;
-        }
-        if (!sugg.matchReason || typeof sugg.matchReason !== 'string' || !sugg.estimatedIncentiveNotes || typeof sugg.estimatedIncentiveNotes !== 'string' ) {
-             console.warn(`${logPrefix} Gemini suggestion for locationId ${locId} missing required fields. Skipping.`);
-            return false;
-        }
+        if (isNaN(locId) || !validLocationIds.has(locId)) { console.warn(`${logPrefix} Invalid locationId "${sugg.locationId}".`); return false; }
+        if (!sugg.matchReason || typeof sugg.matchReason !== 'string' || !sugg.estimatedIncentiveNotes || typeof sugg.estimatedIncentiveNotes !== 'string' ) { console.warn(`${logPrefix} Suggestion for locId ${locId} missing fields.`); return false; }
         sugg.locationId = locId;
         return true;
-      }).slice(0, numberOfSuggestions); // Ensure we don't exceed the requested number
-
-      console.log(`${logPrefix} Received ${validatedSuggestions.length} valid location suggestions from Gemini.`);
+      }).slice(0, numberOfSuggestions);
+      console.log(`${logPrefix} Received ${validatedSuggestions.length} valid location suggestions.`);
       return validatedSuggestions;
-
-    } catch (parseError) {
-      console.error(`${logPrefix} Failed to parse Gemini JSON response for locations:`, parseError, "\nRaw Response:", responseText);
-      return [];
-    }
-
-  } catch (error: any) {
-    console.error(`${logPrefix} Error suggesting locations with Gemini:`, error.message || error);
-    if (error.response?.data) console.error("Gemini API error details:", error.response.data);
-    return [];
-  }
+    } catch (parseError) { console.error(`${logPrefix} Parse JSON error:`, parseError, "\nRaw:", responseText); return []; }
+  } catch (error: any) { console.error(`${logPrefix} Error:`, error.message || error); if (error.response?.data) console.error("Details:", error.response.data); return []; }
 }

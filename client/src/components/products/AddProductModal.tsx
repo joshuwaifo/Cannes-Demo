@@ -28,6 +28,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Upload, Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+    FilmRatingEnum, DemographicGenderEnum, DemographicAgeEnum,
+    FilmRatingType, DemographicGenderType, DemographicAgeType, ProductCategory
+} from "@shared/schema";
 
 type FormValues = z.infer<typeof productFormSchema>;
 
@@ -44,8 +50,11 @@ export default function AddProductModal({
     defaultValues: {
       companyName: "",
       name: "",
-      category: "BEVERAGE",
+      category: "BEVERAGE" as ProductCategory, // Ensure type assertion
       imageUrl: "",
+      filmRating: null,
+      demographicGender: null,
+      demographicAge: [],
     },
   });
 
@@ -65,7 +74,6 @@ export default function AddProductModal({
       onOpenChange={(open) => {
         if (!open) {
           onClose();
-          // Reset form after closing
           if (!isSubmitting) {
             form.reset();
             setPreviewUrl("");
@@ -85,6 +93,7 @@ export default function AddProductModal({
               name="companyName"
               render={({ field }) => (
                 <FormItem>
+                  {/* CHANGED LABEL HERE */}
                   <FormLabel>Brand Name</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter brand name" {...field} />
@@ -113,6 +122,7 @@ export default function AddProductModal({
               name="category"
               render={({ field }) => (
                 <FormItem>
+                  {/* CHANGED LABEL HERE */}
                   <FormLabel>Product Category</FormLabel>
                   <Select
                     onValueChange={field.onChange}
@@ -129,9 +139,102 @@ export default function AddProductModal({
                       <SelectItem value="FOOD">Food</SelectItem>
                       <SelectItem value="AUTOMOTIVE">Automotive</SelectItem>
                       <SelectItem value="FASHION">Fashion</SelectItem>
-                      <SelectItem value="OTHER">Other</SelectItem>
+                      <SelectItem value="WATCH">Watch</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="filmRating"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Audience Targeting: Film Rating</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value || undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select film rating" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(FilmRatingEnum).map(([key, value]) => (
+                        <SelectItem key={key} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="demographicGender"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Demographic Gender</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value || undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select target gender" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(DemographicGenderEnum).map(([key, value]) => (
+                        <SelectItem key={key} value={value}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="demographicAge"
+              render={() => (
+                <FormItem>
+                  <div className="mb-2">
+                    <FormLabel>Demographic Age Ranges</FormLabel>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(DemographicAgeEnum).map(([key, value]) => (
+                    <FormField
+                      key={key}
+                      control={form.control}
+                      name="demographicAge"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(value as DemographicAgeType)}
+                              onCheckedChange={(checked) => {
+                                return checked
+                                  ? field.onChange([...(field.value || []), value as DemographicAgeType])
+                                  : field.onChange((field.value || []).filter((v: DemographicAgeType) => v !== value));
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="text-sm font-normal">{value}</FormLabel>
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

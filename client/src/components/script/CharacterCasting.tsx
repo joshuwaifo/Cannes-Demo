@@ -1,21 +1,201 @@
+// // client/src/components/script/CharacterCasting.tsx
+// import { CharacterCastingProps, ScriptCharacter, ActorSuggestion } from "@/lib/types";
+// import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+// import { Skeleton } from "@/components/ui/skeleton";
+// import { Users, UserSearch, Info, AlertTriangle, Edit3 } from "lucide-react";
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+// import { Button } from "@/components/ui/button";
+// import { Input } from "@/components/ui/input";
+// import { Label } from "@/components/ui/label"; // <<<<<<<<<<<< ADD THIS IMPORT
+// import { useQuery } from "@tanstack/react-query";
+// import { apiRequest } from "@/lib/queryClient";
+// import { useState } from "react";
+// import ActorSuggestionCard from "./ActorSuggestionCard";
+
+// export default function CharacterCasting({ scriptId, isLoading: isLoadingInitial, filmGenre, projectBudgetTier }: CharacterCastingProps) {
+//   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+//   const [customGenre, setCustomGenre] = useState(filmGenre || "");
+//   const [customRoleType, setCustomRoleType] = useState("lead"); 
+//   const [customBudgetTier, setCustomBudgetTier] = useState(projectBudgetTier || "medium");
+
+//   const { data: characters = [], isLoading: isLoadingCharacters } = useQuery<ScriptCharacter[]>({
+//     queryKey: ['/api/scripts/characters', scriptId],
+//     queryFn: async ({ queryKey }) => {
+//       const [, sId] = queryKey;
+//       if (!sId) return [];
+//       const res = await apiRequest("GET", `/api/scripts/${sId}/characters`);
+//       return res.json();
+//     },
+//     enabled: !!scriptId,
+//   });
+
+//   const { data: actorSuggestions = [], isLoading: isLoadingActorSuggestions, refetch: refetchActorSuggestions, isFetching: isFetchingActorSuggestions, isError, error } = useQuery<ActorSuggestion[]>({
+//     queryKey: ['/api/characters/suggest-actors', selectedCharacter, customGenre, customRoleType, customBudgetTier],
+//     queryFn: async ({ queryKey }) => {
+//       const [, charName, genre, roleType, budget] = queryKey;
+//       if (!charName) return [];
+//       const params = new URLSearchParams({
+//         genre: genre as string,
+//         roleType: roleType as string,
+//         budgetTier: budget as string,
+//       });
+//       const res = await apiRequest("GET", `/api/characters/${charName}/suggest-actors?${params.toString()}`);
+//       return res.json();
+//     },
+//     enabled: !!selectedCharacter,
+//   });
+
+//   const handleSearchActors = () => {
+//       if (selectedCharacter) {
+//           refetchActorSuggestions();
+//       }
+//   };
+
+//   if (isLoadingInitial || isLoadingCharacters) {
+//     return (
+//       <div className="space-y-3">
+//         <Skeleton className="h-8 w-1/2 mb-2" />
+//         <Skeleton className="h-10 w-full mb-4" />
+//         {[...Array(2)].map((_, i) => (
+//           <Card key={i} className="animate-pulse">
+//             <CardHeader><Skeleton className="h-5 w-3/5" /></CardHeader>
+//             <CardContent><Skeleton className="h-4 w-full" /></CardContent>
+//           </Card>
+//         ))}
+//       </div>
+//     );
+//   }
+
+//   if (!scriptId) {
+//     return (
+//       <div className="text-center text-sm text-muted-foreground py-4">
+//         <Info className="mx-auto h-6 w-6 mb-1" />
+//         Script not loaded.
+//       </div>
+//     );
+//   }
+
+//   if (characters.length === 0 && !isLoadingCharacters) {
+//       return (
+//           <div className="text-center text-sm text-muted-foreground py-4">
+//               <Users className="mx-auto h-6 w-6 mb-1" />
+//               No characters found in the script, or script content is too short.
+//           </div>
+//       )
+//   }
+
+
+//   return (
+//     <div className="space-y-4">
+//       <div>
+//         <Label htmlFor="character-select">Select Character to Cast</Label>
+//         <Select
+//           value={selectedCharacter || ""}
+//           onValueChange={(value) => setSelectedCharacter(value || null)}
+//         >
+//           <SelectTrigger id="character-select">
+//             <SelectValue placeholder="Select a character..." />
+//           </SelectTrigger>
+//           <SelectContent>
+//             {characters.map((char) => (
+//               <SelectItem key={char.name} value={char.name}>
+//                 {char.name}
+//               </SelectItem>
+//             ))}
+//           </SelectContent>
+//         </Select>
+//       </div>
+
+//       {selectedCharacter && (
+//         <Card className="bg-muted/50 p-3 border-dashed">
+//             <CardDescription className="text-xs mb-2">Refine search criteria for "{selectedCharacter}"</CardDescription>
+//             <div className="grid grid-cols-2 gap-2 mb-2">
+//                 <div>
+//                     <Label htmlFor="cast-genre" className="text-xs">Genre</Label>
+//                     <Input id="cast-genre" value={customGenre} onChange={e => setCustomGenre(e.target.value)} placeholder="e.g., Action, Drama"/>
+//                 </div>
+//                 <div>
+//                     <Label htmlFor="cast-role" className="text-xs">Role Type</Label>
+//                      <Select value={customRoleType} onValueChange={setCustomRoleType}>
+//                         <SelectTrigger id="cast-role"><SelectValue/></SelectTrigger>
+//                         <SelectContent>
+//                             <SelectItem value="lead">Lead</SelectItem>
+//                             <SelectItem value="supporting">Supporting</SelectItem>
+//                             <SelectItem value="cameo">Cameo</SelectItem>
+//                         </SelectContent>
+//                     </Select>
+//                 </div>
+//                 <div className="col-span-2">
+//                      <Label htmlFor="cast-budget" className="text-xs">Budget Tier</Label>
+//                      <Select value={customBudgetTier} onValueChange={setCustomBudgetTier}>
+//                         <SelectTrigger id="cast-budget"><SelectValue/></SelectTrigger>
+//                         <SelectContent>
+//                             <SelectItem value="low">Low (e.g., &lt;$1M)</SelectItem>
+//                             <SelectItem value="medium">Medium (e.g., $1M - $20M)</SelectItem>
+//                             <SelectItem value="high">High (e.g., $20M+)</SelectItem>
+//                             <SelectItem value="any">Any</SelectItem>
+//                         </SelectContent>
+//                     </Select>
+//                 </div>
+//             </div>
+//             <Button onClick={handleSearchActors} size="sm" disabled={isFetchingActorSuggestions}>
+//                 <UserSearch className="h-4 w-4 mr-1"/>
+//                 {isFetchingActorSuggestions ? "Searching..." : "Find Actors"}
+//             </Button>
+//         </Card>
+//       )}
+
+//       {selectedCharacter && (isLoadingActorSuggestions || isFetchingActorSuggestions) && (
+//         <div className="mt-4 space-y-3">
+//           <p className="text-sm text-muted-foreground text-center">Finding actor suggestions for {selectedCharacter}...</p>
+//           {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+//         </div>
+//       )}
+
+//       {selectedCharacter && !isLoadingActorSuggestions && !isFetchingActorSuggestions && isError && (
+//           <div className="text-center text-sm text-red-600 py-4 mt-4">
+//               <AlertTriangle className="mx-auto h-6 w-6 mb-1" />
+//               Error loading actor suggestions: {(error as Error)?.message || "Unknown error"}
+//           </div>
+//       )}
+
+//       {selectedCharacter && !isLoadingActorSuggestions && !isFetchingActorSuggestions && !isError && actorSuggestions.length === 0 && (
+//         <div className="mt-4 text-center text-sm text-muted-foreground py-4">
+//           <Info className="mx-auto h-6 w-6 mb-1" />
+//           No actor suggestions found for "{selectedCharacter}" with the current criteria. Try adjusting the filters.
+//         </div>
+//       )}
+
+//       {selectedCharacter && !isLoadingActorSuggestions && !isFetchingActorSuggestions && !isError && actorSuggestions.length > 0 && (
+//         <div className="mt-4 space-y-3 max-h-[300px] overflow-y-auto pr-2">
+//           <h4 className="text-sm font-medium">Suggestions for {selectedCharacter}:</h4>
+//           {actorSuggestions.map((actor) => (
+//             <ActorSuggestionCard key={actor.id} actor={actor} />
+//           ))}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
+
 // client/src/components/script/CharacterCasting.tsx
 import { CharacterCastingProps, ScriptCharacter, ActorSuggestion } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserSearch, Info, AlertTriangle, Edit3 } from "lucide-react";
+import { Users, UserSearch, Info, AlertTriangle, Edit3, UserCircle2 } from "lucide-react"; // Added UserCircle2 for age
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label"; // <<<<<<<<<<<< ADD THIS IMPORT
+import { Label } from "@/components/ui/label";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ActorSuggestionCard from "./ActorSuggestionCard";
 
 export default function CharacterCasting({ scriptId, isLoading: isLoadingInitial, filmGenre, projectBudgetTier }: CharacterCastingProps) {
-  const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
+  const [selectedCharacterName, setSelectedCharacterName] = useState<string | null>(null);
   const [customGenre, setCustomGenre] = useState(filmGenre || "");
-  const [customRoleType, setCustomRoleType] = useState("lead"); 
+  const [customRoleType, setCustomRoleType] = useState("lead");
   const [customBudgetTier, setCustomBudgetTier] = useState(projectBudgetTier || "medium");
 
   const { data: characters = [], isLoading: isLoadingCharacters } = useQuery<ScriptCharacter[]>({
@@ -27,26 +207,58 @@ export default function CharacterCasting({ scriptId, isLoading: isLoadingInitial
       return res.json();
     },
     enabled: !!scriptId,
+    onSuccess: (data) => {
+        // If a character was previously selected, try to keep it selected if still present
+        if (selectedCharacterName && !data.find(c => c.name === selectedCharacterName)) {
+            setSelectedCharacterName(null); // Deselect if no longer in list
+        } else if (!selectedCharacterName && data.length > 0) {
+            // Optionally auto-select first character if none is selected
+            // setSelectedCharacterName(data[0].name);
+        }
+    }
   });
 
+  // Find the full selected character object to access estimatedAgeRange
+  const selectedCharacterObject = characters.find(c => c.name === selectedCharacterName);
+
   const { data: actorSuggestions = [], isLoading: isLoadingActorSuggestions, refetch: refetchActorSuggestions, isFetching: isFetchingActorSuggestions, isError, error } = useQuery<ActorSuggestion[]>({
-    queryKey: ['/api/characters/suggest-actors', selectedCharacter, customGenre, customRoleType, customBudgetTier],
+    queryKey: ['/api/characters/suggest-actors', selectedCharacterName, customGenre, customRoleType, customBudgetTier, selectedCharacterObject?.estimatedAgeRange], // Add age to query key
     queryFn: async ({ queryKey }) => {
-      const [, charName, genre, roleType, budget] = queryKey;
+      const [, charName, genre, roleType, budget, charAge] = queryKey; // Destructure age
       if (!charName) return [];
+
+      // Pass the character object to the backend API if needed,
+      // or just the name and let backend refetch character details if necessary
+      // For now, sending name and let backend handle fetching character details including age
       const params = new URLSearchParams({
         genre: genre as string,
         roleType: roleType as string,
         budgetTier: budget as string,
       });
+      // The character's age is now part of the queryKey and will be implicitly handled by backend
+      // if the backend's suggestActorsForCharacterViaGemini is modified to accept it.
+      // The actual API call doesn't need to change here if the backend directly uses characterName to fetch its details including age.
+      // However, if we want to explicitly pass the character's age:
+      // if (charAge) params.append('characterEstimatedAge', charAge as string); // Backend needs to handle this query param
+
       const res = await apiRequest("GET", `/api/characters/${charName}/suggest-actors?${params.toString()}`);
       return res.json();
     },
-    enabled: !!selectedCharacter,
+    enabled: !!selectedCharacterName, // Only fetch if a character is selected
   });
 
+  // Update customGenre and customBudgetTier if props change
+  useEffect(() => {
+    if (filmGenre) setCustomGenre(filmGenre);
+  }, [filmGenre]);
+
+  useEffect(() => {
+    if (projectBudgetTier) setCustomBudgetTier(projectBudgetTier);
+  }, [projectBudgetTier]);
+
+
   const handleSearchActors = () => {
-      if (selectedCharacter) {
+      if (selectedCharacterName) {
           refetchActorSuggestions();
       }
   };
@@ -79,7 +291,7 @@ export default function CharacterCasting({ scriptId, isLoading: isLoadingInitial
       return (
           <div className="text-center text-sm text-muted-foreground py-4">
               <Users className="mx-auto h-6 w-6 mb-1" />
-              No characters found in the script, or script content is too short.
+              No characters found in the script, or script content is too short to extract characters.
           </div>
       )
   }
@@ -90,8 +302,8 @@ export default function CharacterCasting({ scriptId, isLoading: isLoadingInitial
       <div>
         <Label htmlFor="character-select">Select Character to Cast</Label>
         <Select
-          value={selectedCharacter || ""}
-          onValueChange={(value) => setSelectedCharacter(value || null)}
+          value={selectedCharacterName || ""}
+          onValueChange={(value) => setSelectedCharacterName(value || null)}
         >
           <SelectTrigger id="character-select">
             <SelectValue placeholder="Select a character..." />
@@ -99,16 +311,24 @@ export default function CharacterCasting({ scriptId, isLoading: isLoadingInitial
           <SelectContent>
             {characters.map((char) => (
               <SelectItem key={char.name} value={char.name}>
-                {char.name}
+                {char.name} {char.estimatedAgeRange && `(${char.estimatedAgeRange})`}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {selectedCharacter && (
+      {selectedCharacterObject && ( // Use selectedCharacterObject here
         <Card className="bg-muted/50 p-3 border-dashed">
-            <CardDescription className="text-xs mb-2">Refine search criteria for "{selectedCharacter}"</CardDescription>
+            <div className="flex justify-between items-center">
+                <CardDescription className="text-xs mb-2">Refine search criteria for "{selectedCharacterObject.name}"</CardDescription>
+                {selectedCharacterObject.estimatedAgeRange && (
+                    <div className="text-xs text-muted-foreground mb-2 flex items-center">
+                        <UserCircle2 className="h-3.5 w-3.5 mr-1" />
+                        AI Est. Age: {selectedCharacterObject.estimatedAgeRange}
+                    </div>
+                )}
+            </div>
             <div className="grid grid-cols-2 gap-2 mb-2">
                 <div>
                     <Label htmlFor="cast-genre" className="text-xs">Genre</Label>
@@ -138,37 +358,37 @@ export default function CharacterCasting({ scriptId, isLoading: isLoadingInitial
                     </Select>
                 </div>
             </div>
-            <Button onClick={handleSearchActors} size="sm" disabled={isFetchingActorSuggestions}>
+            <Button onClick={handleSearchActors} size="sm" disabled={isFetchingActorSuggestions || !selectedCharacterName}>
                 <UserSearch className="h-4 w-4 mr-1"/>
                 {isFetchingActorSuggestions ? "Searching..." : "Find Actors"}
             </Button>
         </Card>
       )}
 
-      {selectedCharacter && (isLoadingActorSuggestions || isFetchingActorSuggestions) && (
+      {selectedCharacterName && (isLoadingActorSuggestions || isFetchingActorSuggestions) && (
         <div className="mt-4 space-y-3">
-          <p className="text-sm text-muted-foreground text-center">Finding actor suggestions for {selectedCharacter}...</p>
+          <p className="text-sm text-muted-foreground text-center">Finding actor suggestions for {selectedCharacterName}...</p>
           {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
         </div>
       )}
 
-      {selectedCharacter && !isLoadingActorSuggestions && !isFetchingActorSuggestions && isError && (
+      {selectedCharacterName && !isLoadingActorSuggestions && !isFetchingActorSuggestions && isError && (
           <div className="text-center text-sm text-red-600 py-4 mt-4">
               <AlertTriangle className="mx-auto h-6 w-6 mb-1" />
               Error loading actor suggestions: {(error as Error)?.message || "Unknown error"}
           </div>
       )}
 
-      {selectedCharacter && !isLoadingActorSuggestions && !isFetchingActorSuggestions && !isError && actorSuggestions.length === 0 && (
+      {selectedCharacterName && !isLoadingActorSuggestions && !isFetchingActorSuggestions && !isError && actorSuggestions.length === 0 && (
         <div className="mt-4 text-center text-sm text-muted-foreground py-4">
           <Info className="mx-auto h-6 w-6 mb-1" />
-          No actor suggestions found for "{selectedCharacter}" with the current criteria. Try adjusting the filters.
+          No actor suggestions found for "{selectedCharacterName}" with the current criteria. Try adjusting the filters.
         </div>
       )}
 
-      {selectedCharacter && !isLoadingActorSuggestions && !isFetchingActorSuggestions && !isError && actorSuggestions.length > 0 && (
+      {selectedCharacterName && !isLoadingActorSuggestions && !isFetchingActorSuggestions && !isError && actorSuggestions.length > 0 && (
         <div className="mt-4 space-y-3 max-h-[300px] overflow-y-auto pr-2">
-          <h4 className="text-sm font-medium">Suggestions for {selectedCharacter}:</h4>
+          <h4 className="text-sm font-medium">Suggestions for {selectedCharacterName}:</h4>
           {actorSuggestions.map((actor) => (
             <ActorSuggestionCard key={actor.id} actor={actor} />
           ))}
