@@ -45,16 +45,17 @@ interface PredictionStatusResult {
 // --- Constants ---
 const FALLBACK_IMAGE_URL =
   "https://placehold.co/1024x576/grey/white?text=Image+Gen+Failed";
-const REPLICATE_IMAGE_MODEL = "stability-ai/sdxl";
+
+const REPLICATE_IMAGE_MODEL = "black-forest-labs/flux-dev-lora";
 const REPLICATE_IMAGE_VERSION =
-  "c221b2b8ef527988fb59bf24a8b97c4561f1c671f73bd389f866bfb27c061316";
-// --- NEW VIDEO MODEL CONSTANTS ---
-const REPLICATE_VIDEO_MODEL = "lightricks/ltx-video";
+  "6cfd3a89f8a165f6055e013abac527519689b74e3a48851a7c374e113e7ce697";
+
+// UPDATED VIDEO MODEL CONSTANTS
+const REPLICATE_VIDEO_MODEL = "wavespeedai/wan-2.1-i2v-480p";
 const REPLICATE_VIDEO_VERSION =
-  "8c47da666861d081eeb4d1261853087de23923a268a69b63febdf5dc1dee08e4"; // Use LTX version
-// const REPLICATE_VIDEO_MODEL = "lightricks/ltx-video";
-// const REPLICATE_VIDEO_VERSION = "8c47da666861d081eeb4d1261853087de23923a268a69b63febdf5dc1dee08e4"; // Use LTX version
-const MAX_PROMPT_LENGTH = 950; // Keep prompt length limit
+  "ea681d183d59e636a8514d08c46a6736f26468c0b583609064e750c94157e8e4"; // Example version
+
+const MAX_PROMPT_LENGTH = 950; // Max length for image prompts, video prompts might have different limits
 
 // --- Utilities ---
 function isValidHttpUrl(urlString: string): boolean {
@@ -109,7 +110,7 @@ async function safeReplicateCall<T>(
   }
 }
 
-// --- Image Generation (No changes from previous working version) ---
+// --- Image Generation ---
 export async function generateProductPlacement(
   request: GenerationRequest,
 ): Promise<GenerationResult> {
@@ -149,20 +150,19 @@ export async function generateProductPlacement(
       width: 1024,
       height: 576,
       num_outputs: 1,
-      scheduler: "K_EULER",
-      num_inference_steps: 30,
-      guidance_scale: 7,
-      refine: "expert_ensemble_refiner",
-      refine_steps: 50,
+      scheduler: "euler_a",
+      num_inference_steps: 8,
+      guidance_scale: 2.5,
     };
 
     console.log(
       `${logPrefix} Calling Replicate run (${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION})...`,
     );
 
+    // Corrected Replicate run call:
     const output: any = await safeReplicateCall(
       () =>
-        replicate.run(`${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION}`, {
+        replicate.run(`${REPLICATE_IMAGE_MODEL}`, {
           input,
         }),
       `Run Image Model Var ${variationNumber}`,
@@ -261,7 +261,7 @@ export async function generateProductPlacement(
       `${logPrefix} Image generation completed. Success: ${success}. Type: ${imageUrl.startsWith("data:") ? "Data URI" : "URL"}`,
     );
 
-    return { imageUrl: imageUrl, description, success }; // Return original URL/DataURI
+    return { imageUrl: imageUrl, description, success };
   } catch (error: any) {
     console.error(
       `${logPrefix} Overall error during image generation process:`,
@@ -275,16 +275,15 @@ export async function generateProductPlacement(
   }
 }
 
-// --- Video Generation (UPDATED for LTX Model) ---
+// --- Video Generation (UPDATED for wavespeedai/wan-2.1-i2v-480p) ---
 export async function generateVideoFromVariation(
   variationId: number,
 ): Promise<VideoGenerationResult> {
   const logPrefix = `[VidGen Var ${variationId}]`;
   try {
     const replicate = getReplicateClient();
-
-    // 1. Fetch variation details
     const variation = await storage.getSceneVariationById(variationId);
+
     if (!variation) throw new Error(`Variation ${variationId} not found.`);
     if (
       !variation.imageUrl ||
@@ -293,66 +292,59 @@ export async function generateVideoFromVariation(
         !variation.imageUrl.startsWith("data:image/"))
     ) {
       console.error(
-        `${logPrefix} Cannot generate video. Invalid, missing, or fallback start image URL.`,
+        `${logPrefix} Cannot generate video. Invalid, missing, or fallback start image URL: ${variation.imageUrl}`,
       );
       throw new Error(
         `Cannot generate video for Variation ${variationId} due to invalid or missing source image.`,
       );
     }
-    if (!variation.geminiPrompt)
-      throw new Error(`Missing Gemini prompt for variation ${variationId}.`);
+    if (!variation.geminiPrompt) {
+      console.warn(`${logPrefix} Missing Gemini prompt for variation ${variationId}. Using a generic motion prompt.`);
+      // Fallback to a generic motion prompt if geminiPrompt is missing, or decide how to handle.
+      // For wan-2.1-i2v-480p, the text prompt is optional but can guide motion.
+      // If no specific textual guidance, the model will try to animate based on image content.
+    }
 
-    const scene = await storage.getSceneById(variation.sceneId); // Keep for context if needed
-    if (!scene) throw new Error(`Scene ${variation.sceneId} not found.`);
-    const product = await storage.getProductById(variation.productId);
-    if (!product) throw new Error(`Product ${variation.productId} not found.`);
+    const videoPrompt = variation.geminiPrompt || "subtle cinematic motion"; // Use Gemini prompt or a fallback
 
-    // 2. Construct LTX video prompt (focus on text prompt, image is separate input)
-    // Use the detailed Gemini prompt as the main textual guidance.
-    const ltxPrompt = variation.geminiPrompt;
-
-    // --- LTX Model Input Parameters ---
+    // Input parameters for wavespeedai/wan-2.1-i2v-480p
     const input = {
-      image_input: variation.imageUrl, // Use the generated image (URL or Data URI)
-      prompt: ltxPrompt.substring(0, MAX_PROMPT_LENGTH), // Main creative direction
-      style: "cinematic", // LTX specific: choose style ('cinematic', 'realistic', 'anime', etc.)
-      camera_control: "none", // LTX specific: 'none', 'pan_right', 'zoom_in', etc.
-      motion_control: "gentle_subtle_ambient", // LTX specific: 'gentle_wind', 'camera_shake', 'static', etc. Choose one that fits.
-      duration_seconds: 3, // LTX specific: duration
-      seed: Math.floor(Math.random() * 4294967295), // Standard 32-bit seed
-      // negative_prompt: "low quality, blurry, text, watermark", // LTX also supports negative prompts
-      // aspect_ratio: "16:9", // LTX might infer or require this
+      image: variation.imageUrl,
+      prompt: videoPrompt.substring(0, MAX_PROMPT_LENGTH), // Video model might have different prompt length needs
+      // negative_prompt: "low quality, blurry, text, watermark, worst quality, lowres", // Optional
+      motion_scale: 1.0,      // Default: 1. Adjust for more/less motion.
+      cfg_scale: 7.0,         // Default: 7. Guidance scale.
+      num_inference_steps: 20,// Default: 20
+      fps: 12,                // Default: 12
+      num_frames: 81,         // Default: 24 (results in 2s video at 12fps)
+      resolution: "480p",     // Default and matches model name
+      seed: Math.floor(Math.random() * 4294967295),
     };
-    // --- End LTX Parameters ---
 
-    if (ltxPrompt.length > MAX_PROMPT_LENGTH) {
+    if (videoPrompt.length > MAX_PROMPT_LENGTH) {
       console.warn(
-        `${logPrefix} LTX prompt truncated to ${MAX_PROMPT_LENGTH} characters.`,
+        `${logPrefix} Video prompt truncated to ${MAX_PROMPT_LENGTH} characters.`,
       );
     }
 
     console.log(
-      `${logPrefix} Calling Replicate create prediction (${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION})...`,
+      `${logPrefix} Calling Replicate create prediction for video (${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION})...`,
     );
-    console.log(
-      `${logPrefix} Start Image Type: ${variation.imageUrl.startsWith("data:") ? "Data URI" : "URL"}`,
-    );
-    // console.log(`${logPrefix} LTX Input Payload:`, JSON.stringify(input, null, 2)); // Debug if needed
+    console.log(`${logPrefix} Input Image URL for video: ${variation.imageUrl.substring(0,100)}...`)
 
-    // 3. Start prediction job
     const prediction = await safeReplicateCall(
       () =>
         replicate.predictions.create({
-          version: `${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION}`, // REPLICATE_VIDEO_VERSION, // Use LTX version
+          version: REPLICATE_VIDEO_MODEL, // Pass only the version hash here
           input: input,
-          // webhook: process.env.REPLICATE_WEBHOOK_URL,
-          // webhook_events_filter: ["completed", "failed"]
+          // webhook: process.env.REPLICATE_WEBHOOK_URL, // Optional webhook
+          // webhook_events_filter: ["completed", "failed"], // Optional
         }),
-      `Create LTX Video Prediction Var ${variationId}`,
+      `Create WAN-2.1 Video Prediction Var ${variationId}`,
     );
 
     console.log(
-      `${logPrefix} Prediction started. ID: ${prediction.id}, Status: ${prediction.status}`,
+      `${logPrefix} Video prediction started. ID: ${prediction.id}, Status: ${prediction.status}`,
     );
 
     if (prediction.status === "failed" || prediction.status === "canceled") {
@@ -360,7 +352,7 @@ export async function generateVideoFromVariation(
         ? String(prediction.error)
         : `Prediction immediately ${prediction.status}`;
       console.error(
-        `${logPrefix} Prediction failed or canceled on start: ${errMsg}`,
+        `${logPrefix} Video prediction failed or canceled on start: ${errMsg}`,
       );
       return {
         predictionId: prediction.id,
@@ -385,59 +377,14 @@ export async function generateVideoFromVariation(
   }
 }
 
-// --- Prediction Status (No changes needed) ---
-// export async function getPredictionStatus(predictionId: string): Promise<PredictionStatusResult> {
-//   const logPrefix = `[Poll Status ID ${predictionId}]`;
-//   try {
-//     const replicate = getReplicateClient();
-//     // console.log(`${logPrefix} Fetching prediction status...`); // Keep logs minimal
 
-//     const prediction = await safeReplicateCall(() =>
-//         replicate.predictions.get(predictionId),
-//         `Get Prediction Status ${predictionId}`
-//     );
-
-//     let status: PredictionStatusResult['status'] = 'unknown';
-//     if (['starting', 'processing', 'succeeded', 'failed', 'canceled'].includes(prediction.status)) {
-//       status = prediction.status as PredictionStatusResult['status'];
-//     } else {
-//         console.warn(`${logPrefix} Received unexpected status from Replicate: ${prediction.status}`);
-//     }
-
-//     // LTX output is typically a direct URL string
-//     const outputUrl = (prediction.output && typeof prediction.output === 'string' && isValidHttpUrl(prediction.output))
-//                       ? prediction.output
-//                       : null;
-
-//     if (status === 'succeeded' && !outputUrl) {
-//         console.warn(`${logPrefix} Prediction succeeded but output URL is invalid or missing. Output:`, prediction.output);
-//     }
-
-//     const errorString = prediction.error ? String(prediction.error) : null;
-
-//     return {
-//       status: status,
-//       outputUrl: outputUrl,
-//       error: errorString,
-//       logs: prediction.logs,
-//     };
-
-//   } catch (error: any) {
-//     console.error(`${logPrefix} Failed to fetch prediction status overall.`);
-//     return {
-//       status: 'failed',
-//       error: `Failed to fetch prediction status: ${error.message || 'Unknown error'}`,
-//     };
-//   }
-// }
-
+// --- Prediction Status ---
 export async function getPredictionStatus(
   predictionId: string,
 ): Promise<PredictionStatusResult> {
   const logPrefix = `[Poll Status ID ${predictionId}]`;
   try {
     const replicate = getReplicateClient();
-
     const prediction = await safeReplicateCall(
       () => replicate.predictions.get(predictionId),
       `Get Prediction Status ${predictionId}`,
@@ -456,7 +403,6 @@ export async function getPredictionStatus(
       );
     }
 
-    // --- MODIFIED: Handle Array Output ---
     let outputUrl: string | null = null;
     if (prediction.output) {
       if (
@@ -465,46 +411,37 @@ export async function getPredictionStatus(
         typeof prediction.output[0] === "string" &&
         isValidHttpUrl(prediction.output[0])
       ) {
-        // If it's an array with a valid URL string as the first element
         outputUrl = prediction.output[0];
-        // console.log(`${logPrefix} Extracted URL from array output: ${outputUrl.substring(0, 60)}...`); // Optional debug log
       } else if (
         typeof prediction.output === "string" &&
         isValidHttpUrl(prediction.output)
       ) {
-        // Handle direct string URL output (fallback for other models potentially)
         outputUrl = prediction.output;
       } else {
-        // Log if output is present but not in expected format (array or string)
         console.warn(
           `${logPrefix} Prediction output is present but not a valid URL string or array containing one. Output:`,
           prediction.output,
         );
       }
     }
-    // --- END MODIFIED ---
 
     if (status === "succeeded" && !outputUrl) {
-      // This warning might still trigger if the URL in the array is somehow invalid, but less likely now.
       console.warn(
         `${logPrefix} Prediction succeeded but valid output URL could not be extracted. Output received:`,
         prediction.output,
       );
-      // Optionally update status to failed if URL is critical for success state
-      // status = 'failed';
-      // prediction.error = prediction.error || "Prediction succeeded but output URL is invalid or missing.";
     }
 
     const errorString = prediction.error ? String(prediction.error) : null;
 
     return {
       status: status,
-      outputUrl: outputUrl, // Send the extracted URL
+      outputUrl: outputUrl,
       error: errorString,
       logs: prediction.logs,
     };
   } catch (error: any) {
-    console.error(`${logPrefix} Failed to fetch prediction status overall.`);
+    console.error(`${logPrefix} Failed to fetch prediction status overall:`, error);
     return {
       status: "failed",
       error: `Failed to fetch prediction status: ${error.message || "Unknown error"}`,
@@ -517,4 +454,3 @@ function createPlacementDescription(request: GenerationRequest): string {
   const { scene, product, variationNumber } = request;
   return `Variation ${variationNumber}: ${product.name} in scene ${scene.sceneNumber} (${scene.heading}).`;
 }
-
