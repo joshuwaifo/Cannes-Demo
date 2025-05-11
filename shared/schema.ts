@@ -62,7 +62,7 @@ export const DemographicAgeEnum = {
   "45-54": "45-54",
   "55-64": "55-64",
   "65+": "65+",
-  "AllAges": "All Ages",
+  "AllAges": "AllAges",
 } as const;
 export type DemographicAgeType = keyof typeof DemographicAgeEnum;
 

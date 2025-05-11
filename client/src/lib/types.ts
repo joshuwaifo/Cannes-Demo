@@ -92,6 +92,7 @@ export const productFormSchema = z.object({
   filmRating: z.nativeEnum(FilmRatingEnum).optional().nullable(),
   demographicGender: z.nativeEnum(DemographicGenderEnum).optional().nullable(),
   demographicAge: z.array(z.nativeEnum(DemographicAgeEnum)).default([]).optional().nullable(),
+  genre: z.nativeEnum(GenreEnum).optional().nullable(),
   imageUrl: z.string().url("Please enter a valid URL"),
 });
 export type ProductFormData = z.infer<typeof productFormSchema>;

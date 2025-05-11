@@ -31,8 +31,8 @@ import { Upload, Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-    FilmRatingEnum, DemographicGenderEnum, DemographicAgeEnum,
-    FilmRatingType, DemographicGenderType, DemographicAgeType, ProductCategory
+    FilmRatingEnum, DemographicGenderEnum, DemographicAgeEnum, GenreEnum,
+    FilmRatingType, DemographicGenderType, DemographicAgeType, GenreType, ProductCategory
 } from "@shared/schema";
 
 type FormValues = z.infer<typeof productFormSchema>;
@@ -55,6 +55,7 @@ export default function AddProductModal({
       filmRating: null,
       demographicGender: null,
       demographicAge: [],
+      genre: null,
     },
   });
 
@@ -221,20 +222,48 @@ export default function AddProductModal({
                         <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                           <FormControl>
                             <Checkbox
-                              checked={field.value?.includes(value as DemographicAgeType)}
+                              checked={field.value?.includes(key as DemographicAgeType)}
                               onCheckedChange={(checked) => {
                                 return checked
-                                  ? field.onChange([...(field.value || []), value as DemographicAgeType])
-                                  : field.onChange((field.value || []).filter((v: DemographicAgeType) => v !== value));
+                                  ? field.onChange([...(field.value || []), key as DemographicAgeType])
+                                  : field.onChange((field.value || []).filter((v: DemographicAgeType) => v !== key));
                               }}
                             />
                           </FormControl>
-                          <FormLabel className="text-sm font-normal">{value}</FormLabel>
+                          <FormLabel className="text-sm font-normal">{key === "AllAges" ? "All Ages" : value}</FormLabel>
                         </FormItem>
                       )}
                     />
                   ))}
                   </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="genre"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Genre</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value || undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select genre" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.entries(GenreEnum).map(([key, value]) => (
+                        <SelectItem key={key} value={key}>
+                          {value}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
