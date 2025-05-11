@@ -180,7 +180,7 @@ export default function AddProductModal({
               name="demographicGender"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Demographic Gender</FormLabel>
+                  <FormLabel>Gender</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value || undefined}
