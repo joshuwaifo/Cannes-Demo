@@ -11,7 +11,7 @@ export default function Footer() {
           <div className="mb-4 md:mb-0">
             {/* Text color is inherited from 'text-white' on the footer element */}
             <p className="text-sm">
-              © {new Date().getFullYear()} VadisMedia. All rights reserved.
+              © {new Date().getFullYear()} Vadis Media AG. All rights reserved.
             </p>
           </div>
           <div className="flex space-x-4">
