@@ -1,6 +1,6 @@
 // client/src/components/layout/Header.tsx
 import { Link } from "wouter";
-import { Film, Home, FileText, ShoppingBag, Users, MapPin } from "lucide-react";
+import { Home, FileText, ShoppingBag, Users, MapPin } from "lucide-react";
 import { HeaderProps } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -10,15 +10,15 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       {" "}
       {/* bg-secondary is now white, text-secondary-foreground is dark */}
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <div className="flex items-center space-x-2">
-          {/* <Film className="h-8 w-8 text-primary" /> Replaced with new logo style */}
-          <h1 className="text-2xl font-bold text-vadis-blue-ai">
-            {" "}
-            {/* Vadis part of logo */}
-            Vadis<span className="text-primary">AI</span>{" "}
-            {/* AI part using primary accent color */}
-          </h1>
-        </div>
+        <Link href="/">
+          <a className="flex items-center space-x-2">
+            <img
+              src="/assets/vadis-media-logo-dark.png"
+              alt="Vadis Media Logo"
+              className="h-10" // Adjusted height for header logo
+            />
+          </a>
+        </Link>
         <nav>
           <ul className="flex space-x-3 md:space-x-4">
             {" "}
