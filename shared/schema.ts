@@ -213,6 +213,7 @@ export const actors = pgTable("actors", {
   availability: text("availability").notNull(),
   bestSuitedRolesStrategic: text("best_suited_roles_strategic").notNull(),
   imageUrl: text("image_url"),
+  dateOfBirth: text("date_of_birth"), // Add date of birth as text to support flexible date formats
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
