@@ -102,8 +102,22 @@ export type EditProductModalProps = {
     isSubmitting: boolean;
 };
 export type DeleteProductDialogProps = { isOpen: boolean; product: Product | null; onClose: () => void; onDelete: (id: number) => Promise<void>; isDeleting: boolean; };
-export type ActorFormData = { name: string; gender: string; nationality: string; notableRoles: string; genres: string; recentPopularity: string; typicalRoles: string; estSalaryRange: string; socialMediaFollowing: string; availability: string; bestSuitedRolesStrategic: string; imageUrl: string; };
-export const actorFormSchema = z.object({ name: z.string().min(2), gender: z.string().min(1), nationality: z.string().min(2), notableRoles: z.string(), genres: z.string(), recentPopularity: z.string().min(1), typicalRoles: z.string(), estSalaryRange: z.string().min(1), socialMediaFollowing: z.string().min(1), availability: z.string().min(1), bestSuitedRolesStrategic: z.string().min(1), imageUrl: z.string().url().or(z.string().length(0).optional()), });
+export type ActorFormData = { name: string; gender: string; nationality: string; notableRoles: string; genres: string; recentPopularity: string; typicalRoles: string; estSalaryRange: string; socialMediaFollowing: string; availability: string; bestSuitedRolesStrategic: string; dateOfBirth: string; imageUrl: string; };
+export const actorFormSchema = z.object({ 
+  name: z.string().min(2), 
+  gender: z.string().min(1), 
+  nationality: z.string().min(2), 
+  notableRoles: z.string(), 
+  genres: z.string(), 
+  recentPopularity: z.string().min(1), 
+  typicalRoles: z.string(), 
+  estSalaryRange: z.string().min(1), 
+  socialMediaFollowing: z.string().min(1), 
+  availability: z.string().min(1), 
+  bestSuitedRolesStrategic: z.string().min(1), 
+  dateOfBirth: z.string().optional(), 
+  imageUrl: z.string().url().or(z.string().length(0).optional()), 
+});
 export type EditActorModalProps = { isOpen: boolean; actor: Actor | null; onClose: () => void; onEdit: (id: number, actor: ActorFormData) => Promise<void>; isSubmitting: boolean; };
 export type LocationFormData = { country: string; region: string; incentiveProgram: string; incentiveDetails: string; minimumSpend: string; eligibleProductionTypes: string; limitsCaps: string; qualifyingExpenses: string; applicationProcess: string; applicationDeadlines: string; imageUrl: string; };
 export const locationFormSchema = z.object({ country: z.string().min(2), region: z.string().min(2), incentiveProgram: z.string().min(2), incentiveDetails: z.string().min(2), minimumSpend: z.string().min(1), eligibleProductionTypes: z.string().min(1), limitsCaps: z.string().optional(), qualifyingExpenses: z.string().optional(), applicationProcess: z.string().optional(), applicationDeadlines: z.string().optional(), imageUrl: z.string().url().or(z.string().length(0).optional()), });

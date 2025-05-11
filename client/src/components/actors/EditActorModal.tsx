@@ -35,6 +35,7 @@ export default function EditActorModal({
       socialMediaFollowing: "",
       availability: "",
       bestSuitedRolesStrategic: "",
+      dateOfBirth: "",
       imageUrl: ""
     }
   });
@@ -53,6 +54,7 @@ export default function EditActorModal({
         socialMediaFollowing: actor.socialMediaFollowing,
         availability: actor.availability,
         bestSuitedRolesStrategic: actor.bestSuitedRolesStrategic,
+        dateOfBirth: actor.dateOfBirth || "",
         imageUrl: actor.imageUrl || ""
       });
       setPreviewUrl(actor.imageUrl || "");
@@ -117,6 +119,20 @@ export default function EditActorModal({
                     <FormLabel>Gender</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter gender" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="dateOfBirth"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Date of Birth</FormLabel>
+                    <FormControl>
+                      <Input placeholder="YYYY-MM-DD" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -223,16 +223,7 @@ export const insertActorSchema = createInsertSchema(actors, {
   gender: (schema) => schema.min(1, "Gender cannot be empty"),
   nationality: (schema) =>
     schema.min(2, "Nationality must be at least 2 characters"),
-  notableRoles: (schema) =>
-    schema
-      .array(z.string())
-      .min(1, "At least one notable role must be provided"),
-  genres: (schema) =>
-    schema.array(z.string()).min(1, "At least one genre must be provided"),
-  typicalRoles: (schema) =>
-    schema
-      .array(z.string())
-      .min(1, "At least one typical role must be provided"),
+  dateOfBirth: (schema) => schema.optional(),
 });
 
 export type InsertActor = z.infer<typeof insertActorSchema>;

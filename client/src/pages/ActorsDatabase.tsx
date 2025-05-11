@@ -15,6 +15,34 @@ import { Edit, Pencil } from "lucide-react";
 import EditActorModal from "@/components/actors/EditActorModal";
 import { apiRequest } from "@/lib/queryClient";
 
+// Function to calculate age from date of birth
+function calculateAge(dob: string): number | string {
+  if (!dob) return "-";
+  
+  try {
+    const birthDate = new Date(dob);
+    
+    // Validate the date is valid
+    if (isNaN(birthDate.getTime())) {
+      return "-";
+    }
+    
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    // Adjust age if birthday hasn't occurred yet this year
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    
+    return age;
+  } catch (error) {
+    console.error("Error calculating age:", error);
+    return "-";
+  }
+}
+
 export default function ActorsDatabase() {
   const [search, setSearch] = useState("");
   const [gender, setGender] = useState("all");
@@ -253,6 +281,12 @@ export default function ActorsDatabase() {
                     Nationality
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date of Birth
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Age
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Notable Roles
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -311,6 +345,12 @@ export default function ActorsDatabase() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {actor.nationality}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {actor.dateOfBirth || "-"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {actor.dateOfBirth ? calculateAge(actor.dateOfBirth) : "-"}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {Array.isArray(actor.notableRoles) ? actor.notableRoles.join(", ") : actor.notableRoles}
