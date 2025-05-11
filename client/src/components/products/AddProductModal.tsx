@@ -152,7 +152,7 @@ export default function AddProductModal({
               name="filmRating"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Audience Targeting: Film Rating</FormLabel>
+                  <FormLabel>Film Rating</FormLabel>
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value || undefined}
