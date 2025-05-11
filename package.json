@@ -11,10 +11,13 @@
     "check": "tsc",
     "db:seed": "tsx db/seed.ts",
     "update-actor-dob": "tsx update-actor-dob.ts",
-    "populate-actor-dob": "tsx populate-actor-dob.ts"
+    "populate-actor-dob": "tsx populate-actor-dob.ts",
+    "populate-remaining-actors": "tsx populate-remaining-actors.ts",
+    "populate-remaining-actors-manual": "tsx populate-remaining-actors-manual.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",
+    "@google/genai": "^0.13.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.9.1",
     "@jridgewell/trace-mapping": "^0.3.25",
