@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { db } from './db';
 import { actors } from './shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, or, isNull } from 'drizzle-orm';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 dotenv.config();
@@ -19,9 +19,9 @@ async function getActorsWithoutBirthdate(): Promise<ActorWithoutBirthdate[]> {
   const result = await db.select({ id: actors.id, name: actors.name })
     .from(actors)
     .where(
-      eq(actors.dateOfBirth, '')
-      .or(
-        eq(actors.dateOfBirth, null as any)
+      or(
+        eq(actors.dateOfBirth, ''),
+        isNull(actors.dateOfBirth)
       )
     );
   
@@ -58,7 +58,7 @@ async function getBirthdateFromAI(actorName: string): Promise<string | null> {
 async function updateActorBirthdate(id: number, dateOfBirth: string): Promise<void> {
   try {
     await db.update(actors)
-      .set({ dateOfBirth, updatedAt: new Date() })
+      .set({ dateOfBirth: dateOfBirth, updatedAt: new Date() })
       .where(eq(actors.id, id));
     
     console.log(`Updated birthdate for actor ID ${id} to ${dateOfBirth}`);
