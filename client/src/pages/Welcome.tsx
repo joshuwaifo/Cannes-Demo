@@ -391,7 +391,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
               <p className="text-gray-600 mb-6">
                 Upload your script PDF file to begin the analysis process. Vadis
                 AI will identify Brand Sponsorship Opportunities by scene from
-                your script.
+                your script, Filming Location and Casting Suggestions.
               </p>
               <div className="mb-4 max-w-md mx-auto">
                 <label
