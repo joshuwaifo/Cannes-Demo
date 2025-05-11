@@ -13,7 +13,8 @@
 //     identifyBrandableScenesWithGemini,
 //     generateCreativePlacementPrompt,
 //     AIAnalysisResponseForRoutes,
-//     extractCharactersWithGemini,
+//     extractCharactersWithGemini, // Make sure ExtractedCharacter is available if needed here, or from its own export
+//     ExtractedCharacter as BackendExtractedCharacter, // Alias if needed for clarity
 // } from "./services/file-upload-service";
 // import {
 //     suggestActorsForCharacterViaGemini,
@@ -73,7 +74,7 @@
 //     sceneId: number,
 // ): Promise<SceneVariation[]> {
 //     const logPrefix = `[VarGen Route S:${sceneId}]`;
-//     console.log(`${logPrefix} Starting on-demand variation generation...`);
+//     // console.log(`${logPrefix} Starting on-demand variation generation...`); // Less verbose
 //     try {
 //         let scene = await storage.getSceneById(sceneId);
 //         if (!scene) {
@@ -83,7 +84,7 @@
 
 //         if (!scene.isBrandable || !scene.suggestedCategories || scene.suggestedCategories.length === 0) {
 //             try {
-//                 const analysisResult = await identifyBrandableScenesWithGemini([scene], 1); // Analyze only this scene
+//                 const analysisResult = await identifyBrandableScenesWithGemini([scene], 1);
 //                 if (analysisResult.brandableScenes.length > 0 && analysisResult.brandableScenes[0].sceneId === scene.id) {
 //                     const brandableData = analysisResult.brandableScenes[0];
 //                     const updatedSceneInDb = await storage.updateScene(scene.id, {
@@ -93,7 +94,7 @@
 //                     });
 //                     if (updatedSceneInDb) scene = updatedSceneInDb;
 //                 } else {
-//                      if (!scene.isBrandable) { // Mark as brandable even if Gemini doesn't find specific categories for on-demand
+//                      if (!scene.isBrandable) {
 //                          const updatedSceneInDb = await storage.updateScene(scene.id, { isBrandable: true });
 //                          if (updatedSceneInDb) scene = updatedSceneInDb;
 //                     }
@@ -214,7 +215,7 @@
 //             if (isNaN(scriptId)) return res.status(400).json({ message: "Valid Script ID is required" });
 //             const script = await storage.getScriptById(scriptId);
 //             if (!script || !script.content) return res.status(404).json({ message: "Script not found or has no content" });
-//             const characters = await extractCharactersWithGemini(script.content);
+//             const characters: BackendExtractedCharacter[] = await extractCharactersWithGemini(script.content); // Ensure type from backend
 //             res.json(characters);
 //         } catch (error) { next(error); }
 //     });
@@ -225,12 +226,31 @@
 //         const logPrefix = `[Route Actor Suggestion for "${characterName}"]`;
 //         try {
 //             if (!characterName) return res.status(400).json({ message: "Character name required" });
+
 //             const currentScript = await storage.getCurrentScript();
 //             if (!currentScript || !currentScript.content) return res.status(404).json({ message: "Current script not found or is empty." });
+
+//             const allCharactersInScript: BackendExtractedCharacter[] = await extractCharactersWithGemini(currentScript.content);
+//             const characterToCastDetails = allCharactersInScript.find(c => c.name === characterName.toUpperCase());
+
+//             if (!characterToCastDetails) {
+//                 console.warn(`${logPrefix} Character "${characterName}" not found in extracted script characters.`);
+//                 return res.status(404).json({ message: `Character "${characterName}" not found in script.` });
+//             }
+
 //             const allActorsFromDb = await storage.getAllActorsForAISuggestion();
 //             if (allActorsFromDb.length === 0) return res.json([]);
-//             const aiSuggestions: ActorAISuggestion[] = await suggestActorsForCharacterViaGemini(currentScript.content, characterName, allActorsFromDb, { filmGenre, roleType, budgetTier }, 5);
+
+//             const aiSuggestions: ActorAISuggestion[] = await suggestActorsForCharacterViaGemini(
+//                 currentScript.content,
+//                 characterToCastDetails, // Pass the full character object with potential age
+//                 allActorsFromDb,
+//                 { filmGenre, roleType, budgetTier },
+//                 5
+//             );
+
 //             if (aiSuggestions.length === 0) return res.json([]);
+
 //             const finalSuggestions: ClientActorSuggestion[] = [];
 //             for (const aiSugg of aiSuggestions) {
 //                 const actorDetails = await storage.getActorByName(aiSugg.actorName);
@@ -260,13 +280,13 @@ import {
     identifyBrandableScenesWithGemini,
     generateCreativePlacementPrompt,
     AIAnalysisResponseForRoutes,
-    extractCharactersWithGemini, // Make sure ExtractedCharacter is available if needed here, or from its own export
-    ExtractedCharacter as BackendExtractedCharacter, // Alias if needed for clarity
+    extractCharactersWithGemini,
+    ExtractedCharacter as BackendExtractedCharacter,
 } from "./services/file-upload-service";
 import {
     suggestActorsForCharacterViaGemini,
     ActorAISuggestion,
-    suggestLocationsForSceneViaGemini,
+    suggestLocationsForScriptViaGemini, // Import the new function
     LocationAISuggestion,
 } from "./services/ai-suggestion-service";
 import { z } from "zod";
@@ -286,7 +306,7 @@ import {
 import { ZodError } from "zod";
 import {
     ActorSuggestion as ClientActorSuggestion,
-    SuggestedLocation as ClientSuggestedLocation,
+    SuggestedLocation as ClientSuggestedLocation, // This type will be used for the response
 } from "../../client/src/lib/types";
 
 // --- Interfaces ---
@@ -305,98 +325,51 @@ const sanitizeString = (str: string | null | undefined): string => {
 // --- Multer Setup ---
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 15 * 1024 * 1024 }, // 15MB limit
+    limits: { fileSize: 15 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error("Invalid file type. Only PDF, JPG, PNG allowed."));
-        }
+        if (allowedTypes.includes(file.mimetype)) { cb(null, true); }
+        else { cb(new Error("Invalid file type. Only PDF, JPG, PNG allowed.")); }
     },
 });
 
-// --- Helper: _generateAndSaveSceneVariationsForRoute ---
-async function _generateAndSaveSceneVariationsForRoute(
-    sceneId: number,
-): Promise<SceneVariation[]> {
+async function _generateAndSaveSceneVariationsForRoute(sceneId: number): Promise<SceneVariation[]> {
+    // ... (this function remains unchanged)
     const logPrefix = `[VarGen Route S:${sceneId}]`;
-    // console.log(`${logPrefix} Starting on-demand variation generation...`); // Less verbose
     try {
         let scene = await storage.getSceneById(sceneId);
-        if (!scene) {
-            console.error(`${logPrefix} Scene not found.`);
-            return [];
-        }
-
+        if (!scene) { console.error(`${logPrefix} Scene not found.`); return []; }
         if (!scene.isBrandable || !scene.suggestedCategories || scene.suggestedCategories.length === 0) {
             try {
                 const analysisResult = await identifyBrandableScenesWithGemini([scene], 1);
                 if (analysisResult.brandableScenes.length > 0 && analysisResult.brandableScenes[0].sceneId === scene.id) {
                     const brandableData = analysisResult.brandableScenes[0];
-                    const updatedSceneInDb = await storage.updateScene(scene.id, {
-                        isBrandable: true,
-                        brandableReason: brandableData.reason,
-                        suggestedCategories: brandableData.suggestedProducts,
-                    });
+                    const updatedSceneInDb = await storage.updateScene(scene.id, { isBrandable: true, brandableReason: brandableData.reason, suggestedCategories: brandableData.suggestedProducts });
                     if (updatedSceneInDb) scene = updatedSceneInDb;
-                } else {
-                     if (!scene.isBrandable) {
-                         const updatedSceneInDb = await storage.updateScene(scene.id, { isBrandable: true });
-                         if (updatedSceneInDb) scene = updatedSceneInDb;
-                    }
-                }
-            } catch (analysisError) {
-                console.error(`${logPrefix} Error during on-demand scene analysis:`, analysisError);
-            }
+                } else { if (!scene.isBrandable) { const updatedSceneInDb = await storage.updateScene(scene.id, { isBrandable: true }); if (updatedSceneInDb) scene = updatedSceneInDb; } }
+            } catch (analysisError) { console.error(`${logPrefix} Error during on-demand scene analysis:`, analysisError); }
         }
-
         const categories = scene.suggestedCategories || [];
         const selectedProducts = await storage.getTopMatchingProductsForScene(sceneId, categories, 3);
-
-        if (selectedProducts.length === 0) {
-            return [];
-        }
-
+        if (selectedProducts.length === 0) return [];
         const variationPromises = selectedProducts.map(async (product, i) => {
-            const variationNumber = i + 1;
-            const varLogPrefixV = `${logPrefix} V${variationNumber} (P:${product.id})`;
+            const variationNumber = i + 1; const varLogPrefixV = `${logPrefix} V${variationNumber} (P:${product.id})`;
             try {
                 const creativePrompt = await generateCreativePlacementPrompt(scene!, product);
-                if (!creativePrompt || creativePrompt.includes("Error:")) {
-                    throw new Error(`Gemini prompt error: ${creativePrompt}`);
-                }
-
+                if (!creativePrompt || creativePrompt.includes("Error:")) { throw new Error(`Gemini prompt error: ${creativePrompt}`); }
                 const generationResult = await generateProductPlacement({ scene: scene!, product, variationNumber, prompt: creativePrompt });
                 const cleanDescription = `Variation ${variationNumber}: ${product.name} in ${scene!.heading}. Prompt used: ${creativePrompt.substring(0, 50)}...`;
-
-                const variationData = {
-                    sceneId: scene!.id, productId: product.id, variationNumber,
-                    description: sanitizeString(cleanDescription), imageUrl: generationResult.imageUrl,
-                    geminiPrompt: creativePrompt, isSelected: false,
-                };
+                const variationData = { sceneId: scene!.id, productId: product.id, variationNumber, description: sanitizeString(cleanDescription), imageUrl: generationResult.imageUrl, geminiPrompt: creativePrompt, isSelected: false, };
                 const newVariationDb = await storage.createSceneVariation(variationData);
-                return {
-                    ...newVariationDb,
-                    productName: product.name,
-                    productCategory: product.category,
-                    productImageUrl: product.imageUrl
-                } as SceneVariation;
-            } catch (error) {
-                console.error(`${varLogPrefixV} Error in variation generation:`, error);
-                return null;
-            }
+                return { ...newVariationDb, productName: product.name, productCategory: product.category, productImageUrl: product.imageUrl } as SceneVariation;
+            } catch (error) { console.error(`${varLogPrefixV} Error in variation generation:`, error); return null; }
         });
-
         const results = await Promise.all(variationPromises);
         return results.filter((v): v is SceneVariation => v !== null);
-    } catch (outerError) {
-        console.error(`${logPrefix} CRITICAL ERROR in on-demand variation generation process:`, outerError);
-        return [];
-    }
+    } catch (outerError) { console.error(`${logPrefix} CRITICAL ERROR in on-demand variation generation process:`, outerError); return []; }
 }
 
-// --- Routes Registration ---
+
 export async function registerRoutes(app: Express): Promise<Server> {
     const apiPrefix = "/api";
 
@@ -429,30 +402,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.get(`${apiPrefix}/replicate/predictions/:predictionId`, async (req, res, next) => { try {const id=req.params.predictionId; if(!id||typeof id!=='string')return res.status(400).json({message:"Valid Prediction ID is required"}); const result=await getPredictionStatus(id);res.json(result);}catch(e){next(e);}});
     app.get(`${apiPrefix}/scripts/export`, async (_req, res, next) => { res.status(501).json({message: "Export not implemented yet"}); });
 
-    // --- Location, Character & Actor AI Suggestion Routes ---
+    // --- AI Suggestion Routes ---
+
+    // REMOVE OR COMMENT OUT OLD SCENE-SPECIFIC LOCATION SUGGESTION ROUTE
+    /*
     app.get(`${apiPrefix}/scenes/:sceneId/suggest-locations`, async (req, res, next) => {
-        const sceneIdParam = req.params.sceneId;
+        // ... existing scene-specific logic ...
+    });
+    */
+
+    // NEW SCRIPT-WIDE LOCATION SUGGESTION ROUTE
+    app.get(`${apiPrefix}/scripts/:scriptId/suggest-locations`, async (req, res, next) => {
+        const scriptIdParam = req.params.scriptId;
         const budgetParam = req.query.budget as string;
-        const logPrefix = `[Route Location Suggestion for Scene ID:${sceneIdParam}]`;
+        const countParam = req.query.count as string;
+        const logPrefix = `[Route Script Location Suggestion for Script ID:${scriptIdParam}]`;
         try {
-            const sceneId = parseInt(sceneIdParam);
-            if (isNaN(sceneId)) return res.status(400).json({ message: "Valid Scene ID is required" });
+            const scriptId = parseInt(scriptIdParam);
+            if (isNaN(scriptId)) return res.status(400).json({ message: "Valid Script ID is required" });
+
+            const script = await storage.getScriptById(scriptId);
+            if (!script || !script.content) {
+                return res.status(404).json({ message: "Script not found or has no content" });
+            }
+
             const projectBudget = budgetParam ? parseInt(budgetParam) : undefined;
-            const scene = await storage.getSceneById(sceneId);
-            if (!scene) return res.status(404).json({ message: "Scene not found" });
+            const numberOfSuggestions = countParam ? parseInt(countParam) : 5; // Default to 5 if not provided
+
             const allDbLocations = await storage.getAllLocationsForAISuggestion();
-            if (allDbLocations.length === 0) return res.json([]);
-            const aiLocationSuggestions: LocationAISuggestion[] = await suggestLocationsForSceneViaGemini(scene, allDbLocations, projectBudget, 3);
+            if (allDbLocations.length === 0) {
+                console.log(`${logPrefix} No locations in DB to suggest from.`);
+                return res.json([]);
+            }
+
+            const aiLocationSuggestions: LocationAISuggestion[] = await suggestLocationsForScriptViaGemini(
+                script.content,
+                script.id,
+                allDbLocations,
+                projectBudget,
+                numberOfSuggestions
+            );
+
             if (aiLocationSuggestions.length === 0) return res.json([]);
+
             const finalSuggestedLocations: ClientSuggestedLocation[] = [];
             for (const aiSugg of aiLocationSuggestions) {
                 const locationDetails = await storage.getLocationById(aiSugg.locationId);
                 if (locationDetails) {
-                    finalSuggestedLocations.push({ ...locationDetails, matchReason: aiSugg.matchReason, estimatedIncentiveValue: aiSugg.estimatedIncentiveNotes });
-                } else { console.warn(`${logPrefix} Location ID "${aiSugg.locationId}" suggested by AI not found in DB.`); }
+                    finalSuggestedLocations.push({ 
+                        ...locationDetails, 
+                        matchReason: aiSugg.matchReason, 
+                        estimatedIncentiveValue: aiSugg.estimatedIncentiveNotes,
+                        confidenceScore: aiSugg.confidenceScore 
+                    });
+                } else { 
+                    console.warn(`${logPrefix} Location ID "${aiSugg.locationId}" suggested by AI not found in DB.`); 
+                }
             }
             res.json(finalSuggestedLocations);
-        } catch (error) { console.error(`${logPrefix} Error:`, error); next(error); }
+        } catch (error) { 
+            console.error(`${logPrefix} Error:`, error); 
+            next(error); 
+        }
     });
 
     app.get(`${apiPrefix}/scripts/:scriptId/characters`, async (req, res, next) => {
@@ -462,46 +473,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (isNaN(scriptId)) return res.status(400).json({ message: "Valid Script ID is required" });
             const script = await storage.getScriptById(scriptId);
             if (!script || !script.content) return res.status(404).json({ message: "Script not found or has no content" });
-            const characters: BackendExtractedCharacter[] = await extractCharactersWithGemini(script.content); // Ensure type from backend
+            const characters: BackendExtractedCharacter[] = await extractCharactersWithGemini(script.content);
             res.json(characters);
         } catch (error) { next(error); }
     });
 
     app.get(`${apiPrefix}/characters/:characterName/suggest-actors`, async (req, res, next) => {
         const characterName = req.params.characterName;
-        const { genre: filmGenre, roleType, budgetTier } = req.query as { filmGenre?: string, roleType?: string, budgetTier?: string };
+        const { genre: filmGenre, roleType, budgetTier, scriptId: queryScriptId } = req.query as { filmGenre?: string, roleType?: string, budgetTier?: string, scriptId?: string };
         const logPrefix = `[Route Actor Suggestion for "${characterName}"]`;
         try {
             if (!characterName) return res.status(400).json({ message: "Character name required" });
 
-            const currentScript = await storage.getCurrentScript();
-            if (!currentScript || !currentScript.content) return res.status(404).json({ message: "Current script not found or is empty." });
+            let scriptToUse: Script | null = null;
+            if (queryScriptId) {
+                const parsedScriptId = parseInt(queryScriptId);
+                if (!isNaN(parsedScriptId)) {
+                    scriptToUse = await storage.getScriptById(parsedScriptId);
+                }
+            }
+            if (!scriptToUse) {
+                scriptToUse = await storage.getCurrentScript();
+            }
 
-            const allCharactersInScript: BackendExtractedCharacter[] = await extractCharactersWithGemini(currentScript.content);
+            if (!scriptToUse || !scriptToUse.content) return res.status(404).json({ message: "Applicable script not found or is empty." });
+
+            const allCharactersInScript: BackendExtractedCharacter[] = await extractCharactersWithGemini(scriptToUse.content);
             const characterToCastDetails = allCharactersInScript.find(c => c.name === characterName.toUpperCase());
 
             if (!characterToCastDetails) {
-                console.warn(`${logPrefix} Character "${characterName}" not found in extracted script characters.`);
+                console.warn(`${logPrefix} Character "${characterName}" not found in extracted script characters for script ID ${scriptToUse.id}.`);
                 return res.status(404).json({ message: `Character "${characterName}" not found in script.` });
             }
 
             const allActorsFromDb = await storage.getAllActorsForAISuggestion();
-            if (allActorsFromDb.length === 0) return res.json([]);
+            if (allActorsFromDb.length === 0) { console.log(`${logPrefix} No actors in DB for suggestions.`); return res.json([]); }
 
             const aiSuggestions: ActorAISuggestion[] = await suggestActorsForCharacterViaGemini(
-                currentScript.content,
-                characterToCastDetails, // Pass the full character object with potential age
-                allActorsFromDb,
-                { filmGenre, roleType, budgetTier },
-                5
+                scriptToUse.content, characterToCastDetails, allActorsFromDb,
+                { filmGenre, roleType, budgetTier }, 5
             );
 
             if (aiSuggestions.length === 0) return res.json([]);
-
             const finalSuggestions: ClientActorSuggestion[] = [];
             for (const aiSugg of aiSuggestions) {
                 const actorDetails = await storage.getActorByName(aiSugg.actorName);
-                if (actorDetails) { finalSuggestions.push({ ...actorDetails, matchReason: aiSugg.matchReason }); }
+                if (actorDetails) { finalSuggestions.push({ ...actorDetails, matchReason: aiSugg.matchReason, controversyLevel: aiSugg.controversyLevel }); }
                 else { console.warn(`${logPrefix} Actor "${aiSugg.actorName}" suggested by AI not found in DB by name.`);}
             }
             res.json(finalSuggestions);
