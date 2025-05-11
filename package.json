@@ -4,13 +4,13 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "db:push": "drizzle-kit push:pg",
+    "db:push": "drizzle-kit push --force --config=./drizzle.config.ts",
     "dev": "tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push --force --config=./drizzle.config.ts",
-    "db:seed": "tsx db/seed.ts"
+    "db:seed": "tsx db/seed.ts",
+    "update-actor-dob": "tsx update-actor-dob.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.37.0",
@@ -55,6 +55,7 @@
     "cmdk": "^1.0.0",
     "connect-pg-simple": "^10.0.0",
     "date-fns": "^3.6.0",
+    "dotenv": "^16.5.0",
     "drizzle-orm": "^0.38.4",
     "drizzle-seed": "^0.3.1",
     "drizzle-zod": "^0.6.0",
