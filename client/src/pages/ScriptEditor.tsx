@@ -861,7 +861,14 @@ export default function ScriptEditor() {
                                                 {selectedCharacters.slice(0, 3).map(character => (
                                                     <li key={character.name} className="flex items-center mb-1">
                                                         <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
-                                                        {character.name}
+                                                        <span className="flex flex-col">
+                                                            <span>{character.name}</span>
+                                                            {character.actorName && (
+                                                                <span className="text-xs text-gray-500">
+                                                                    Actor: {character.actorName || 'Unknown'}
+                                                                </span>
+                                                            )}
+                                                        </span>
                                                     </li>
                                                 ))}
                                                 {selectedCharacters.length > 3 && (
@@ -905,7 +912,12 @@ export default function ScriptEditor() {
                                                 {selectedProducts.slice(0, 3).map(product => (
                                                     <li key={product.id} className="flex items-center mb-1">
                                                         <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
-                                                        {product.productName || 'Unnamed product'}
+                                                        <span className="flex flex-col">
+                                                            <span>{product.productName || 'Unnamed product'}</span>
+                                                            <span className="text-xs text-gray-500">
+                                                                Brand: {product.productCategory || 'Unknown'}
+                                                            </span>
+                                                        </span>
                                                     </li>
                                                 ))}
                                                 {selectedProducts.length > 3 && (
