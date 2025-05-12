@@ -39,6 +39,8 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 type VideoGenerationStatus =
     | "idle"
@@ -87,6 +89,12 @@ export default function ScriptEditor() {
     const [selectedCharacters, setSelectedCharacters] = useState<ScriptCharacter[]>([]);
     const [selectedLocations, setSelectedLocations] = useState<ClientSuggestedLocation[]>([]);
     const [selectedProducts, setSelectedProducts] = useState<SceneVariation[]>([]);
+    
+    // State for financial analysis modal
+    const [isFinancialAnalysisModalOpen, setIsFinancialAnalysisModalOpen] = useState(false);
+    const [projectName, setProjectName] = useState<string>("");
+    const [expectedReleaseDate, setExpectedReleaseDate] = useState<string>("");
+    const [totalBudget, setTotalBudget] = useState<number>(DEFAULT_PROJECT_BUDGET);
     
     // State for info modal
     const [isSelectionInfoModalOpen, setIsSelectionInfoModalOpen] = useState(false);
@@ -611,6 +619,16 @@ export default function ScriptEditor() {
     const closeSelectionInfoModal = () => {
         setIsSelectionInfoModalOpen(false);
     };
+    
+    const openFinancialAnalysisModal = () => {
+        // Set the project name to the script title by default
+        setProjectName(script?.title || "");
+        setIsFinancialAnalysisModalOpen(true);
+    };
+    
+    const closeFinancialAnalysisModal = () => {
+        setIsFinancialAnalysisModalOpen(false);
+    };
 
     const activeSceneObject = scenes.find((s: Scene) => s.id === activeSceneId);
     const isPageLoading = isLoadingScript;
@@ -669,10 +687,21 @@ export default function ScriptEditor() {
     return (
         <>
             {script && (
-                <h1 className="text-2xl font-bold mb-4 px-1 text-gray-800">
-                    Script Analysis: {/* Changed "Editor" to "Analysis" */}
-                    <span className="text-primary">{script.title}</span>
-                </h1>
+                <div className="flex justify-between items-center mb-4 px-1">
+                    <h1 className="text-2xl font-bold text-gray-800">
+                        Script Analysis: {/* Changed "Editor" to "Analysis" */}
+                        <span className="text-primary">{script.title}</span>
+                    </h1>
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="rounded-full" 
+                        onClick={openSelectionInfoModal}
+                        title="View selected items"
+                    >
+                        <Info className="h-5 w-5" />
+                    </Button>
+                </div>
             )}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <SceneBreakdown
@@ -886,10 +915,7 @@ export default function ScriptEditor() {
                                             className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
                                             size="lg"
                                             disabled={selectedCharacters.length === 0 && selectedLocations.length === 0 && selectedProducts.length === 0}
-                                            onClick={() => {
-                                                // Navigate to financial analysis
-                                                window.alert("Financial Analysis feature will be implemented in the next phase");
-                                            }}
+                                            onClick={openFinancialAnalysisModal}
                                         >
                                             <PieChart className="h-5 w-5" />
                                             Project Financial Analysis
@@ -1038,6 +1064,74 @@ export default function ScriptEditor() {
                 imageUrl={zoomedImageUrl}
                 title={zoomedImageTitle}
             />
+            
+            {/* Financial Analysis Modal */}
+            <Dialog 
+                open={isFinancialAnalysisModalOpen}
+                onOpenChange={setIsFinancialAnalysisModalOpen}
+            >
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Project Financial Analysis</DialogTitle>
+                        <DialogDescription>
+                            Complete the key project information to generate a financial analysis.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-6 py-4">
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="project-name">Project Name</Label>
+                                    <Input 
+                                        id="project-name" 
+                                        value={projectName} 
+                                        onChange={(e) => setProjectName(e.target.value)}
+                                        placeholder="Enter project name"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="release-date">Expected Release Date</Label>
+                                    <Input 
+                                        id="release-date" 
+                                        type="date" 
+                                        value={expectedReleaseDate} 
+                                        onChange={(e) => setExpectedReleaseDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <Label htmlFor="budget">Total Budget ($)</Label>
+                                <Input 
+                                    id="budget" 
+                                    type="number" 
+                                    value={totalBudget} 
+                                    onChange={(e) => setTotalBudget(Number(e.target.value))}
+                                    placeholder="Enter total budget"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="rounded-lg border p-4 bg-muted/30">
+                            <h3 className="text-lg font-medium mb-2 flex items-center">
+                                <BarChart className="h-5 w-5 mr-2 text-primary" />
+                                Project Summary
+                            </h3>
+                            <div className="space-y-3">
+                                <p><strong>Selected Cast:</strong> {selectedCharacters.length} characters</p>
+                                <p><strong>Selected Locations:</strong> {selectedLocations.length} locations</p>
+                                <p><strong>Selected Brand Placements:</strong> {selectedProducts.length} placements</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <DialogFooter className="flex justify-between items-center">
+                        <Button variant="outline" onClick={closeFinancialAnalysisModal}>Cancel</Button>
+                        <Button onClick={closeFinancialAnalysisModal}>Generate Analysis</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
