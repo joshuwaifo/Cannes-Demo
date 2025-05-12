@@ -262,32 +262,44 @@ export default function ScriptEditor() {
                     let progress = currentState.progress || 0;
                     let stageMessage =
                         currentState.stageMessage || "Processing...";
+                    // Ensure visual state updates properly by always setting to "generating" for active states
+                    let updatedStatus = currentState.status;
+                    
                     switch (data.status) {
                         case "starting":
-                            progress = 25;
+                            progress = 30;
                             stageMessage = "Initializing video engine...";
+                            updatedStatus = "generating"; // Force to generating for visibility
                             break;
                         case "processing":
-                            progress = Math.max(progress || 0, 40);
+                            progress = Math.max(progress || 0, 50);
+                            updatedStatus = "generating"; // Force to generating for visibility
+                            
                             if (data.logs) {
                                 if (
                                     data.logs
                                         .toLowerCase()
                                         .includes("frame generation")
-                                )
-                                    progress = 50;
+                                ) {
+                                    progress = 65;
+                                    stageMessage = "Creating video frames...";
+                                }
                                 if (
                                     data.logs
                                         .toLowerCase()
                                         .includes("upscaling")
-                                )
-                                    progress = 75;
+                                ) {
+                                    progress = 85;
+                                    stageMessage = "Enhancing video quality...";
+                                }
+                            } else {
+                                stageMessage = "Processing your video...";
                             }
-                            stageMessage = "Generating video frames...";
                             break;
                         case "succeeded":
                             progress = 100;
                             stageMessage = "Video ready!";
+                            updatedStatus = "succeeded";
                             break;
                         case "failed":
                         case "canceled":
@@ -295,12 +307,12 @@ export default function ScriptEditor() {
                             stageMessage = data.error
                                 ? `Failed: ${String(data.error).substring(0, 50)}...`
                                 : "Generation failed.";
+                            updatedStatus = "failed";
                             break;
                     }
                     const newStateUpdate: VideoGenerationState = {
                         ...currentState,
-                        status:
-                            data.status === "canceled" ? "failed" : data.status,
+                        status: updatedStatus, // Use our properly mapped status
                         videoUrl: data.outputUrl ?? currentState.videoUrl,
                         error: data.error ? String(data.error) : null,
                         logs: data.logs ?? null,
@@ -395,6 +407,7 @@ export default function ScriptEditor() {
 
     const startVideoGenerationMutation = useMutation({
         mutationFn: async (variationId: number) => {
+            // Set initial pending state with visual feedback
             setVideoGenerationStates((prev) => ({
                 ...prev,
                 [variationId]: {
@@ -406,6 +419,15 @@ export default function ScriptEditor() {
                     stageMessage: "Queueing video...",
                 },
             }));
+            
+            // Toast notification for better visual feedback
+            toast({
+                title: "Starting Video Generation",
+                description: "Connecting to video service...",
+                duration: 3000,
+            });
+            
+            // Make the API request
             const response = await apiRequest(
                 "POST",
                 `/api/variations/${variationId}/generate-video`,
@@ -415,28 +437,34 @@ export default function ScriptEditor() {
             return { variationId, responseData: data };
         },
         onSuccess: (result) => {
-            // ... (rest of the success logic remains the same)
             const { variationId, responseData } = result;
+            console.log("Video generation response:", responseData);
+            
             if (
                 responseData.predictionId &&
                 responseData.status &&
                 !["failed", "canceled"].includes(responseData.status)
             ) {
+                // Force state to "generating" for clear visual feedback
                 setVideoGenerationStates((prev) => ({
                     ...prev,
                     [variationId]: {
-                        status: responseData.status as VideoGenerationStatus,
+                        status: "generating",
                         predictionId: responseData.predictionId,
                         error: null,
                         videoUrl: null,
                         progress: 20,
-                        stageMessage: "Video job started...",
+                        stageMessage: "Creating your video...",
                     },
                 }));
+                
+                // Start polling for status updates
                 startPollingPrediction(responseData.predictionId, variationId);
+                
+                // Toast notification with clear instructions
                 toast({
                     title: "Video Generation Started",
-                    description: `Processing variation ${variationId}. Watch the progress in the card below.`,
+                    description: `Processing has begun. The button will update when your video is ready.`,
                     duration: 5000, // Show this toast a bit longer
                 });
             } else {
