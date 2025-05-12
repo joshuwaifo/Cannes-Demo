@@ -278,6 +278,8 @@ export interface CharacterCastingProps {
   isLoading: boolean;
   filmGenre?: string;
   projectBudgetTier?: "low" | "medium" | "high" | "any";
+  selectedCharacters?: ScriptCharacter[];
+  onCharacterSelect?: (character: ScriptCharacter) => void;
 }
 export interface ActorSuggestionCardProps {
   actor: ActorSuggestion;

@@ -182,7 +182,7 @@
 import { CharacterCastingProps, ScriptCharacter, ActorSuggestion } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, UserSearch, Info, AlertTriangle, Edit3, UserCircle2 } from "lucide-react"; // Added UserCircle2 for age
+import { Users, UserSearch, Info, AlertTriangle, Edit3, UserCircle2, CheckCircle } from "lucide-react"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -192,7 +192,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import ActorSuggestionCard from "./ActorSuggestionCard";
 
-export default function CharacterCasting({ scriptId, isLoading: isLoadingInitial, filmGenre, projectBudgetTier }: CharacterCastingProps) {
+export default function CharacterCasting({ 
+  scriptId, 
+  isLoading: isLoadingInitial, 
+  filmGenre, 
+  projectBudgetTier,
+  selectedCharacters = [],
+  onCharacterSelect
+}: CharacterCastingProps) {
   const [selectedCharacterName, setSelectedCharacterName] = useState<string | null>(null);
   const [customGenre, setCustomGenre] = useState(filmGenre || "");
   const [customRoleType, setCustomRoleType] = useState("lead");
