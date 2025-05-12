@@ -750,7 +750,9 @@ export default function ScriptEditor() {
                                 }
                                 videoGenerationStates={videoGenerationStates}
                                 onViewVideo={handleViewVideo}
-                                onImageZoom={handleImageZoom} // Pass the handler
+                                onImageZoom={handleImageZoom}
+                                selectedProducts={selectedProducts}
+                                onProductSelect={handleProductSelection}
                             />
                         </div>
                     ) : (
@@ -807,6 +809,8 @@ export default function ScriptEditor() {
                                         scriptId={script?.id || null}
                                         projectBudget={projectBudget}
                                         isLoading={isLoadingScenes}
+                                        selectedLocations={selectedLocations}
+                                        onLocationSelect={handleLocationSelection}
                                     />
                                 </div>
                                 <div className="bg-white rounded-lg shadow p-4">
@@ -817,9 +821,9 @@ export default function ScriptEditor() {
                                         scriptId={script?.id || null}
                                         isLoading={isLoadingScriptCharacters}
                                         filmGenre={filmGenreForCasting}
-                                        projectBudgetTier={
-                                            projectBudgetTierForCasting
-                                        }
+                                        projectBudgetTier={projectBudgetTierForCasting}
+                                        selectedCharacters={selectedCharacters}
+                                        onCharacterSelect={handleCharacterSelection}
                                     />
                                 </div>
                             </div>

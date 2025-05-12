@@ -86,6 +86,8 @@ export type BrandableScenesProps = {
   };
   onViewVideo: (videoUrl: string, title: string) => void;
   onImageZoom: (imageUrl: string, title: string) => void; // Added for image zoom
+  selectedProducts?: SceneVariation[];
+  onProductSelect?: (product: SceneVariation) => void;
 };
 
 export type SceneBreakdownProps = {
@@ -260,6 +262,8 @@ export interface SuggestedLocationsProps {
   scriptId: number | null; // Changed from activeScene: Scene | null
   projectBudget?: number;
   isLoading: boolean;
+  selectedLocations?: ClientSuggestedLocation[];
+  onLocationSelect?: (location: ClientSuggestedLocation) => void;
 }
 
 export interface ScriptCharacter {
