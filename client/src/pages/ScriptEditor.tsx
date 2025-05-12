@@ -974,6 +974,9 @@ export default function ScriptEditor() {
                                         <div key={character.name} className="p-3 flex justify-between items-center">
                                             <div>
                                                 <p className="font-medium">{character.name}</p>
+                                                {character.actorName && (
+                                                    <p className="text-sm font-medium text-primary">Actor: {character.actorName}</p>
+                                                )}
                                                 {character.estimatedAgeRange && (
                                                     <p className="text-sm text-gray-500">Estimated age: {character.estimatedAgeRange}</p>
                                                 )}
