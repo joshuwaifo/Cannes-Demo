@@ -205,13 +205,13 @@ export default function BrandableScenes({
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i} className="overflow-hidden animate-pulse">
               <Skeleton className="h-48 w-full bg-gray-200" />
-              <CardContent className="p-3">
-                <Skeleton className="h-8 w-8 rounded-full bg-gray-200 inline-block mr-2" />
-                <Skeleton className="h-4 w-24 bg-gray-200 inline-block" />
+              <CardContent className="p-2 sm:p-3">
+                <Skeleton className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-gray-200 inline-block mr-2" />
+                <Skeleton className="h-4 w-20 sm:w-24 bg-gray-200 inline-block" />
                 <Skeleton className="h-10 w-full bg-gray-200 mt-2" />
               </CardContent>
-              <CardFooter className="p-3 pt-0 flex justify-end">
-                <Skeleton className="h-9 w-32 bg-gray-200" />
+              <CardFooter className="p-2 sm:p-3 pt-0 flex justify-end">
+                <Skeleton className="h-8 sm:h-9 w-24 sm:w-32 bg-gray-200" />
               </CardFooter>
             </Card>
           ))}
@@ -264,27 +264,27 @@ export default function BrandableScenes({
 
   return (
     <div>
-      <h3 className="text-md font-semibold text-foreground mb-3">
+      <h3 className="text-sm sm:text-md font-semibold text-foreground mb-2 sm:mb-3 line-clamp-2">
         {projectTitle ? `Placement Options for "${projectTitle}" - ` : ""}
         Scene {currentSceneToDisplay?.sceneNumber || selectedSceneId}
         {/* Fallback to selectedSceneId if details somehow aren't there yet but variations are */}
       </h3>
       {currentSceneToDisplay && (
         <>
-          <p className="text-sm text-muted-foreground mb-1">
-            Reason:{" "}
+          <p className="text-xs sm:text-sm text-muted-foreground mb-1 line-clamp-2">
+            <span className="font-medium">Reason:</span>{" "}
             {currentSceneToDisplay.brandableReason ||
               (currentSceneToDisplay.isBrandable
                 ? "Suitable for placement."
-                : "Not initially identified as brandable by AI; categories/placements generated on demand.")}
+                : "Not initially identified as brandable by AI; categories generated on demand.")}
           </p>
-          <p className="text-sm text-muted-foreground mb-4">
-            Suggested Categories:{" "}
+          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
+            <span className="font-medium">Categories:</span>{" "}
             {currentSceneToDisplay.suggestedCategories?.join(", ") ||
               (isLoading ? "Loading categories..." : "None suggested yet")}
           </p>
           {scenes.length > 0 && (
-            <p className="text-sm text-yellow-800 mb-2 font-medium">
+            <p className="text-xs sm:text-sm text-yellow-800 mb-2 font-medium">
               AI has initially identified{" "}
               {scenes.filter((s) => s.isBrandable).length} of {scenes.length}{" "}
               scenes with product placement potential. You can generate options
@@ -438,7 +438,7 @@ export default function BrandableScenes({
                   </p>
                 ) : (
                   <p
-                    className="text-xs text-gray-600 line-clamp-2 mt-1"
+                    className="text-[10px] sm:text-xs text-gray-600 line-clamp-2 mt-1 break-words"
                     title={variation.description}
                   >
                     {variation.description}
