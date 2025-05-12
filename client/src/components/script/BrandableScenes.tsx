@@ -389,9 +389,9 @@ export default function BrandableScenes({
                 </div>
               </div>
 
-              <CardContent className="p-3">
-                <div className="flex items-center space-x-2 mb-1.5">
-                  <div className="w-8 h-8 rounded-md bg-gray-100 flex items-center justify-center overflow-hidden border">
+              <CardContent className="p-2 sm:p-3">
+                <div className="flex items-center space-x-1 sm:space-x-2 mb-1.5">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-md bg-gray-100 flex items-center justify-center overflow-hidden border">
                     <img
                       src={variation.productImageUrl}
                       alt={variation.productName}
@@ -410,11 +410,11 @@ export default function BrandableScenes({
                     />
                   </div>
                   <div>
-                    <p className="text-sm font-medium leading-tight">
+                    <p className="text-xs sm:text-sm font-medium leading-tight truncate">
                       {variation.productName}
                     </p>
-                    <Badge variant="outline" className="text-xs py-0.5 px-1.5">
-                      {variation.productCategory}
+                    <Badge variant="outline" className="text-xs py-0 sm:py-0.5 px-1 sm:px-1.5 mt-0.5 inline-block">
+                      <span className="truncate max-w-[80px] inline-block">{variation.productCategory}</span>
                     </Badge>
                   </div>
                 </div>
@@ -446,7 +446,7 @@ export default function BrandableScenes({
                 )}
               </CardContent>
 
-              <CardFooter className="p-3 pt-2 grid grid-cols-2 gap-2">
+              <CardFooter className="p-2 sm:p-3 pt-1 sm:pt-2 grid grid-cols-2 gap-1 sm:gap-2">
                 <Button
                   variant="outline"
                   size="sm"
