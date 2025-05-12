@@ -111,12 +111,19 @@
 import { SuggestedLocationsProps, ClientSuggestedLocation } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Info, AlertTriangle, FileText } from "lucide-react";
+import { MapPin, Info, AlertTriangle, FileText, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { cn } from "@/lib/utils";
 // Scene type no longer needed here for props
 
-export default function SuggestedLocations({ scriptId, projectBudget, isLoading: initialLoading }: SuggestedLocationsProps) {
+export default function SuggestedLocations({ 
+  scriptId, 
+  projectBudget, 
+  isLoading: initialLoading,
+  selectedLocations = [],
+  onLocationSelect
+}: SuggestedLocationsProps) {
 
   const { data: suggestedLocations = [], isLoading, isError, error } = useQuery<ClientSuggestedLocation[]>({
     // Updated queryKey to use scriptId and new endpoint structure
@@ -178,29 +185,55 @@ export default function SuggestedLocations({ scriptId, projectBudget, isLoading:
     );
   }
 
+  const isLocationSelected = (location: ClientSuggestedLocation) => {
+    return selectedLocations.some(selected => selected.id === location.id);
+  };
+
+  const handleLocationClick = (location: ClientSuggestedLocation) => {
+    if (onLocationSelect) {
+      onLocationSelect(location);
+    }
+  };
+
   return (
     <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-      {suggestedLocations.map((loc) => (
-        <Card key={loc.id} className="shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center">
-              <MapPin className="h-4 w-4 mr-2 text-primary" />
-              {loc.country}{loc.region && `, ${loc.region}`}
-            </CardTitle>
-            <CardDescription className="text-xs">{loc.incentiveProgram}</CardDescription>
-          </CardHeader>
-          <CardContent className="text-xs space-y-1.5">
-            {loc.matchReason && ( <p className="italic"><strong>AI Match Reason:</strong> {loc.matchReason}</p> )}
-            {loc.estimatedIncentiveValue && (
-              <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="font-medium text-blue-700 flex items-center"> <FileText className="h-3.5 w-3.5 mr-1.5 shrink-0" /> Incentive Notes: </p>
-                <p className="text-blue-600">{loc.estimatedIncentiveValue}</p>
+      {suggestedLocations.map((loc) => {
+        const isSelected = isLocationSelected(loc);
+        
+        return (
+          <Card 
+            key={loc.id} 
+            className={cn(
+              "shadow-sm hover:shadow-md transition-shadow cursor-pointer relative",
+              isSelected ? "border-2 border-green-500" : ""
+            )}
+            onClick={() => handleLocationClick(loc)}
+          >
+            {isSelected && (
+              <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1">
+                <Check className="h-3 w-3 text-white" />
               </div>
             )}
-             {loc.confidenceScore && ( <p className="text-xs text-muted-foreground"> Match Confidence: {(loc.confidenceScore * 100).toFixed(0)}% </p> )}
-          </CardContent>
-        </Card>
-      ))}
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center">
+                <MapPin className="h-4 w-4 mr-2 text-primary" />
+                {loc.country}{loc.region && `, ${loc.region}`}
+              </CardTitle>
+              <CardDescription className="text-xs">{loc.incentiveProgram}</CardDescription>
+            </CardHeader>
+            <CardContent className="text-xs space-y-1.5">
+              {loc.matchReason && ( <p className="italic"><strong>AI Match Reason:</strong> {loc.matchReason}</p> )}
+              {loc.estimatedIncentiveValue && (
+                <div className="mt-1 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="font-medium text-blue-700 flex items-center"> <FileText className="h-3.5 w-3.5 mr-1.5 shrink-0" /> Incentive Notes: </p>
+                  <p className="text-blue-600">{loc.estimatedIncentiveValue}</p>
+                </div>
+              )}
+              {loc.confidenceScore && ( <p className="text-xs text-muted-foreground"> Match Confidence: {(loc.confidenceScore * 100).toFixed(0)}% </p> )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

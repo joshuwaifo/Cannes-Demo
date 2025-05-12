@@ -39,6 +39,8 @@ export default function BrandableScenes({
   videoGenerationStates,
   onViewVideo,
   onImageZoom,
+  selectedProducts = [],
+  onProductSelect,
 }: BrandableScenesProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -63,6 +65,18 @@ export default function BrandableScenes({
   }, [productVariations, selectedSceneId]);
 
   const currentSceneToDisplay = activeSceneDetails;
+  
+  // Function to check if a product is selected
+  const isProductSelected = (variation: SceneVariation) => {
+    return selectedProducts.some(selected => selected.id === variation.id);
+  };
+  
+  // Handle product selection
+  const handleProductSelect = (variation: SceneVariation) => {
+    if (onProductSelect) {
+      onProductSelect(variation);
+    }
+  };
 
   const currentSceneVariations = productVariations
     .filter((variation) => variation.sceneId === selectedSceneId)
