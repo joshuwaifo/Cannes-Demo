@@ -77,7 +77,8 @@ export default function ActorSuggestionCard({
     if (onSelect && characterName) {
       onSelect({
         name: characterName,
-        estimatedAgeRange: undefined // We don't have this info from the actor
+        estimatedAgeRange: undefined, // We don't have this info from the actor
+        actorId: actor.id // Pass the actor ID for tracking selections
       });
     }
   };
