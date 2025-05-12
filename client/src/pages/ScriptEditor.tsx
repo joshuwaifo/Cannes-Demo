@@ -26,7 +26,10 @@ import {
     PieChart, 
     BarChart, 
     ChevronDown, 
-    CheckCircle 
+    CheckCircle, 
+    Image as ImageIcon,
+    ZoomIn,
+    PlayCircle
 } from "lucide-react";
 import { SceneVariation, ScriptCharacter, ActorSuggestion, ClientSuggestedLocation } from "@/lib/types";
 import { 
@@ -1057,7 +1060,7 @@ export default function ScriptEditor() {
                                                                 `${product.productName} - Scene ${scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId}`
                                                             )}
                                                         >
-                                                            <Video className="h-3 w-3 mr-1" />
+                                                            <PlayCircle className="h-3 w-3 mr-1" />
                                                             View Video
                                                         </Button>
                                                     )}
@@ -1158,11 +1161,85 @@ export default function ScriptEditor() {
                                 <p><strong>Selected Brand Placements:</strong> {selectedProducts.length} placements</p>
                             </div>
                         </div>
+                        
+                        {selectedProducts.length > 0 && (
+                            <div>
+                                <h3 className="text-lg font-medium mb-3 flex items-center">
+                                    <ImageIcon className="h-5 w-5 mr-2 text-primary" />
+                                    Selected Assets for Export
+                                </h3>
+                                <div className="space-y-4">
+                                    {/* Images Section */}
+                                    <div>
+                                        <h4 className="text-md font-medium mb-2">Images</h4>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                            {selectedProducts.filter(p => p.imageUrl).map(product => (
+                                                <div 
+                                                    key={`img-${product.id}`}
+                                                    className="aspect-video bg-gray-100 rounded overflow-hidden relative group cursor-pointer"
+                                                    onClick={() => handleImageZoom(product.imageUrl || '', product.productName || 'Product')}
+                                                >
+                                                    <img 
+                                                        src={product.imageUrl} 
+                                                        alt={product.productName || 'Product placement'} 
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <ZoomIn className="h-6 w-6 text-white" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Videos Section */}
+                                    {selectedProducts.some(p => videoGenerationStates[p.id]?.videoUrl) && (
+                                        <div>
+                                            <h4 className="text-md font-medium mb-2">Videos</h4>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                                {selectedProducts
+                                                    .filter(p => videoGenerationStates[p.id]?.videoUrl)
+                                                    .map(product => (
+                                                        <div 
+                                                            key={`vid-${product.id}`}
+                                                            className="bg-gray-100 rounded overflow-hidden relative group border"
+                                                        >
+                                                            <div className="p-2 flex justify-between items-center">
+                                                                <span className="text-sm font-medium truncate">
+                                                                    {product.productName || 'Video'} - Scene {
+                                                                        scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId
+                                                                    }
+                                                                </span>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleViewVideo(
+                                                                        videoGenerationStates[product.id]?.videoUrl || '',
+                                                                        `${product.productName} - Scene ${scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId}`
+                                                                    )}
+                                                                >
+                                                                    <PlayCircle className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                }
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                     
                     <DialogFooter className="flex justify-between items-center">
                         <Button variant="outline" onClick={closeFinancialAnalysisModal}>Cancel</Button>
-                        <Button onClick={closeFinancialAnalysisModal}>Generate Analysis</Button>
+                        <Button 
+                            onClick={closeFinancialAnalysisModal}
+                            disabled={selectedProducts.length === 0 || !projectName || !expectedReleaseDate || !totalBudget}
+                        >
+                            Export Project Assets
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
