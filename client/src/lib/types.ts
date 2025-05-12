@@ -265,6 +265,7 @@ export interface SuggestedLocationsProps {
 export interface ScriptCharacter {
   name: string;
   estimatedAgeRange?: string;
+  actorId?: number;
 }
 
 export type ControversyLevel = ServerControversyLevel; // Use the type from the server
@@ -283,5 +284,8 @@ export interface CharacterCastingProps {
 }
 export interface ActorSuggestionCardProps {
   actor: ActorSuggestion;
+  onSelect?: (character: ScriptCharacter) => void;
+  isSelected?: boolean;
+  characterName?: string;
 }
 export type ScriptEditorProps = {};

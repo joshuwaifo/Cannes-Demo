@@ -395,9 +395,22 @@ export default function CharacterCasting({
 
       {selectedCharacterName && !isLoadingActorSuggestions && !isFetchingActorSuggestions && !isError && actorSuggestions.length > 0 && (
         <div className="mt-4 space-y-3 max-h-[300px] overflow-y-auto pr-2">
-          <h4 className="text-sm font-medium">Suggestions for {selectedCharacterName}:</h4>
+          <h4 className="text-sm font-medium">
+            Suggestions for {selectedCharacterName}:
+            {selectedCharacters?.some(c => c.name === selectedCharacterName) && (
+              <span className="ml-2 text-green-600 text-xs">(Selected)</span>
+            )}
+          </h4>
           {actorSuggestions.map((actor) => (
-            <ActorSuggestionCard key={actor.id} actor={actor} />
+            <ActorSuggestionCard 
+              key={actor.id} 
+              actor={actor} 
+              characterName={selectedCharacterName}
+              onSelect={onCharacterSelect}
+              isSelected={selectedCharacters?.some(selected => 
+                selected.name === selectedCharacterName && selected.actorId === actor.id
+              )}
+            />
           ))}
         </div>
       )}

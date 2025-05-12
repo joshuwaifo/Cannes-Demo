@@ -65,39 +65,64 @@ const getControversyIndicator = (level?: ActorSuggestion['controversyLevel']) =>
     }
 };
 
-export default function ActorSuggestionCard({ actor }: ActorSuggestionCardProps) {
+export default function ActorSuggestionCard({ 
+  actor, 
+  onSelect,
+  isSelected = false,
+  characterName
+}: ActorSuggestionCardProps) {
   const controversyInfo = getControversyIndicator(actor.controversyLevel);
 
+  const handleSelectClick = () => {
+    if (onSelect && characterName) {
+      onSelect({
+        name: characterName,
+        estimatedAgeRange: undefined // We don't have this info from the actor
+      });
+    }
+  };
+
   return (
-    <Card className="flex items-center p-3 space-x-3 shadow-sm hover:shadow-md transition-shadow w-full">
-      <Avatar className="h-16 w-16 rounded-md"> {/* Changed to rounded-md for square-ish look if source images are varied */}
+    <Card 
+      className={`flex items-center p-3 space-x-3 shadow-sm hover:shadow-md transition-shadow w-full ${isSelected ? 'border-green-500 bg-green-50' : ''}`}
+      onClick={onSelect && characterName ? handleSelectClick : undefined}
+      style={{ cursor: onSelect && characterName ? 'pointer' : 'default' }}
+    >
+      <Avatar className="h-16 w-16 rounded-md">
         <AvatarImage
             src={actor.imageUrl || undefined}
             alt={actor.name}
-            className="object-cover w-full h-full" /* Ensures image covers the square avatar */
+            className="object-cover w-full h-full"
         />
-        <AvatarFallback className="rounded-md"> {/* Match parent rounding */}
+        <AvatarFallback className="rounded-md">
           {actor.name.substring(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
-      <div className="flex-1 min-w-0"> {/* Added min-w-0 for better truncation */}
+      <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start space-x-2">
             <h4 className="font-semibold text-sm truncate" title={actor.name}>{actor.name}</h4>
-            <TooltipProvider delayDuration={100}>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <div
-                            className={`flex items-center justify-center h-5 w-5 rounded-full ${controversyInfo.color} flex-shrink-0`}
-                            aria-label={controversyInfo.label}
-                        >
-                            {controversyInfo.icon}
-                        </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                        <p>{controversyInfo.label}</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
+            <div className="flex items-center space-x-1.5">
+              {isSelected && (
+                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
+                  <CheckCircle className="h-3 w-3 mr-1" /> Selected
+                </Badge>
+              )}
+              <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                          <div
+                              className={`flex items-center justify-center h-5 w-5 rounded-full ${controversyInfo.color} flex-shrink-0`}
+                              aria-label={controversyInfo.label}
+                          >
+                              {controversyInfo.icon}
+                          </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">
+                          <p>{controversyInfo.label}</p>
+                      </TooltipContent>
+                  </Tooltip>
+              </TooltipProvider>
+            </div>
         </div>
         <p className="text-xs text-muted-foreground truncate">
           {actor.gender}, {actor.nationality}
