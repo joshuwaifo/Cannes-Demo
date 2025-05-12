@@ -195,9 +195,7 @@ export default function ChangeProductModal({
           </Select>
         </div>
 
-        <ScrollArea className="flex-grow pr-2 -mr-2">
-          {" "}
-          {/* Added padding for scrollbar */}
+        <ScrollArea className="flex-grow pr-4 -mr-4">
           {isLoadingProducts && products.length === 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-1">
               {Array.from({ length: pageSize }).map((_, i) => (
