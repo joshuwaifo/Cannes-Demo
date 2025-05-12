@@ -270,6 +270,7 @@ export interface ScriptCharacter {
   name: string;
   estimatedAgeRange?: string;
   actorId?: number;
+  actorName?: string;
 }
 
 export type ControversyLevel = ServerControversyLevel; // Use the type from the server
