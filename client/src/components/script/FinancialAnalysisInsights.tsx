@@ -215,7 +215,7 @@ export default function FinancialAnalysisInsights({
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
+                  <Tooltip formatter={(value) => `${typeof value === 'number' ? value.toFixed(1) : value}%`} />
                 </PieChart>
               </ResponsiveContainer>
             </div>

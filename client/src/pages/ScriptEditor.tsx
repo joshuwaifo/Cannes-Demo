@@ -1099,8 +1099,21 @@ export default function ScriptEditor() {
                         </div>
                     </div>
                     
-                    <DialogFooter>
-                        <Button variant="outline" onClick={closeSelectionInfoModal}>Close</Button>
+                    <DialogFooter className="flex justify-between">
+                        <Button 
+                            variant="default" 
+                            onClick={() => {
+                                setIsSelectionInfoModalOpen(false);
+                                setIsFinancialAnalysisModalOpen(true);
+                            }}
+                            className="mr-2"
+                            disabled={selectedCharacters.length === 0 && selectedLocations.length === 0 && selectedProducts.length === 0}
+                        >
+                            Project Financial Analysis
+                        </Button>
+                        <Button variant="outline" onClick={closeSelectionInfoModal}>
+                            Close
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
