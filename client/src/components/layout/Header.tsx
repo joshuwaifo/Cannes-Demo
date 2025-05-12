@@ -15,7 +15,7 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
             <img
               src="/assets/vadis-media-logo-dark.png"
               alt="Vadis Media Logo"
-              className="h-10" // Adjusted height for header logo
+              className="h-12" // Increased height for header logo
             />
           </a>
         </Link>
