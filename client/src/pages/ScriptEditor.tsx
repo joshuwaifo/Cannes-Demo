@@ -32,6 +32,7 @@ import {
     PlayCircle
 } from "lucide-react";
 import { SceneVariation, ScriptCharacter, ActorSuggestion, ClientSuggestedLocation } from "@/lib/types";
+import FinancialAnalysisInsights from "@/components/script/FinancialAnalysisInsights";
 import { 
     Dialog, 
     DialogContent, 
@@ -1122,16 +1123,16 @@ export default function ScriptEditor() {
                 open={isFinancialAnalysisModalOpen}
                 onOpenChange={setIsFinancialAnalysisModalOpen}
             >
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Project Financial Analysis</DialogTitle>
                         <DialogDescription>
-                            Complete the key project information to generate a financial analysis.
+                            Comprehensive budget breakdown and financing opportunities based on your selections.
                         </DialogDescription>
                     </DialogHeader>
                     
                     <div className="space-y-6 py-4">
-                        <div className="space-y-4">
+                        <div className="space-y-4 mb-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label htmlFor="project-name">Project Name</Label>
@@ -1160,25 +1161,25 @@ export default function ScriptEditor() {
                                     type="number" 
                                     value={totalBudget} 
                                     onChange={(e) => setTotalBudget(Number(e.target.value))}
+                                    min="1"
                                     placeholder="Enter total budget"
                                 />
                             </div>
                         </div>
                         
-                        <div className="rounded-lg border p-4 bg-muted/30">
-                            <h3 className="text-lg font-medium mb-2 flex items-center">
-                                <BarChart className="h-5 w-5 mr-2 text-primary" />
-                                Project Summary
-                            </h3>
-                            <div className="space-y-3">
-                                <p><strong>Selected Cast:</strong> {selectedCharacters.length} characters</p>
-                                <p><strong>Selected Locations:</strong> {selectedLocations.length} locations</p>
-                                <p><strong>Selected Brand Placements:</strong> {selectedProducts.length} placements</p>
-                            </div>
-                        </div>
+                        {/* Financial Analysis Insights Component */}
+                        <FinancialAnalysisInsights
+                            projectName={projectName || "Untitled Project"}
+                            expectedReleaseDate={expectedReleaseDate || new Date().toISOString().split('T')[0]}
+                            totalBudget={totalBudget || 1000000}
+                            selectedCharacters={selectedCharacters}
+                            selectedLocations={selectedLocations}
+                            selectedProducts={selectedProducts}
+                        />
                         
+                        {/* Asset Export Section */}
                         {selectedProducts.length > 0 && (
-                            <div>
+                            <div className="mt-8 pt-6 border-t">
                                 <h3 className="text-lg font-medium mb-3 flex items-center">
                                     <ImageIcon className="h-5 w-5 mr-2 text-primary" />
                                     Selected Assets for Export
@@ -1192,11 +1193,11 @@ export default function ScriptEditor() {
                                                 <div 
                                                     key={`img-${product.id}`}
                                                     className="aspect-video bg-gray-100 rounded overflow-hidden relative group cursor-pointer"
-                                                    onClick={() => handleImageZoom(product.imageUrl || '', product.productName || 'Product')}
+                                                    onClick={() => handleImageZoom(product.imageUrl || '', `${product.productCategory} ${product.productName}` || 'Product')}
                                                 >
                                                     <img 
                                                         src={product.imageUrl} 
-                                                        alt={product.productName || 'Product placement'} 
+                                                        alt={`${product.productCategory} ${product.productName}` || 'Product placement'} 
                                                         className="w-full h-full object-cover"
                                                     />
                                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -1221,7 +1222,7 @@ export default function ScriptEditor() {
                                                         >
                                                             <div className="p-2 flex justify-between items-center">
                                                                 <span className="text-sm font-medium truncate">
-                                                                    {product.productName || 'Video'} - Scene {
+                                                                    {product.productCategory} {product.productName || 'Video'} - Scene {
                                                                         scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId
                                                                     }
                                                                 </span>
@@ -1230,7 +1231,7 @@ export default function ScriptEditor() {
                                                                     size="sm"
                                                                     onClick={() => handleViewVideo(
                                                                         videoGenerationStates[product.id]?.videoUrl || '',
-                                                                        `${product.productName} - Scene ${scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId}`
+                                                                        `${product.productCategory} ${product.productName} - Scene ${scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId}`
                                                                     )}
                                                                 >
                                                                     <PlayCircle className="h-4 w-4" />
