@@ -80,14 +80,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               <button
                 onClick={() => onTabChange("locations")}
                 className={cn(
-                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-sm px-2 py-1 rounded-md",
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-1 sm:px-2 py-1 rounded-md",
                   activeTab === "locations"
                     ? "text-primary bg-primary/10"
                     : "text-vadis-dark-text hover:bg-muted",
                 )}
               >
-                <MapPin className="mr-1.5 h-4 w-4" />
-                Locations
+                <MapPin className="mr-0.5 sm:mr-1.5 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <span className="hidden xs:inline">Locations</span>
               </button>
             </li>
           </ul>

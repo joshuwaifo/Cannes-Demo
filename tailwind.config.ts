@@ -4,6 +4,10 @@ export default {
   darkMode: ["class"],
   content: ["./client/index.html", "./client/src/**/*.{js,jsx,ts,tsx}"],
   theme: {
+    screens: {
+      'xs': '480px',
+      ...require('tailwindcss/defaultTheme').screens,
+    },
     extend: {
       borderRadius: {
         lg: "var(--radius)",

@@ -327,13 +327,14 @@ export default function BrandableScenes({
           return (
             <Card
               key={variation.id}
-              className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${cardDisabledClass} max-w-[100%]`}
+              className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${cardDisabledClass} w-full`}
             >
               <div className="relative aspect-video bg-gray-100 overflow-hidden">
                 <img
                   src={variation.imageUrl}
                   alt={`Option ${variation.variationNumber}: ${variation.productName} in ${currentSceneToDisplay?.heading}`}
                   className="w-full h-full object-cover transform scale-100 hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
                       "https://placehold.co/864x480/grey/white?text=Image+Error";
@@ -341,9 +342,9 @@ export default function BrandableScenes({
                   }}
                 />
                 {showProgressOverlay && (
-                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-4 text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                    <p className="text-sm font-medium">
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-2 sm:p-4 text-center">
+                    <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin mb-1 sm:mb-2" />
+                    <p className="text-xs sm:text-sm font-medium">
                       {isUpdatingThisAsset
                         ? "Updating Image..."
                         : isChangingThisProduct

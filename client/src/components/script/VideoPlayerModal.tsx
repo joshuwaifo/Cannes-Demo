@@ -92,10 +92,12 @@ export default function VideoPlayerModal({
                             controls
                             playsInline
                             webkit-playsinline="true"
-                            className={`w-full h-auto max-h-[70vh] ${isLoading || hasError ? "hidden" : "block"}`} // More mobile-friendly sizing
+                            controlsList="nodownload" 
+                            className={`w-full h-auto max-h-[60vh] object-contain ${isLoading || hasError ? "hidden" : "block"}`} // Better mobile sizing with object-fit
                             onCanPlay={handleCanPlay}
                             onError={handleError}
-                            preload="auto"
+                            preload="metadata"
+                            poster={videoUrl ? `${videoUrl}?poster=true` : ""}
                         >
                             <source src={videoUrl} type="video/mp4" />
                             Your browser does not support the video tag.
