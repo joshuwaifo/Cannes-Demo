@@ -494,10 +494,10 @@ export default function BrandableScenes({
                         )
                       }
                       disabled={isLoading}
-                      className="col-span-2"
+                      className="col-span-2 w-full justify-center text-sm sm:text-base py-1 h-auto"
                     >
-                      <PlayCircle className="mr-1 h-4 w-4" />
-                      View Video
+                      <PlayCircle className="mr-1 h-4 w-4 flex-shrink-0" />
+                      <span className="whitespace-nowrap">View Video</span>
                     </Button>
                   )}
 
@@ -509,23 +509,23 @@ export default function BrandableScenes({
                     size="sm"
                     onClick={() => onGenerateVideoRequest(variation.id)}
                     disabled={isLoading}
-                    className="col-span-2"
+                    className="col-span-2 w-full justify-center text-sm sm:text-base py-1 h-auto"
                   >
                     {videoState.status === "pending" ||
                     videoState.status === "generating" ? (
                       <>
-                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                        {videoState.stageMessage || "Generating..."}
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin flex-shrink-0" />
+                        <span className="whitespace-nowrap">{videoState.stageMessage || "Generating..."}</span>
                       </>
                     ) : videoState.status === "failed" ? (
                       <>
-                        <AlertTriangle className="mr-1 h-4 w-4" />
-                        Retry Video
+                        <AlertTriangle className="mr-1 h-4 w-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap">Retry Video</span>
                       </>
                     ) : (
                       <>
-                        <Video className="mr-1 h-4 w-4" />
-                        Generate Video
+                        <Video className="mr-1 h-4 w-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap">Generate Video</span>
                       </>
                     )}
                   </Button>
