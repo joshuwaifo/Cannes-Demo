@@ -10,12 +10,14 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       {" "}
       {/* bg-secondary is now white, text-secondary-foreground is dark */}
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="flex items-center space-x-2">
+        <Link href="/">
+          <a className="flex items-center space-x-2">
             <img
               src="/assets/vadis-media-logo-dark.png"
               alt="Vadis Media Logo"
-              className="h-14 w-auto object-contain" // Improved sizing with width auto and object-contain
+              className="h-12" // Increased height for header logo
             />
+          </a>
         </Link>
         <nav>
           <ul className="flex space-x-3 md:space-x-4">
