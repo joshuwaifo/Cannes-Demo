@@ -1025,13 +1025,43 @@ export default function ScriptEditor() {
                             {selectedProducts.length > 0 ? (
                                 <div className="border rounded-md divide-y">
                                     {selectedProducts.map(product => (
-                                        <div key={product.id} className="p-3 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-medium">{product.productName || 'Unnamed product'}</p>
-                                                {product.productCategory && (
-                                                    <p className="text-sm text-gray-500">Category: {product.productCategory}</p>
+                                        <div key={product.id} className="p-3 flex justify-between items-start">
+                                            <div className="flex gap-3">
+                                                {product.imageUrl && (
+                                                    <div 
+                                                        className="w-24 h-24 bg-gray-100 rounded overflow-hidden flex-shrink-0 cursor-pointer"
+                                                        onClick={() => handleImageZoom(product.imageUrl, product.productName || 'Product image')}
+                                                    >
+                                                        <img 
+                                                            src={product.imageUrl} 
+                                                            alt={product.productName || 'Product placement'} 
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </div>
                                                 )}
-                                                <p className="text-sm text-gray-500">Scene: {product.sceneId}</p>
+                                                <div>
+                                                    <p className="font-medium">{product.productName || 'Unnamed product'}</p>
+                                                    {product.productCategory && (
+                                                        <p className="text-sm text-gray-500">Category: {product.productCategory}</p>
+                                                    )}
+                                                    <p className="text-sm text-gray-500">Scene: {
+                                                        scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId
+                                                    }</p>
+                                                    {videoGenerationStates[product.id]?.videoUrl && (
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            className="mt-2 text-xs"
+                                                            onClick={() => handleViewVideo(
+                                                                videoGenerationStates[product.id].videoUrl || '',
+                                                                `${product.productName} - Scene ${scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId}`
+                                                            )}
+                                                        >
+                                                            <Video className="h-3 w-3 mr-1" />
+                                                            View Video
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                             <Button 
                                                 variant="ghost" 

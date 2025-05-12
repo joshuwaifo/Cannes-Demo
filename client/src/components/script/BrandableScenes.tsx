@@ -15,6 +15,7 @@ import {
   RefreshCcw,
   Replace,
   ZoomIn,
+  Check,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Scene } from "@shared/schema";
@@ -344,8 +345,17 @@ export default function BrandableScenes({
           return (
             <Card
               key={variation.id}
-              className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${cardDisabledClass} w-full group`}
+              className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 
+                ${isProductSelected(variation) ? "border-green-500 ring-1 ring-green-500" : 
+                  variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} 
+                ${cardDisabledClass} w-full group relative cursor-pointer`}
+              onClick={() => !showImageOverlay && handleProductSelect(variation)}
             >
+              {isProductSelected(variation) && (
+                <div className="absolute top-2 right-2 z-10 bg-green-500 rounded-full p-1">
+                  <Check className="h-3 w-3 text-white" />
+                </div>
+              )}
               <div className="relative aspect-video bg-gray-100 overflow-hidden">
                 <img
                   src={variation.imageUrl}
