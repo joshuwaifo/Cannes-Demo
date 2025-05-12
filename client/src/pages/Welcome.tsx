@@ -127,7 +127,7 @@
 //           <img
 //             src="/assets/vadis-media-logo-dark.png"
 //             alt="Vadis Media Logo"
-//             className="h-16" // Larger logo for Welcome page
+//             className="h-24" // Larger logo for Welcome page
 //           />
 //         </div>
 //         {/* <h1 className="text-3xl font-bold mb-2 text-vadis-dark-text">Vadis Brand Marketplace</h1> */}{" "}
@@ -348,7 +348,7 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
           <img
             src="/assets/vadis-media-logo-dark.png"
             alt="Vadis Media Logo"
-            className="h-16" // Larger logo for Welcome page
+            className="h-24" // Larger logo for Welcome page
           />
         </div>
         {/* <h1 className="text-3xl font-bold mb-2 text-vadis-dark-text">Vadis Brand Marketplace</h1> */}{" "}
