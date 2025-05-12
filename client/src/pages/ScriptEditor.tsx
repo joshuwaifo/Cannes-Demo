@@ -913,7 +913,7 @@ export default function ScriptEditor() {
                                                     <li key={product.id} className="flex items-center mb-1">
                                                         <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
                                                         <span className="flex flex-col">
-                                                            <span>{product.productName || 'Unnamed product'}</span>
+                                                            <span>{product.productCategory} {product.productName || 'Unnamed product'}</span>
                                                             <span className="text-xs text-gray-500">
                                                                 Brand: {product.productCategory || 'Unknown'}
                                                             </span>
