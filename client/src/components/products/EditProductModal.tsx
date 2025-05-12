@@ -99,12 +99,12 @@ export default function EditProductModal({
         }
       }}
     >
-      <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-md max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>Edit Product</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-grow pr-2 -mr-2">
+        <ScrollArea className="h-[70vh] pr-4">
           <div className="p-1">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
