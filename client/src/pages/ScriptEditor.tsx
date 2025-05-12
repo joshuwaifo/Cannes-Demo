@@ -326,7 +326,8 @@ export default function ScriptEditor() {
                             } else {
                                 toast({
                                     title: "Video Ready!",
-                                    description: `Video for var ${variationId} finished.`,
+                                    description: `Video for variation ${variationId} is now available. Click "View Video" to watch it.`,
+                                    duration: 6000, // Show this toast longer for better visibility
                                 });
                             }
                         } else {
@@ -435,7 +436,8 @@ export default function ScriptEditor() {
                 startPollingPrediction(responseData.predictionId, variationId);
                 toast({
                     title: "Video Generation Started",
-                    description: `Processing variation ${variationId}...`,
+                    description: `Processing variation ${variationId}. Watch the progress in the card below.`,
+                    duration: 5000, // Show this toast a bit longer
                 });
             } else {
                 const errorMsg =

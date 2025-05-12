@@ -378,6 +378,13 @@ export default function BrandableScenes({
                         : isChangingThisProduct
                           ? "Changing Product..."
                           : videoState.stageMessage || "Processing Video..."}
+                    {isThisVideoProcessing && (
+                        {'predictionId' in videoState && videoState.predictionId && (
+                          <span className="text-xs block mt-1 bg-black/30 rounded-md p-1">
+                            ID: {String(videoState.predictionId).substring(0, 8)}...
+                          </span>
+                        )}
+                    )}
                     </p>
                     {(isThisVideoProcessing ||
                       (videoState.status === "succeeded" &&
@@ -538,8 +545,18 @@ export default function BrandableScenes({
                     className="col-span-2 w-full justify-center text-sm sm:text-base py-1 h-auto"
                   >
                     <Loader2 className="mr-1 h-4 w-4 animate-spin flex-shrink-0" />
-                    <span className="whitespace-nowrap">
-                      {videoState.stageMessage || "Generating..."}
+                    <span className="whitespace-nowrap flex items-center">
+                      {videoState.status === "pending" ? (
+                        <>
+                          <span className="relative flex h-3 w-3 mr-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
+                          </span>
+                          {videoState.stageMessage || "Queueing video..."}
+                        </>
+                      ) : (
+                        videoState.stageMessage || "Processing..."
+                      )}
                     </span>
                   </Button>
                 ) : (
