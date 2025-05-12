@@ -543,14 +543,17 @@ export default function BrandableScenes({
                     className="col-span-2 w-full justify-center text-sm sm:text-base py-1 h-auto"
                   >
                     <Loader2 className="mr-1 h-4 w-4 animate-spin flex-shrink-0" />
-                    <span className="whitespace-nowrap">
+                    <span className="whitespace-nowrap flex items-center">
                       {videoState.status === "pending" ? (
-                        <span className="flex items-center">
-                          <span className="text-blue-400 animate-pulse">⚡</span>
-                          <span className="ml-1">{videoState.stageMessage || "Queueing video..."}</span>
-                        </span>
+                        <>
+                          <span className="text-blue-400 animate-pulse mr-1">⚡</span>
+                          <span>{videoState.stageMessage || "Queueing video..."}</span>
+                        </>
                       ) : (
-                        videoState.stageMessage || "Processing..."
+                        <>
+                          <span className="text-green-400 animate-pulse mr-1">🎬</span>
+                          <span>{videoState.stageMessage || "Processing video..."}</span>
+                        </>
                       )}
                     </span>
                   </Button>

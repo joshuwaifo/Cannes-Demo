@@ -31,18 +31,34 @@ export default function VideoPlayerModal({
         setHasError(true);
     };
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (videoUrl) {
-            const link = document.createElement("a");
-            link.href = videoUrl;
-            // Attempt to extract a filename or use a default
-            const filename =
-                videoUrl.substring(videoUrl.lastIndexOf("/") + 1) ||
-                `${title.replace(/[^a-z0-9]/gi, "_")}_video.mp4`;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            try {
+                // Fetch the video file as a blob
+                const response = await fetch(videoUrl);
+                const blob = await response.blob();
+                
+                // Create a blob URL and trigger download
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = blobUrl;
+                
+                // Create filename from the scene title or use default
+                const filename = `${title.replace(/[^a-z0-9]/gi, "_")}_video.mp4`;
+                link.download = filename;
+                
+                // Append to body, click, then clean up
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // Release the blob URL
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+            } catch (error) {
+                console.error("Error downloading video:", error);
+                // Fallback to direct link if fetch fails
+                window.open(videoUrl, "_blank");
+            }
         }
     };
 
