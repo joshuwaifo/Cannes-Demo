@@ -293,7 +293,7 @@ export default function BrandableScenes({
           )}
         </>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {currentSceneVariations.map((variation) => {
           const videoState = videoGenerationStates[variation.id] || {
             status: "idle",
@@ -327,13 +327,13 @@ export default function BrandableScenes({
           return (
             <Card
               key={variation.id}
-              className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${cardDisabledClass}`}
+              className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 ${variation.isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-gray-200"} ${cardDisabledClass} max-w-[100%]`}
             >
-              <div className="relative aspect-video bg-gray-100">
+              <div className="relative aspect-video bg-gray-100 overflow-hidden">
                 <img
                   src={variation.imageUrl}
                   alt={`Option ${variation.variationNumber}: ${variation.productName} in ${currentSceneToDisplay?.heading}`}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transform scale-100 hover:scale-105 transition-transform duration-300"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src =
                       "https://placehold.co/864x480/grey/white?text=Image+Error";
@@ -425,7 +425,7 @@ export default function BrandableScenes({
                     handlePromptChange(variation.id, e.target.value)
                   }
                   placeholder="Edit prompt for asset generation..."
-                  className="text-xs mt-2 min-h-[60px] max-h-[100px] resize-y"
+                  className="text-xs sm:text-sm mt-2 min-h-[60px] max-h-[120px] resize-y p-2"
                   disabled={showProgressOverlay}
                 />
 
@@ -454,9 +454,10 @@ export default function BrandableScenes({
                   disabled={
                     showProgressOverlay || handleChangeProductMutation.isPending
                   }
+                  className="text-xs sm:text-sm h-auto py-1 px-2 sm:px-3"
                 >
-                  <Replace className="mr-1 h-3.5 w-3.5" />
-                  Change Product
+                  <Replace className="mr-1 h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Change Product</span>
                 </Button>
                 <Button
                   variant="outline"
@@ -467,16 +468,17 @@ export default function BrandableScenes({
                     isPromptUnchangedOrEmpty ||
                     updateAssetsMutation.isPending
                   }
+                  className="text-xs sm:text-sm h-auto py-1 px-2 sm:px-3"
                 >
                   {isUpdatingThisAsset ? (
                     <>
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                      Updating...
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin flex-shrink-0" />
+                      <span className="whitespace-nowrap">Updating...</span>
                     </>
                   ) : (
                     <>
-                      <RefreshCcw className="mr-1 h-4 w-4" />
-                      Update Assets
+                      <RefreshCcw className="mr-1 h-4 w-4 flex-shrink-0" />
+                      <span className="whitespace-nowrap">Update Assets</span>
                     </>
                   )}
                 </Button>
