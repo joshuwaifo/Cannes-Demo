@@ -344,11 +344,11 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
   return (
     <div className="flex-grow flex flex-col items-center justify-center py-8 md:py-10 px-4 bg-vadis-light-gray-bg">
       <div className="text-center mb-8 md:mb-10 max-w-3xl w-full">
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-6">
           <img
             src="/assets/vadis-media-logo-dark.png"
             alt="Vadis Media Logo"
-            className="h-24" // Larger logo for Welcome page
+            className="h-32 w-auto object-contain max-w-xs" // Improved sizing with responsive constraints
           />
         </div>
         {/* <h1 className="text-3xl font-bold mb-2 text-vadis-dark-text">Vadis Brand Marketplace</h1> */}{" "}
