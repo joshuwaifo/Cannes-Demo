@@ -61,27 +61,27 @@ export default function VideoPlayerModal({
                 if (!open) onClose();
             }}
         >
-            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col w-[95vw] p-3 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle>{title || "Generated Video"}</DialogTitle>
-                    <DialogClose className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                    <DialogTitle className="text-base sm:text-lg">{title || "Generated Video"}</DialogTitle>
+                    <DialogClose className="absolute right-2 sm:right-4 top-2 sm:top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
                         <X className="h-4 w-4" />
                         <span className="sr-only">Close</span>
                     </DialogClose>
                 </DialogHeader>
 
-                <div className="flex-grow flex items-center justify-center bg-black rounded-md overflow-hidden relative min-h-[300px]">
+                <div className="flex-grow flex items-center justify-center bg-black rounded-md overflow-hidden relative min-h-[200px] sm:min-h-[300px] my-2">
                     {isLoading && !hasError && videoUrl && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                            <Loader2 className="h-8 w-8 animate-spin mb-2" />
-                            <p>Loading video...</p>
+                            <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin mb-2" />
+                            <p className="text-sm sm:text-base">Loading video...</p>
                         </div>
                     )}
                     {hasError && videoUrl && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-red-400 p-4 text-center">
-                            <AlertTriangle className="h-8 w-8 mb-2" />
-                            <p>Error loading video.</p>
-                            <p className="text-xs">
+                            <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 mb-2" />
+                            <p className="text-sm sm:text-base">Error loading video.</p>
+                            <p className="text-xs sm:text-sm">
                                 Please check the URL or try again later.
                             </p>
                         </div>
@@ -90,7 +90,9 @@ export default function VideoPlayerModal({
                         <video
                             key={videoUrl} // Force re-render if URL changes
                             controls
-                            className={`max-w-full max-h-[75vh] ${isLoading || hasError ? "hidden" : "block"}`} // Hide while loading/error
+                            playsInline
+                            webkit-playsinline="true"
+                            className={`w-full h-auto max-h-[70vh] ${isLoading || hasError ? "hidden" : "block"}`} // More mobile-friendly sizing
                             onCanPlay={handleCanPlay}
                             onError={handleError}
                             preload="auto"
@@ -101,26 +103,26 @@ export default function VideoPlayerModal({
                     )}
                     {!videoUrl && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-                            <p>No video URL provided.</p>
+                            <p className="text-sm sm:text-base">No video URL provided.</p>
                         </div>
                     )}
                 </div>
 
-                <DialogFooter className="pt-4 sm:justify-end">
+                <DialogFooter className="pt-2 sm:pt-4 flex flex-col sm:flex-row gap-2 sm:gap-0 sm:justify-end">
                     <Button
                         variant="default"
                         onClick={handleDownload}
                         disabled={!videoUrl || isLoading || hasError}
-                        className="flex items-center"
+                        className="flex items-center justify-center w-full sm:w-auto"
                     >
                         <Download className="mr-1 h-4 w-4" />
                         Download Video
                     </Button>
-                    {/* <DialogClose asChild> // DialogClose is already handled by the X icon and clicking outside
-                        <Button type="button" variant="outline">
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto sm:ml-2">
                             Close
                         </Button>
-                    </DialogClose> */}
+                    </DialogClose>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
