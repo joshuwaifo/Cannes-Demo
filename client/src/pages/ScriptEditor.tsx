@@ -7,16 +7,38 @@ import SceneBreakdown from "@/components/script/SceneBreakdown";
 import ScriptDisplay from "@/components/script/ScriptDisplay";
 import BrandableScenes from "@/components/script/BrandableScenes";
 import VideoPlayerModal from "@/components/script/VideoPlayerModal";
-import ImageZoomModal from "@/components/script/ImageZoomModal"; // Import the zoom modal
+import ImageZoomModal from "@/components/script/ImageZoomModal"; 
 import SuggestedLocations from "@/components/script/SuggestedLocations";
 import CharacterCasting from "@/components/script/CharacterCasting";
 import {
     Script,
     Scene,
     SceneVariation as SharedSceneVariation,
+    Actor,
+    Location,
+    Product,
 } from "@shared/schema";
-import { Info, Loader2, AlertTriangle, DollarSign } from "lucide-react";
-import { SceneVariation, ScriptCharacter } from "@/lib/types";
+import { 
+    Info, 
+    Loader2, 
+    AlertTriangle, 
+    DollarSign, 
+    PieChart, 
+    BarChart, 
+    ChevronDown, 
+    CheckCircle 
+} from "lucide-react";
+import { SceneVariation, ScriptCharacter, ActorSuggestion, ClientSuggestedLocation } from "@/lib/types";
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogDescription, 
+    DialogHeader, 
+    DialogTitle,
+    DialogTrigger,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type VideoGenerationStatus =
     | "idle"
@@ -60,6 +82,14 @@ export default function ScriptEditor() {
     const [isImageZoomModalOpen, setIsImageZoomModalOpen] = useState(false);
     const [zoomedImageUrl, setZoomedImageUrl] = useState<string | null>(null);
     const [zoomedImageTitle, setZoomedImageTitle] = useState<string>("");
+    
+    // State for selected items
+    const [selectedCharacters, setSelectedCharacters] = useState<ScriptCharacter[]>([]);
+    const [selectedLocations, setSelectedLocations] = useState<ClientSuggestedLocation[]>([]);
+    const [selectedProducts, setSelectedProducts] = useState<SceneVariation[]>([]);
+    
+    // State for info modal
+    const [isSelectionInfoModalOpen, setIsSelectionInfoModalOpen] = useState(false);
 
     const pollingIntervals = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
@@ -539,6 +569,48 @@ export default function ScriptEditor() {
         setZoomedImageUrl(null);
         setZoomedImageTitle("");
     };
+    
+    // Selection management functions
+    const handleCharacterSelection = (character: ScriptCharacter) => {
+        setSelectedCharacters(prev => {
+            const exists = prev.some(c => c.name === character.name);
+            if (exists) {
+                return prev.filter(c => c.name !== character.name);
+            } else {
+                return [...prev, character];
+            }
+        });
+    };
+    
+    const handleLocationSelection = (location: ClientSuggestedLocation) => {
+        setSelectedLocations(prev => {
+            const exists = prev.some(l => l.id === location.id);
+            if (exists) {
+                return prev.filter(l => l.id !== location.id);
+            } else {
+                return [...prev, location];
+            }
+        });
+    };
+    
+    const handleProductSelection = (product: SceneVariation) => {
+        setSelectedProducts(prev => {
+            const exists = prev.some(p => p.id === product.id);
+            if (exists) {
+                return prev.filter(p => p.id !== product.id);
+            } else {
+                return [...prev, product];
+            }
+        });
+    };
+    
+    const openSelectionInfoModal = () => {
+        setIsSelectionInfoModalOpen(true);
+    };
+    
+    const closeSelectionInfoModal = () => {
+        setIsSelectionInfoModalOpen(false);
+    };
 
     const activeSceneObject = scenes.find((s: Scene) => s.id === activeSceneId);
     const isPageLoading = isLoadingScript;
@@ -722,10 +794,238 @@ export default function ScriptEditor() {
                                     />
                                 </div>
                             </div>
+                            
+                            {/* Selection summary and financial analysis button */}
+                            {(selectedCharacters.length > 0 || selectedLocations.length > 0 || selectedProducts.length > 0) && (
+                                <div className="mt-6 bg-white rounded-lg shadow p-4">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-lg font-semibold text-foreground">
+                                            Selected Items Summary
+                                        </h3>
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            onClick={openSelectionInfoModal}
+                                            className="flex items-center gap-1"
+                                        >
+                                            <Info className="h-4 w-4" />
+                                            Details
+                                        </Button>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                        <div>
+                                            <h4 className="text-sm font-medium mb-2 flex items-center">
+                                                <span className="mr-2">Cast</span>
+                                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                                                    {selectedCharacters.length} selected
+                                                </span>
+                                            </h4>
+                                            <ul className="text-sm">
+                                                {selectedCharacters.slice(0, 3).map(character => (
+                                                    <li key={character.name} className="flex items-center mb-1">
+                                                        <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
+                                                        {character.name}
+                                                    </li>
+                                                ))}
+                                                {selectedCharacters.length > 3 && (
+                                                    <li className="text-gray-500 text-xs">
+                                                        +{selectedCharacters.length - 3} more
+                                                    </li>
+                                                )}
+                                            </ul>
+                                        </div>
+                                        
+                                        <div>
+                                            <h4 className="text-sm font-medium mb-2 flex items-center">
+                                                <span className="mr-2">Locations</span>
+                                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                                                    {selectedLocations.length} selected
+                                                </span>
+                                            </h4>
+                                            <ul className="text-sm">
+                                                {selectedLocations.slice(0, 3).map(location => (
+                                                    <li key={location.id} className="flex items-center mb-1">
+                                                        <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
+                                                        {location.region}
+                                                    </li>
+                                                ))}
+                                                {selectedLocations.length > 3 && (
+                                                    <li className="text-gray-500 text-xs">
+                                                        +{selectedLocations.length - 3} more
+                                                    </li>
+                                                )}
+                                            </ul>
+                                        </div>
+                                        
+                                        <div>
+                                            <h4 className="text-sm font-medium mb-2 flex items-center">
+                                                <span className="mr-2">Brand Products</span>
+                                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                                                    {selectedProducts.length} selected
+                                                </span>
+                                            </h4>
+                                            <ul className="text-sm">
+                                                {selectedProducts.slice(0, 3).map(product => (
+                                                    <li key={product.id} className="flex items-center mb-1">
+                                                        <CheckCircle className="h-4 w-4 text-green-500 mr-1.5" />
+                                                        {product.productName || 'Unnamed product'}
+                                                    </li>
+                                                ))}
+                                                {selectedProducts.length > 3 && (
+                                                    <li className="text-gray-500 text-xs">
+                                                        +{selectedProducts.length - 3} more
+                                                    </li>
+                                                )}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-center">
+                                        <Button 
+                                            className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                                            size="lg"
+                                            disabled={selectedCharacters.length === 0 && selectedLocations.length === 0 && selectedProducts.length === 0}
+                                            onClick={() => {
+                                                // Navigate to financial analysis
+                                                window.alert("Financial Analysis feature will be implemented in the next phase");
+                                            }}
+                                        >
+                                            <PieChart className="h-5 w-5" />
+                                            Project Financial Analysis
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
             </div>
+            
+            {/* Selection Info Modal */}
+            <Dialog 
+                open={isSelectionInfoModalOpen}
+                onOpenChange={setIsSelectionInfoModalOpen}
+            >
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Selected Project Elements</DialogTitle>
+                        <DialogDescription>
+                            Overview of all selected characters, locations, and brand product placements.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-6 py-4">
+                        <div>
+                            <h4 className="text-base font-semibold mb-2 flex items-center">
+                                <span className="mr-2">Selected Cast</span>
+                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                                    {selectedCharacters.length} characters
+                                </span>
+                            </h4>
+                            {selectedCharacters.length > 0 ? (
+                                <div className="border rounded-md divide-y">
+                                    {selectedCharacters.map(character => (
+                                        <div key={character.name} className="p-3 flex justify-between items-center">
+                                            <div>
+                                                <p className="font-medium">{character.name}</p>
+                                                {character.estimatedAgeRange && (
+                                                    <p className="text-sm text-gray-500">Estimated age: {character.estimatedAgeRange}</p>
+                                                )}
+                                            </div>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => handleCharacterSelection(character)}
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">No characters selected yet.</p>
+                            )}
+                        </div>
+                        
+                        <div>
+                            <h4 className="text-base font-semibold mb-2 flex items-center">
+                                <span className="mr-2">Selected Filming Locations</span>
+                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                                    {selectedLocations.length} locations
+                                </span>
+                            </h4>
+                            {selectedLocations.length > 0 ? (
+                                <div className="border rounded-md divide-y">
+                                    {selectedLocations.map(location => (
+                                        <div key={location.id} className="p-3 flex justify-between items-center">
+                                            <div>
+                                                <p className="font-medium">{location.region}, {location.country}</p>
+                                                {location.incentiveProgram && (
+                                                    <p className="text-sm text-gray-500">{location.incentiveProgram}</p>
+                                                )}
+                                                {location.estimatedIncentiveValue && (
+                                                    <p className="text-sm text-green-600">Est. benefit: {location.estimatedIncentiveValue}</p>
+                                                )}
+                                            </div>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => handleLocationSelection(location)}
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">No locations selected yet.</p>
+                            )}
+                        </div>
+                        
+                        <div>
+                            <h4 className="text-base font-semibold mb-2 flex items-center">
+                                <span className="mr-2">Selected Brand Products</span>
+                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                                    {selectedProducts.length} placements
+                                </span>
+                            </h4>
+                            {selectedProducts.length > 0 ? (
+                                <div className="border rounded-md divide-y">
+                                    {selectedProducts.map(product => (
+                                        <div key={product.id} className="p-3 flex justify-between items-center">
+                                            <div>
+                                                <p className="font-medium">{product.productName || 'Unnamed product'}</p>
+                                                {product.productCategory && (
+                                                    <p className="text-sm text-gray-500">Category: {product.productCategory}</p>
+                                                )}
+                                                <p className="text-sm text-gray-500">Scene: {product.sceneId}</p>
+                                            </div>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                onClick={() => handleProductSelection(product)}
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            >
+                                                Remove
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">No brand products selected yet.</p>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <DialogFooter>
+                        <Button variant="outline" onClick={closeSelectionInfoModal}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            
             <VideoPlayerModal
                 isOpen={isVideoModalOpen}
                 onClose={handleCloseVideoModal}
