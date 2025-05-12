@@ -110,7 +110,7 @@ export default function ChangeProductModal({
       { search: searchQuery, category: categoryFilter, page, pageSize },
     ],
     refetchOnWindowFocus: false,
-    keepPreviousData: true, // Keep previous data while new data is fetching for smoother pagination
+    staleTime: 30000, // Data remains fresh for 30 seconds
   });
 
   const products = productsResponse?.products || [];
@@ -145,7 +145,7 @@ export default function ChangeProductModal({
         if (!open && !isSubmitting) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle>Change Product for Variation</DialogTitle>
         </DialogHeader>
@@ -187,7 +187,7 @@ export default function ChangeProductModal({
           </Select>
         </div>
 
-        <ScrollArea className="flex-grow pr-4 -mr-4">
+        <div className="flex-grow overflow-y-auto min-h-[40vh] max-h-[50vh] pr-4">
           {isLoadingProducts && products.length === 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-1">
               {Array.from({ length: pageSize }).map((_, i) => (
@@ -208,7 +208,7 @@ export default function ChangeProductModal({
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-1">
-              {products.map((product) => (
+              {products.map((product: Product) => (
                 <ProductItemCard
                   key={product.id}
                   product={product}
@@ -222,7 +222,7 @@ export default function ChangeProductModal({
           {isFetchingProducts && (
             <Loader2 className="mx-auto my-4 h-6 w-6 animate-spin text-primary" />
           )}
-        </ScrollArea>
+        </div>
 
         {/* Pagination for Modal */}
         {totalPages > 1 && (
