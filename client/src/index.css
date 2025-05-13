@@ -172,15 +172,38 @@
   /* Mobile header adjustments */
   @media (max-width: 640px) {
     header .container {
-      @apply px-1 py-1;
+      @apply px-1 py-1.5;
     }
     
     header nav {
       @apply -mx-1 px-1;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+      scrollbar-width: none; /* Firefox */
+    }
+    
+    header nav::-webkit-scrollbar {
+      display: none; /* Chrome, Safari, Edge */
     }
     
     header nav ul {
-      @apply w-full justify-start py-1;
+      @apply w-full justify-start py-1 px-1 flex-nowrap;
+    }
+  }
+  
+  /* Extra small device header fixes */
+  @media (max-width: 360px) {
+    header .container {
+      @apply px-0.5 py-1;
+    }
+    
+    header nav {
+      @apply mt-0.5 pb-0.5;
+    }
+    
+    header nav ul {
+      @apply gap-0.5;
     }
   }
 
