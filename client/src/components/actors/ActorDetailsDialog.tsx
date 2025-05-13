@@ -2,8 +2,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Actor } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
 
 interface ActorDetailsDialogProps {
   isOpen: boolean;
@@ -37,11 +35,8 @@ export default function ActorDetailsDialog({ isOpen, actor, onClose }: ActorDeta
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="flex-row space-y-0 items-start justify-between">
+        <DialogHeader>
           <DialogTitle className="text-xl font-bold">{actor.name}</DialogTitle>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
         </DialogHeader>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
