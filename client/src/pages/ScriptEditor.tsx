@@ -915,7 +915,7 @@ export default function ScriptEditor() {
                                                         <span className="flex flex-col">
                                                             <span>{product.productName || 'Unnamed product'}</span>
                                                             <span className="text-xs text-gray-500">
-                                                                Brand: {product.productCategory || 'Unknown'}
+                                                                Product Type: {product.productCategory || 'Unknown'}
                                                             </span>
                                                         </span>
                                                     </li>
@@ -1060,7 +1060,7 @@ export default function ScriptEditor() {
                                                 <div>
                                                     <p className="font-medium">{product.productName || 'Unnamed product'}</p>
                                                     {product.productCategory && (
-                                                        <p className="text-sm font-medium text-primary">Brand: {product.productCategory}</p>
+                                                        <p className="text-sm font-medium text-primary">Product Type: {product.productCategory}</p>
                                                     )}
                                                     <p className="text-sm text-gray-500">Scene: {
                                                         scenes.find(s => s.id === product.sceneId)?.sceneNumber || product.sceneId
