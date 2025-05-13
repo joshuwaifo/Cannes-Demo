@@ -168,6 +168,21 @@
   header nav ul {
     @apply flex items-center;
   }
+  
+  /* Mobile header adjustments */
+  @media (max-width: 640px) {
+    header .container {
+      @apply px-1 py-1;
+    }
+    
+    header nav {
+      @apply -mx-1 px-1;
+    }
+    
+    header nav ul {
+      @apply w-full justify-start py-1;
+    }
+  }
 
   /* Script editor customizations */
   .script-editor {
