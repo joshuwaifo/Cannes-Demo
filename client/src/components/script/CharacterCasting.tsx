@@ -204,6 +204,7 @@ export default function CharacterCasting({
   const [customGenre, setCustomGenre] = useState(filmGenre || "");
   const [customRoleType, setCustomRoleType] = useState("lead");
   const [customBudgetTier, setCustomBudgetTier] = useState(projectBudgetTier || "medium");
+  const [customGender, setCustomGender] = useState<string>("any");
 
   const { data: characters = [], isLoading: isLoadingCharacters } = useQuery<ScriptCharacter[]>({
     queryKey: ['/api/scripts/characters', scriptId],
@@ -229,9 +230,9 @@ export default function CharacterCasting({
   const selectedCharacterObject = characters.find(c => c.name === selectedCharacterName);
 
   const { data: actorSuggestions = [], isLoading: isLoadingActorSuggestions, refetch: refetchActorSuggestions, isFetching: isFetchingActorSuggestions, isError, error } = useQuery<ActorSuggestion[]>({
-    queryKey: ['/api/characters/suggest-actors', selectedCharacterName, customGenre, customRoleType, customBudgetTier, selectedCharacterObject?.estimatedAgeRange], // Add age to query key
+    queryKey: ['/api/characters/suggest-actors', selectedCharacterName, customGenre, customRoleType, customBudgetTier, customGender, selectedCharacterObject?.estimatedAgeRange], // Added gender
     queryFn: async ({ queryKey }) => {
-      const [, charName, genre, roleType, budget, charAge] = queryKey; // Destructure age
+      const [, charName, genre, roleType, budget, gender, charAge] = queryKey; // Added gender
       if (!charName) return [];
 
       // Pass the character object to the backend API if needed,
@@ -241,6 +242,7 @@ export default function CharacterCasting({
         genre: genre as string,
         roleType: roleType as string,
         budgetTier: budget as string,
+        gender: gender as string, // Added gender parameter
       });
       // The character's age is now part of the queryKey and will be implicitly handled by backend
       // if the backend's suggestActorsForCharacterViaGemini is modified to accept it.
@@ -352,7 +354,19 @@ export default function CharacterCasting({
                         </SelectContent>
                     </Select>
                 </div>
-                <div className="col-span-2">
+                <div>
+                    <Label htmlFor="cast-gender" className="text-xs">Gender</Label>
+                     <Select value={customGender} onValueChange={setCustomGender}>
+                        <SelectTrigger id="cast-gender"><SelectValue placeholder="Any gender" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="non-binary">Non-binary</SelectItem>
+                            <SelectItem value="any">Any</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div>
                      <Label htmlFor="cast-budget" className="text-xs">Budget Tier</Label>
                      <Select value={customBudgetTier} onValueChange={setCustomBudgetTier}>
                         <SelectTrigger id="cast-budget"><SelectValue/></SelectTrigger>
