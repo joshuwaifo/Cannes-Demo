@@ -37,11 +37,12 @@ export default function ActorDetailsDialog({ isOpen, actor, onClose }: ActorDeta
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogDescription className="sr-only">
+          Detailed information about {actor.name}
+        </DialogDescription>
         <DialogHeader className="flex-row space-y-0 items-start justify-between">
           <DialogTitle className="text-xl font-bold">{actor.name}</DialogTitle>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
+          {/* Button removed as Dialog already has a close button */}
         </DialogHeader>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">

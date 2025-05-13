@@ -114,11 +114,6 @@ export default function ActorSuggestionCard({
           <div className="flex justify-between items-start space-x-2">
               <h4 className="font-semibold text-sm truncate" title={actor.name}>{actor.name}</h4>
               <div className="flex items-center space-x-1.5">
-                {isSelected && (
-                  <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                    <CheckCircle className="h-5 w-5 mr-1" /> Selected
-                  </Badge>
-                )}
                 <TooltipProvider delayDuration={100}>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -134,6 +129,11 @@ export default function ActorSuggestionCard({
                         </TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
+                {isSelected && (
+                  <div className="flex items-center justify-center h-5 w-5 rounded-full bg-green-500 flex-shrink-0">
+                    <CheckCircle className="h-3 w-3 text-white" />
+                  </div>
+                )}
               </div>
           </div>
           <p className="text-xs text-muted-foreground truncate">
