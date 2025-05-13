@@ -11,13 +11,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
       {/* bg-secondary is now white, text-secondary-foreground is dark */}
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/" className="flex items-center space-x-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <img
               src="/assets/vadis-media-logo-dark.png"
               alt="Vadis Media Logo"
               className="h-10 sm:h-12 w-auto object-contain" // Responsive logo size
             />
-            <span className="text-primary font-medium">Demo</span>
+            <span className="text-primary font-medium text-lg">Demo</span>
           </div>
         </Link>
         <nav>
