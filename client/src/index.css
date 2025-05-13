@@ -22,8 +22,7 @@
     --primary-foreground: 210 40% 98%;
     /* White text for primary buttons */
 
-    /* Secondary for app header background - keep it distinct or make it very light */
-    /* Let's try a very light gray/white for the main app header to match the target's top bar */
+    /* Secondary for app header background - for the main header */
     --secondary: 0 0% 100%;
     /* White for header background */
     --secondary-foreground: 222 47% 11%;
@@ -147,6 +146,15 @@
   ::-webkit-scrollbar-thumb {
     @apply bg-gray-400 dark:bg-gray-600 rounded hover:bg-gray-500 dark:hover:bg-gray-500 transition-all;
     /* Adjusted scrollbar thumb */
+  }
+
+  /* Header customizations */
+  header .nav-item {
+    @apply flex items-center justify-center px-2 sm:px-3 py-1.5 text-sm rounded-md transition-colors;
+  }
+
+  header .nav-item-text {
+    @apply ml-1.5 sm:ml-2;
   }
 
   /* Script editor customizations */
