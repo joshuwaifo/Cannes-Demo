@@ -9,30 +9,30 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
     <header className="bg-secondary text-secondary-foreground shadow-sm border-b border-border">
       {/* bg-secondary is now white, text-secondary-foreground is dark */}
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="flex items-center">
-          <div className="flex items-center gap-3">
+        <div className="logo-section flex items-center">
+          <Link href="/" className="flex items-center">
             <img
               src="/assets/vadis-media-logo-dark.png"
               alt="Vadis Media Logo"
-              className="h-10 sm:h-11 w-auto object-contain" // Responsive logo size
+              className="h-8 sm:h-9 w-auto object-contain" // Responsive logo size
             />
-            <span className="text-primary font-medium text-lg ml-1">Demo</span>
-          </div>
-        </Link>
-        <nav className="ml-auto">
-          <ul className="flex space-x-1 sm:space-x-3 md:space-x-4">
+          </Link>
+          <span className="demo-text ml-3">Demo</span>
+        </div>
+        <nav>
+          <ul className="flex space-x-2 sm:space-x-4 md:space-x-5">
             {/* Improved spacing for mobile */}
             <li>
               <button
                 onClick={() => onTabChange("welcome")}
                 className={cn(
-                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2 sm:px-3 py-1.5 rounded-md", // Better mobile sizing
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2.5 sm:px-3.5 py-1.5 rounded-md", // Better mobile sizing
                   activeTab === "welcome"
                     ? "text-primary bg-primary/10"
                     : "text-vadis-dark-text hover:bg-muted", // Adjusted active and hover states
                 )}
               >
-                <Home className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <Home className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="hidden xs:inline">Welcome</span>
               </button>
             </li>
@@ -40,13 +40,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               <button
                 onClick={() => onTabChange("script")}
                 className={cn(
-                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2 sm:px-3 py-1.5 rounded-md",
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2.5 sm:px-3.5 py-1.5 rounded-md",
                   activeTab === "script"
                     ? "text-primary bg-primary/10"
                     : "text-vadis-dark-text hover:bg-muted",
                 )}
               >
-                <FileText className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <FileText className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="hidden xs:inline">Script Analysis</span>
               </button>
             </li>
@@ -54,13 +54,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               <button
                 onClick={() => onTabChange("products")}
                 className={cn(
-                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2 sm:px-3 py-1.5 rounded-md",
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2.5 sm:px-3.5 py-1.5 rounded-md",
                   activeTab === "products"
                     ? "text-primary bg-primary/10"
                     : "text-vadis-dark-text hover:bg-muted",
                 )}
               >
-                <ShoppingBag className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <ShoppingBag className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="hidden xs:inline">Brands</span>
               </button>
             </li>
@@ -68,13 +68,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               <button
                 onClick={() => onTabChange("actors")}
                 className={cn(
-                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2 sm:px-3 py-1.5 rounded-md",
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2.5 sm:px-3.5 py-1.5 rounded-md",
                   activeTab === "actors"
                     ? "text-primary bg-primary/10"
                     : "text-vadis-dark-text hover:bg-muted",
                 )}
               >
-                <Users className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <Users className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="hidden xs:inline">Actors</span>
               </button>
             </li>
@@ -82,13 +82,13 @@ export default function Header({ activeTab, onTabChange }: HeaderProps) {
               <button
                 onClick={() => onTabChange("locations")}
                 className={cn(
-                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2 sm:px-3 py-1.5 rounded-md",
+                  "hover:text-primary transition-colors duration-200 font-medium flex items-center text-xs sm:text-sm px-2.5 sm:px-3.5 py-1.5 rounded-md",
                   activeTab === "locations"
                     ? "text-primary bg-primary/10"
                     : "text-vadis-dark-text hover:bg-muted",
                 )}
               >
-                <MapPin className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                <MapPin className="mr-1.5 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="hidden xs:inline">Locations</span>
               </button>
             </li>

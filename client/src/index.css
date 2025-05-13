@@ -149,12 +149,24 @@
   }
 
   /* Header customizations */
-  header .nav-item {
-    @apply flex items-center justify-center px-2 sm:px-3 py-1.5 text-sm rounded-md transition-colors;
+  header {
+    @apply relative z-10;
   }
-
-  header .nav-item-text {
-    @apply ml-1.5 sm:ml-2;
+  
+  header .logo-section {
+    @apply flex-shrink-0 mr-4 sm:mr-6;
+  }
+  
+  header .demo-text {
+    @apply text-primary font-medium text-base relative top-px;
+  }
+  
+  header nav {
+    @apply flex-1 flex justify-end;
+  }
+  
+  header nav ul {
+    @apply flex items-center;
   }
 
   /* Script editor customizations */
