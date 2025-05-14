@@ -42,7 +42,8 @@
 // import { ZodError } from "zod";
 // import {
 //     ActorSuggestion as ClientActorSuggestion,
-//     SuggestedLocation as ClientSuggestedLocation, // This type will be used for the response
+//     ClientSuggestedLocation, // This type will be used for the response
+//     ScriptCharacter, // client/src/lib/types ScriptCharacter for richer character profile
 // } from "../../client/src/lib/types";
 // import { generateScriptWithGemini } from "./services/script-generation-service";
 // import { generateScriptPdf } from "./services/pdf-generation-service";
@@ -394,11 +395,9 @@
 //                     req.file.mimetype,
 //                 );
 //                 if (parsedScript.content.startsWith("Error:")) {
-//                     return res
-//                         .status(400)
-//                         .json({
-//                             message: `Script extraction failed: ${parsedScript.title}`,
-//                         });
+//                     return res.status(400).json({
+//                         message: `Script extraction failed: ${parsedScript.title}`,
+//                     });
 //                 }
 
 //                 const userProvidedProjectName = req.body.projectName as
@@ -554,35 +553,26 @@
 //                     typeof newPrompt !== "string" ||
 //                     newPrompt.trim().length < 10
 //                 )
-//                     return res
-//                         .status(400)
-//                         .json({
-//                             message:
-//                                 "Valid new prompt is required (min 10 chars).",
-//                         });
+//                     return res.status(400).json({
+//                         message: "Valid new prompt is required (min 10 chars).",
+//                     });
 //                 const variation = await storage.getSceneVariationById(id);
 //                 if (!variation)
-//                     return res
-//                         .status(404)
-//                         .json({
-//                             message: `Variation with ID ${id} not found.`,
-//                         });
+//                     return res.status(404).json({
+//                         message: `Variation with ID ${id} not found.`,
+//                     });
 //                 const scene = await storage.getSceneById(variation.sceneId);
 //                 if (!scene)
-//                     return res
-//                         .status(404)
-//                         .json({
-//                             message: `Scene with ID ${variation.sceneId} not found.`,
-//                         });
+//                     return res.status(404).json({
+//                         message: `Scene with ID ${variation.sceneId} not found.`,
+//                     });
 //                 const product = await storage.getProductById(
 //                     variation.productId,
 //                 );
 //                 if (!product)
-//                     return res
-//                         .status(404)
-//                         .json({
-//                             message: `Product with ID ${variation.productId} not found.`,
-//                         });
+//                     return res.status(404).json({
+//                         message: `Product with ID ${variation.productId} not found.`,
+//                     });
 //                 const genResult = await generateProductPlacement({
 //                     scene,
 //                     product,
@@ -590,24 +580,20 @@
 //                     prompt: newPrompt,
 //                 });
 //                 if (!genResult.success)
-//                     return res
-//                         .status(500)
-//                         .json({
-//                             message: "Failed to regenerate image.",
-//                             details: genResult.description,
-//                         });
+//                     return res.status(500).json({
+//                         message: "Failed to regenerate image.",
+//                         details: genResult.description,
+//                     });
 //                 const updated = await storage.updateSceneVariation(id, {
 //                     geminiPrompt: newPrompt,
 //                     imageUrl: genResult.imageUrl,
 //                     description: `Variation ${variation.variationNumber}: ${product.name} - ${scene.heading}. User Prompt: ${newPrompt.substring(0, 40)}...`,
 //                 });
 //                 if (!updated)
-//                     return res
-//                         .status(500)
-//                         .json({
-//                             message:
-//                                 "Failed to update variation after image regeneration.",
-//                         });
+//                     return res.status(500).json({
+//                         message:
+//                             "Failed to update variation after image regeneration.",
+//                     });
 //                 res.json(updated);
 //             } catch (e) {
 //                 next(e);
@@ -622,33 +608,25 @@
 //                 const { newProductId } = req.body;
 //                 const pNewProdId = parseInt(newProductId as string);
 //                 if (isNaN(id) || isNaN(pNewProdId))
-//                     return res
-//                         .status(400)
-//                         .json({
-//                             message:
-//                                 "Valid Variation ID and New Product ID are required.",
-//                         });
+//                     return res.status(400).json({
+//                         message:
+//                             "Valid Variation ID and New Product ID are required.",
+//                     });
 //                 const origVar = await storage.getSceneVariationById(id);
 //                 if (!origVar)
-//                     return res
-//                         .status(404)
-//                         .json({
-//                             message: `Variation with ID ${id} not found.`,
-//                         });
+//                     return res.status(404).json({
+//                         message: `Variation with ID ${id} not found.`,
+//                     });
 //                 const scene = await storage.getSceneById(origVar.sceneId);
 //                 if (!scene)
-//                     return res
-//                         .status(404)
-//                         .json({
-//                             message: `Scene with ID ${origVar.sceneId} not found.`,
-//                         });
+//                     return res.status(404).json({
+//                         message: `Scene with ID ${origVar.sceneId} not found.`,
+//                     });
 //                 const newProd = await storage.getProductById(pNewProdId);
 //                 if (!newProd)
-//                     return res
-//                         .status(404)
-//                         .json({
-//                             message: `New product with ID ${pNewProdId} not found.`,
-//                         });
+//                     return res.status(404).json({
+//                         message: `New product with ID ${pNewProdId} not found.`,
+//                     });
 //                 const newCreativePrompt = await generateCreativePlacementPrompt(
 //                     scene,
 //                     newProd,
@@ -664,12 +642,10 @@
 //                     prompt: newCreativePrompt,
 //                 });
 //                 if (!genResult.success)
-//                     return res
-//                         .status(500)
-//                         .json({
-//                             message: "Failed to regen image for new product.",
-//                             details: genResult.description,
-//                         });
+//                     return res.status(500).json({
+//                         message: "Failed to regen image for new product.",
+//                         details: genResult.description,
+//                     });
 //                 const updated = await storage.updateSceneVariation(id, {
 //                     productId: newProd.id,
 //                     geminiPrompt: newCreativePrompt,
@@ -678,12 +654,10 @@
 //                     isSelected: false,
 //                 });
 //                 if (!updated)
-//                     return res
-//                         .status(500)
-//                         .json({
-//                             message:
-//                                 "Failed to update variation after product change.",
-//                         });
+//                     return res.status(500).json({
+//                         message:
+//                             "Failed to update variation after product change.",
+//                     });
 //                 res.json(updated);
 //             } catch (e) {
 //                 next(e);
@@ -701,12 +675,10 @@
 //                         .json({ message: "Valid Variation ID is required" });
 //                 const result = await generateVideoFromVariation(id);
 //                 if (result.error)
-//                     return res
-//                         .status(500)
-//                         .json({
-//                             message: result.error,
-//                             predictionId: result.predictionId,
-//                         });
+//                     return res.status(500).json({
+//                         message: result.error,
+//                         predictionId: result.predictionId,
+//                     });
 //                 res.status(202).json({
 //                     message: "Video generation started.",
 //                     predictionId: result.predictionId,
@@ -738,34 +710,50 @@
 //     });
 
 //     // --- Script Generation Route ---
-//     app.post(`${apiPrefix}/scripts/generate-from-prompt`, async (req, res, next) => {
-//         try {
-//             const formData = scriptGenerationFormSchema.parse(req.body);
-//             const generatedScript = await generateScriptWithGemini(formData);
-//             res.json({ script: generatedScript });
-//         } catch (error) {
-//             if (error instanceof ZodError) {
-//                 return res.status(400).json({ message: "Validation failed", errors: error.errors });
+//     app.post(
+//         `${apiPrefix}/scripts/generate-from-prompt`,
+//         async (req, res, next) => {
+//             try {
+//                 const formData = scriptGenerationFormSchema.parse(req.body);
+//                 const generatedScript =
+//                     await generateScriptWithGemini(formData);
+//                 res.json({ script: generatedScript });
+//             } catch (error) {
+//                 if (error instanceof ZodError) {
+//                     return res
+//                         .status(400)
+//                         .json({
+//                             message: "Validation failed",
+//                             errors: error.errors,
+//                         });
+//                 }
+//                 console.error("[API /generate-from-prompt] Error:", error);
+//                 next(error);
 //             }
-//             console.error("[API /generate-from-prompt] Error:", error);
-//             next(error);
-//         }
-//     });
+//         },
+//     );
 
 //     // --- PDF Export Route ---
 //     app.post(`${apiPrefix}/scripts/export-pdf`, async (req, res, next) => {
 //         try {
 //             const { scriptContent, title } = req.body;
-//             if (!scriptContent || typeof scriptContent !== 'string') {
-//                 return res.status(400).json({ message: "Script content is required." });
+//             if (!scriptContent || typeof scriptContent !== "string") {
+//                 return res
+//                     .status(400)
+//                     .json({ message: "Script content is required." });
 //             }
-//              if (!title || typeof title !== 'string' || title.trim() === '') {
-//                 return res.status(400).json({ message: "Valid script title is required." });
+//             if (!title || typeof title !== "string" || title.trim() === "") {
+//                 return res
+//                     .status(400)
+//                     .json({ message: "Valid script title is required." });
 //             }
 
 //             const pdfBuffer = await generateScriptPdf(scriptContent, title);
-//             res.setHeader('Content-Type', 'application/pdf');
-//             res.setHeader('Content-Disposition', `attachment; filename="${title.replace(/[^a-z0-9]/gi, '_')}.pdf"`);
+//             res.setHeader("Content-Type", "application/pdf");
+//             res.setHeader(
+//                 "Content-Disposition",
+//                 `attachment; filename="${title.replace(/[^a-z0-9]/gi, "_")}.pdf"`,
+//             );
 //             res.send(pdfBuffer);
 //         } catch (error) {
 //             console.error("[API /export-pdf] Error:", error);
@@ -790,11 +778,9 @@
 
 //                 const script = await storage.getScriptById(scriptId);
 //                 if (!script || !script.content) {
-//                     return res
-//                         .status(404)
-//                         .json({
-//                             message: "Script not found or has no content",
-//                         });
+//                     return res.status(404).json({
+//                         message: "Script not found or has no content",
+//                     });
 //                 }
 
 //                 const projectBudget = budgetParam
@@ -863,12 +849,11 @@
 //                         .json({ message: "Valid Script ID is required" });
 //                 const script = await storage.getScriptById(scriptId);
 //                 if (!script || !script.content)
-//                     return res
-//                         .status(404)
-//                         .json({
-//                             message: "Script not found or has no content",
-//                         });
-//                 const characters: BackendExtractedCharacter[] =
+//                     return res.status(404).json({
+//                         message: "Script not found or has no content",
+//                     });
+//                 // This now returns the richer ScriptCharacter[] from client/src/lib/types (via BackendExtractedCharacter)
+//                 const characters: ScriptCharacter[] =
 //                     await extractCharactersWithGemini(script.content);
 //                 res.json(characters);
 //             } catch (error) {
@@ -882,41 +867,45 @@
 //         async (req, res, next) => {
 //             const characterName = req.params.characterName;
 //             const {
-//                 genre: filmGenre,
-//                 roleType,
-//                 budgetTier,
 //                 scriptId: queryScriptId,
+//                 genre: filmGenreFromUI, // UI selected film genre
+//                 roleType: roleTypeFromUI, // UI selected role type for this character
+//                 budgetTier: budgetTierFromUI, // UI selected budget tier for this film/role
+//                 gender: genderFilterFromUI, // UI selected gender filter
 //             } = req.query as {
+//                 scriptId?: string;
 //                 filmGenre?: string;
 //                 roleType?: string;
 //                 budgetTier?: string;
-//                 scriptId?: string;
+//                 gender?: string; // Capture gender from UI
 //             };
-//             const logPrefix = `[Route Actor Suggestion for "${characterName}"]`;
+//             const logPrefix = `[Route Actor Suggestion for "${characterName}" in Script ${queryScriptId}]`;
 //             try {
 //                 if (!characterName)
 //                     return res
 //                         .status(400)
 //                         .json({ message: "Character name required" });
+//                 if (!queryScriptId)
+//                     return res
+//                         .status(400)
+//                         .json({
+//                             message: "Script ID query parameter is required",
+//                         });
 
-//                 let scriptToUse: Script | null = null;
-//                 if (queryScriptId) {
-//                     const parsedScriptId = parseInt(queryScriptId);
-//                     if (!isNaN(parsedScriptId)) {
-//                         scriptToUse =
-//                             await storage.getScriptById(parsedScriptId);
-//                     }
-//                 }
-//                 if (!scriptToUse) {
-//                     scriptToUse = await storage.getCurrentScript();
-//                 }
+//                 const scriptId = parseInt(queryScriptId);
+//                 if (isNaN(scriptId))
+//                     return res
+//                         .status(400)
+//                         .json({ message: "Valid Script ID is required" });
 
-//                 if (!scriptToUse || !scriptToUse.content)
+//                 const scriptToUse = await storage.getScriptById(scriptId);
+//                 if (!scriptToUse || !scriptToUse.content) {
 //                     return res
 //                         .status(404)
 //                         .json({
-//                             message: "Applicable script not found or is empty.",
+//                             message: `Script with ID ${scriptId} not found or is empty.`,
 //                         });
+//                 }
 
 //                 const allCharactersInScript: BackendExtractedCharacter[] =
 //                     await extractCharactersWithGemini(scriptToUse.content);
@@ -935,29 +924,74 @@
 //                         });
 //                 }
 
-//                 const allActorsFromDb =
-//                     await storage.getAllActorsForAISuggestion();
-//                 if (allActorsFromDb.length === 0) {
+//                 let genderForDbFilter: string | undefined = undefined;
+//                 if (
+//                     genderFilterFromUI &&
+//                     genderFilterFromUI.toLowerCase() !== "any" &&
+//                     genderFilterFromUI.toLowerCase() !== "all"
+//                 ) {
+//                     genderForDbFilter = genderFilterFromUI;
+//                 }
+//                 // Removed: Do not use character's profiled gender for DB pre-filter if UI specifies 'any'.
+//                 // else if (characterToCastDetails.gender && characterToCastDetails.gender.toLowerCase() !== 'unknown' && characterToCastDetails.gender.toLowerCase() !== 'any') {
+//                 // genderForDbFilter = characterToCastDetails.gender;
+//                 // }
+
+//                 const preFilteredActors =
+//                     await storage.getActorsForAISuggestionByCriteria({
+//                         estimatedAgeRange:
+//                             characterToCastDetails.estimatedAgeRange,
+//                         gender: genderForDbFilter, // Pass the UI-driven gender filter
+//                         limit: 60,
+//                     });
+
+//                 if (preFilteredActors.length === 0) {
 //                     console.log(
-//                         `${logPrefix} No actors in DB for suggestions.`,
+//                         `${logPrefix} No actors after pre-filtering. Character Age: ${characterToCastDetails.estimatedAgeRange}, DB Gender Filter: ${genderForDbFilter}`,
 //                     );
 //                     return res.json([]);
 //                 }
+//                 console.log(
+//                     `${logPrefix} Pre-filtered ${preFilteredActors.length} actors for AI. Char Age: ${characterToCastDetails.estimatedAgeRange}, DB Gender Filter: ${genderForDbFilter}`,
+//                 );
+
+//                 const finalFilmGenreForAI = filmGenreFromUI || "Any";
+//                 const finalRoleTypeForAI =
+//                     roleTypeFromUI ||
+//                     characterToCastDetails.roleType ||
+//                     "Unknown";
+//                 const finalBudgetTierForAI =
+//                     budgetTierFromUI ||
+//                     characterToCastDetails.recommendedBudgetTier ||
+//                     "Any";
+//                 // Gender for AI prompt should also prioritize UI selection, then character profile
+//                 const finalGenderForAIPrompt =
+//                     genderFilterFromUI &&
+//                     genderFilterFromUI.toLowerCase() !== "any" &&
+//                     genderFilterFromUI.toLowerCase() !== "all"
+//                         ? genderFilterFromUI
+//                         : characterToCastDetails.gender || "Unknown";
 
 //                 const aiSuggestions: ActorAISuggestion[] =
 //                     await suggestActorsForCharacterViaGemini(
 //                         scriptToUse.content,
 //                         characterToCastDetails,
-//                         allActorsFromDb,
-//                         { filmGenre, roleType, budgetTier },
+//                         preFilteredActors,
+//                         {
+//                             filmGenre: finalFilmGenreForAI,
+//                             roleType: finalRoleTypeForAI,
+//                             budgetTier: finalBudgetTierForAI,
+//                             gender: finalGenderForAIPrompt, // Pass the gender to be used in the AI prompt
+//                         },
 //                         5,
 //                     );
 
 //                 if (aiSuggestions.length === 0) return res.json([]);
+
 //                 const finalSuggestions: ClientActorSuggestion[] = [];
 //                 for (const aiSugg of aiSuggestions) {
-//                     const actorDetails = await storage.getActorByName(
-//                         aiSugg.actorName,
+//                     const actorDetails = preFilteredActors.find(
+//                         (a) => a.name === aiSugg.actorName,
 //                     );
 //                     if (actorDetails) {
 //                         finalSuggestions.push({
@@ -967,8 +1001,22 @@
 //                         });
 //                     } else {
 //                         console.warn(
-//                             `${logPrefix} Actor "${aiSugg.actorName}" suggested by AI not found in DB by name.`,
+//                             `${logPrefix} Actor "${aiSugg.actorName}" suggested by AI but not found in pre-filtered list. Attempting direct DB lookup.`,
 //                         );
+//                         const directDbActor = await storage.getActorByName(
+//                             aiSugg.actorName,
+//                         );
+//                         if (directDbActor) {
+//                             finalSuggestions.push({
+//                                 ...directDbActor,
+//                                 matchReason: aiSugg.matchReason,
+//                                 controversyLevel: aiSugg.controversyLevel,
+//                             });
+//                         } else {
+//                             console.warn(
+//                                 `${logPrefix} Actor "${aiSugg.actorName}" also not found in direct DB lookup.`,
+//                             );
+//                         }
 //                     }
 //                 }
 //                 res.json(finalSuggestions);
@@ -1836,7 +1884,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(404).json({
                         message: "Script not found or has no content",
                     });
-                // This now returns the richer ScriptCharacter[] from client/src/lib/types (via BackendExtractedCharacter)
                 const characters: ScriptCharacter[] =
                     await extractCharactersWithGemini(script.content);
                 res.json(characters);
@@ -1852,16 +1899,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const characterName = req.params.characterName;
             const {
                 scriptId: queryScriptId,
-                genre: filmGenreFromUI, // UI selected film genre
-                roleType: roleTypeFromUI, // UI selected role type for this character
-                budgetTier: budgetTierFromUI, // UI selected budget tier for this film/role
-                gender: genderFilterFromUI, // UI selected gender filter
+                genre: filmGenreFromUI,
+                roleType: roleTypeFromUI,
+                budgetTier: budgetTierFromUI,
+                gender: genderFilterFromUI, // Explicitly from UI
             } = req.query as {
                 scriptId?: string;
                 filmGenre?: string;
                 roleType?: string;
                 budgetTier?: string;
-                gender?: string; // Capture gender from UI
+                gender?: string;
             };
             const logPrefix = `[Route Actor Suggestion for "${characterName}" in Script ${queryScriptId}]`;
             try {
@@ -1899,7 +1946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 if (!characterToCastDetails) {
                     console.warn(
-                        `${logPrefix} Character "${characterName}" not found in extracted script characters for script ID ${scriptToUse.id}.`,
+                        `${logPrefix} Character "${characterName}" not found for script ID ${scriptToUse.id}.`,
                     );
                     return res
                         .status(404)
@@ -1912,31 +1959,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (
                     genderFilterFromUI &&
                     genderFilterFromUI.toLowerCase() !== "any" &&
-                    genderFilterFromUI.toLowerCase() !== "all"
+                    genderFilterFromUI.toLowerCase() !== "all" &&
+                    genderFilterFromUI.toLowerCase() !== "unknown"
                 ) {
                     genderForDbFilter = genderFilterFromUI;
+                    console.log(
+                        `${logPrefix} Using STRICT DB gender filter: ${genderForDbFilter}`,
+                    );
+                } else {
+                    console.log(
+                        `${logPrefix} NO strict gender filter for DB query (UI was 'any' or not specified).`,
+                    );
                 }
-                // Removed: Do not use character's profiled gender for DB pre-filter if UI specifies 'any'.
-                // else if (characterToCastDetails.gender && characterToCastDetails.gender.toLowerCase() !== 'unknown' && characterToCastDetails.gender.toLowerCase() !== 'any') {
-                // genderForDbFilter = characterToCastDetails.gender;
-                // }
 
                 const preFilteredActors =
                     await storage.getActorsForAISuggestionByCriteria({
                         estimatedAgeRange:
                             characterToCastDetails.estimatedAgeRange,
-                        gender: genderForDbFilter, // Pass the UI-driven gender filter
-                        limit: 60,
+                        gender: genderForDbFilter,
+                        limit: 100,
                     });
 
                 if (preFilteredActors.length === 0) {
                     console.log(
-                        `${logPrefix} No actors after pre-filtering. Character Age: ${characterToCastDetails.estimatedAgeRange}, DB Gender Filter: ${genderForDbFilter}`,
+                        `${logPrefix} No actors after pre-filtering. Character Age: ${characterToCastDetails.estimatedAgeRange}, DB Gender Filter Used: ${genderForDbFilter || "None"}`,
                     );
                     return res.json([]);
                 }
                 console.log(
-                    `${logPrefix} Pre-filtered ${preFilteredActors.length} actors for AI. Char Age: ${characterToCastDetails.estimatedAgeRange}, DB Gender Filter: ${genderForDbFilter}`,
+                    `${logPrefix} Pre-filtered ${preFilteredActors.length} actors for AI. Char Age: ${characterToCastDetails.estimatedAgeRange}, DB Gender Filter Used: ${genderForDbFilter || "None"}`,
                 );
 
                 const finalFilmGenreForAI = filmGenreFromUI || "Any";
@@ -1948,13 +1999,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     budgetTierFromUI ||
                     characterToCastDetails.recommendedBudgetTier ||
                     "Any";
-                // Gender for AI prompt should also prioritize UI selection, then character profile
+
                 const finalGenderForAIPrompt =
                     genderFilterFromUI &&
                     genderFilterFromUI.toLowerCase() !== "any" &&
-                    genderFilterFromUI.toLowerCase() !== "all"
+                    genderFilterFromUI.toLowerCase() !== "all" &&
+                    genderFilterFromUI.toLowerCase() !== "unknown"
                         ? genderFilterFromUI
-                        : characterToCastDetails.gender || "Unknown";
+                        : characterToCastDetails.gender &&
+                            characterToCastDetails.gender.toLowerCase() !==
+                                "unknown"
+                          ? characterToCastDetails.gender
+                          : "Any";
 
                 const aiSuggestions: ActorAISuggestion[] =
                     await suggestActorsForCharacterViaGemini(
@@ -1965,7 +2021,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                             filmGenre: finalFilmGenreForAI,
                             roleType: finalRoleTypeForAI,
                             budgetTier: finalBudgetTierForAI,
-                            gender: finalGenderForAIPrompt, // Pass the gender to be used in the AI prompt
+                            gender: finalGenderForAIPrompt,
                         },
                         5,
                     );
@@ -1985,7 +2041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         });
                     } else {
                         console.warn(
-                            `${logPrefix} Actor "${aiSugg.actorName}" suggested by AI but not found in pre-filtered list. Attempting direct DB lookup.`,
+                            `${logPrefix} Actor "${aiSugg.actorName}" suggested by AI but not in pre-filtered list. Attempting direct DB lookup.`,
                         );
                         const directDbActor = await storage.getActorByName(
                             aiSugg.actorName,
