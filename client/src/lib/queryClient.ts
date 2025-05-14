@@ -11,13 +11,20 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  options?: RequestInit,
 ): Promise<Response> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
+    ...options, // Allow passing additional fetch options
   });
+
+  // Don't check response status if we're handling it in the caller (like for the script generator)
+  if (options?.signal) {
+    return res;
+  }
 
   await throwIfResNotOk(res);
   return res;

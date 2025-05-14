@@ -59,32 +59,68 @@ export default function ScriptWriter() {
       setGeneratedScript(null);
       setGenerationError(null);
 
-      // Simulate progress
+      // Simulate progress - slower for mobile to prevent too many UI updates
       const progressInterval = setInterval(() => {
         setGenerationProgress((prev) => {
           if (prev >= 90) {
             clearInterval(progressInterval);
             return 90;
           }
-          return prev + 10;
+          return prev + Math.floor(Math.random() * 5) + 5; // Random increment between 5-10%
         });
-      }, 1500); // Simulate progress every 1.5 seconds
+      }, 2000); // Update progress every 2 seconds
 
       try {
-        const response = await apiRequest("POST", "/api/scripts/generate-from-prompt", data);
+        const controller = new AbortController();
+        // Set timeout for the request (2 minutes)
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        
+        const response = await apiRequest(
+          "POST", 
+          "/api/scripts/generate-from-prompt", 
+          data,
+          { signal: controller.signal }
+        );
+        
+        clearTimeout(timeoutId);
+        
         // Check if response is OK, if not, parse error message
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ message: "Failed to generate script. Server error." }));
-            throw new Error(errorData.message || `Server responded with ${response.status}`);
+          const errorData = await response.json().catch(() => ({ 
+            message: "Failed to generate script. Server error." 
+          }));
+          
+          // Map common status codes to user-friendly messages
+          let errorMessage = errorData.message || `Error ${response.status}`;
+          if (response.status === 500) {
+            errorMessage = "Our script generator is currently experiencing issues. Please try again later.";
+          } else if (response.status === 400) {
+            errorMessage = "Please check your script details and try again.";
+          } else if (response.status === 429) {
+            errorMessage = "You've made too many requests. Please wait a moment and try again.";
+          }
+          
+          throw new Error(errorMessage);
         }
+        
         const result = await response.json();
         clearInterval(progressInterval);
         setGenerationProgress(100);
         return result.script;
-      } catch (error) {
+      } catch (error: any) {
         clearInterval(progressInterval);
         setGenerationProgress(0);
-        throw error; // Re-throw to be caught by onError
+        
+        // Handle specific error types
+        if (error.name === 'AbortError') {
+          throw new Error("Script generation timed out. Please try again with a simpler concept.");
+        }
+        
+        if (error.message?.includes("fetch failed")) {
+          throw new Error("Network error. Please check your connection and try again.");
+        }
+        
+        throw error; // Re-throw other errors to be caught by onError
       }
     },
     onSuccess: (scriptText: string) => {
@@ -96,12 +132,20 @@ export default function ScriptWriter() {
       setIsGenerating(false);
     },
     onError: (error: Error) => {
-      setGenerationError(error.message || "Failed to generate script. Please try again.");
-      toast({
-        variant: "destructive",
-        title: "Generation Failed",
-        description: error.message || "An unexpected error occurred.",
-      });
+      const errorMsg = error.message || "Failed to generate script. Please try again.";
+      
+      // Set user-friendly error message
+      setGenerationError(errorMsg);
+      
+      // Only show toast for non-network errors
+      if (!errorMsg.includes("Network error")) {
+        toast({
+          variant: "destructive",
+          title: "Generation Failed",
+          description: errorMsg,
+        });
+      }
+      
       setIsGenerating(false);
       setGenerationProgress(0);
     },
@@ -162,18 +206,20 @@ export default function ScriptWriter() {
   };
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-8 text-center">Vadis Script Writer</h1>
+    <div className="container mx-auto py-4 sm:py-8 px-3 sm:px-4">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center">Vadis Script Writer</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      {/* Responsive grid that stacks on mobile but shows side by side on larger screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
+        {/* Input form card */}
         <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Script Details</CardTitle>
+          <CardHeader className="pb-4 sm:pb-6">
+            <CardTitle className="text-xl sm:text-2xl">Script Details</CardTitle>
             <CardDescription>Provide the details for your new script.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
                 <FormField control={form.control} name="projectTitle" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Project Title</FormLabel>
@@ -191,21 +237,21 @@ export default function ScriptWriter() {
                  <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description / Synopsis</FormLabel>
-                    <FormControl><Textarea placeholder="A more detailed overview of the plot and themes" {...field} rows={4} /></FormControl>
+                    <FormControl><Textarea placeholder="Overview of the plot and themes" {...field} rows={3} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="genre" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Genre</FormLabel>
-                    <FormControl><Input placeholder="e.g., Sci-Fi Adventure, Romantic Comedy" {...field} /></FormControl>
+                    <FormControl><Input placeholder="e.g., Sci-Fi, Drama, Comedy" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                  <FormField control={form.control} name="concept" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Core Concept / Idea</FormLabel>
-                    <FormControl><Textarea placeholder="What is the central idea or unique element of your story?" {...field} rows={4} /></FormControl>
+                    <FormControl><Textarea placeholder="Central idea of your story" {...field} rows={3} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -228,14 +274,14 @@ export default function ScriptWriter() {
                 <FormField control={form.control} name="storyLocation" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Primary Story Location</FormLabel>
-                    <FormControl><Input placeholder="e.g., Mars Colony, 1920s Paris, A mystical forest" {...field} /></FormControl>
+                    <FormControl><Input placeholder="e.g., Mars Colony, Paris, Forest" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="specialRequest" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Special Requests (Optional)</FormLabel>
-                    <FormControl><Textarea placeholder="Any specific elements, themes, or plot points to include?" {...field} rows={3} /></FormControl>
+                    <FormControl><Textarea placeholder="Any specific elements to include?" {...field} rows={2} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -247,40 +293,62 @@ export default function ScriptWriter() {
           </CardContent>
         </Card>
 
+        {/* Output preview card */}
         <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Generated Script Preview</CardTitle>
-            <CardDescription>Your AI-generated script will appear here.</CardDescription>
+          <CardHeader className="pb-4 sm:pb-6">
+            <CardTitle className="text-xl sm:text-2xl">Generated Script Preview</CardTitle>
+            <CardDescription>Your script will appear here.</CardDescription>
           </CardHeader>
-          <CardContent className="h-[600px] flex flex-col">
+          <CardContent className="h-[400px] sm:h-[500px] md:h-[600px] flex flex-col">
+            {/* Loading state */}
             {isGenerating && (
-              <div className="flex flex-col items-center justify-center h-full">
-                <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
-                <p className="text-lg font-medium mb-2">Generating Script...</p>
-                <p className="text-sm text-muted-foreground mb-4">This may take a few minutes. Please wait.</p>
-                <Progress value={generationProgress} className="w-full max-w-md" />
+              <div className="flex flex-col items-center justify-center h-full p-4">
+                <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 text-primary animate-spin mb-4" />
+                <p className="text-base sm:text-lg font-medium mb-2 text-center">Generating Script...</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-4 text-center">This may take a few minutes. Please wait.</p>
+                <Progress value={generationProgress} className="w-full max-w-xs sm:max-w-md" />
                 <p className="text-xs text-muted-foreground mt-2">{generationProgress}%</p>
               </div>
             )}
+            
+            {/* Error state - improved for mobile */}
             {generationError && !isGenerating && (
-                <div className="flex flex-col items-center justify-center h-full text-destructive">
-                    <AlertCircle className="h-12 w-12 mb-4" />
-                    <p className="text-lg font-medium mb-2">Generation Failed</p>
-                    <p className="text-sm text-center">{generationError}</p>
+                <div className="flex flex-col items-center justify-center h-full text-destructive p-4">
+                    <AlertCircle className="h-10 w-10 sm:h-12 sm:w-12 mb-4" />
+                    <p className="text-base sm:text-lg font-medium mb-2 text-center">Generation Failed</p>
+                    <p className="text-xs sm:text-sm text-center px-2">
+                        {generationError === "An error occurred during AI script generation." 
+                            ? "We couldn't generate your script. This could be due to server load or content restrictions. Please try again with different details."
+                            : generationError}
+                    </p>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-4" 
+                        onClick={() => setGenerationError(null)}
+                    >
+                        Dismiss
+                    </Button>
                 </div>
             )}
+            
+            {/* Success state */}
             {!isGenerating && generatedScript && (
-              <ScrollArea className="flex-grow border rounded-md p-4 bg-gray-50 whitespace-pre-wrap font-mono text-sm">
+              <ScrollArea className="flex-grow border rounded-md p-2 sm:p-4 bg-gray-50 whitespace-pre-wrap font-mono text-xs sm:text-sm">
                 {generatedScript}
               </ScrollArea>
             )}
+            
+            {/* Empty state */}
             {!isGenerating && !generatedScript && !generationError && (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                <FileText className="h-16 w-16 mr-4" />
-                <p>Your generated script will be displayed here.</p>
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4">
+                <FileText className="h-12 w-12 sm:h-16 sm:w-16 mb-4" />
+                <p className="text-center text-sm sm:text-base">Fill out the form and click "Generate Script" to create your screenplay.</p>
               </div>
             )}
           </CardContent>
+          
+          {/* Export button */}
           {generatedScript && !isGenerating && (
             <CardFooter>
               <Button 
@@ -288,7 +356,11 @@ export default function ScriptWriter() {
                 className="w-full"
                 disabled={exportPdfMutation.isPending}
               >
-                {exportPdfMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Exporting...</> : <><Download className="mr-2 h-4 w-4" /> Script: Feature Film</>}
+                {exportPdfMutation.isPending ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Exporting...</>
+                ) : (
+                  <><Download className="mr-2 h-4 w-4" /> Download PDF</>
+                )}
               </Button>
             </CardFooter>
           )}
