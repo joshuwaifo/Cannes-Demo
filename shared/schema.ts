@@ -230,7 +230,7 @@
 //   availability: text("availability").notNull(),
 //   bestSuitedRolesStrategic: text("best_suited_roles_strategic").notNull(),
 //   imageUrl: text("image_url"),
-//   dateOfBirth: text("date_of_birth"), // Add date of birth as text to support flexible date formats
+//   dateOfBirth: text("date_of_birth"),
 //   createdAt: timestamp("created_at").defaultNow().notNull(),
 //   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 // });
@@ -276,6 +276,19 @@
 
 // export type InsertLocation = z.infer<typeof insertLocationSchema>;
 // export type Location = typeof locations.$inferSelect;
+
+// // --- Script Generation Form ---
+// export const scriptGenerationFormSchema = z.object({
+//   projectTitle: z.string().min(1, "Project Title is required."),
+//   logline: z.string().min(10, "Logline should be at least 10 characters.").max(200, "Logline should be at most 200 characters."),
+//   description: z.string().min(20, "Description should be at least 20 characters.").max(1000, "Description should be at most 1000 characters."),
+//   genre: z.string().min(1, "Genre is required.").max(50, "Genre should be at most 50 characters."),
+//   concept: z.string().min(20, "Concept should be at least 20 characters.").max(2000, "Concept should be at most 2000 characters."),
+//   targetedRating: z.enum(Object.keys(FilmRatingEnum) as [FilmRatingType, ...FilmRatingType[]], { message: "Invalid rating selected." }),
+//   storyLocation: z.string().min(1, "Story Location is required.").max(100, "Story Location should be at most 100 characters."),
+//   specialRequest: z.string().max(1000, "Special Request should be at most 1000 characters.").optional(),
+// });
+// export type ScriptGenerationFormData = z.infer<typeof scriptGenerationFormSchema>;
 
 // shared/schema.ts
 import {
@@ -341,23 +354,23 @@ export const DemographicAgeEnum = {
   "45-54": "45-54",
   "55-64": "55-64",
   "65+": "65+",
-  "AllAges": "AllAges",
+  AllAges: "AllAges",
 } as const;
 export type DemographicAgeType = keyof typeof DemographicAgeEnum;
 
 export const GenreEnum = {
-  "Action": "Action",
-  "Comedy": "Comedy",
-  "Drama": "Drama",
-  "Horror": "Horror",
+  Action: "Action",
+  Comedy: "Comedy",
+  Drama: "Drama",
+  Horror: "Horror",
   "Sci-Fi": "Sci-Fi",
-  "Romance": "Romance",
-  "Adventure": "Adventure",
-  "Thriller": "Thriller",
-  "Documentary": "Documentary",
-  "Animation": "Animation",
-  "Fantasy": "Fantasy",
-  "Any": "Any",
+  Romance: "Romance",
+  Adventure: "Adventure",
+  Thriller: "Thriller",
+  Documentary: "Documentary",
+  Animation: "Animation",
+  Fantasy: "Fantasy",
+  Any: "Any",
 } as const;
 export type GenreType = keyof typeof GenreEnum;
 
@@ -370,9 +383,14 @@ export const products = pgTable("products", {
   category: text("category").notNull().$type<ProductCategory>(),
   imageUrl: text("image_url").notNull(),
   filmRating: text("film_rating").$type<FilmRatingType | null>(),
-  demographicGender: text("demographic_gender").$type<DemographicGenderType | null>(),
-  demographicAge: jsonb("demographic_age").$type<DemographicAgeType[] | null>().default(sql`'{}'::jsonb`),
+  demographicGender: text(
+    "demographic_gender",
+  ).$type<DemographicGenderType | null>(),
+  demographicAge: jsonb("demographic_age")
+    .$type<DemographicAgeType[] | null>()
+    .default(sql`'{}'::jsonb`),
   genre: text("genre").$type<GenreType | null>(),
+  placementLimitations: text("placement_limitations"), // New field for product limitations
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -394,8 +412,12 @@ export const insertProductSchema = createInsertSchema(products, {
   imageUrl: (schema) => schema.url("Must be a valid URL"),
   filmRating: z.nativeEnum(FilmRatingEnum).optional().nullable(),
   demographicGender: z.nativeEnum(DemographicGenderEnum).optional().nullable(),
-  demographicAge: z.array(z.nativeEnum(DemographicAgeEnum)).optional().nullable(),
+  demographicAge: z
+    .array(z.nativeEnum(DemographicAgeEnum))
+    .optional()
+    .nullable(),
   genre: z.nativeEnum(GenreEnum).optional().nullable(),
+  placementLimitations: z.string().optional().nullable(), // Added to Zod schema
 });
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;
@@ -509,7 +531,7 @@ export const actors = pgTable("actors", {
   availability: text("availability").notNull(),
   bestSuitedRolesStrategic: text("best_suited_roles_strategic").notNull(),
   imageUrl: text("image_url"),
-  dateOfBirth: text("date_of_birth"), 
+  dateOfBirth: text("date_of_birth"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -559,12 +581,35 @@ export type Location = typeof locations.$inferSelect;
 // --- Script Generation Form ---
 export const scriptGenerationFormSchema = z.object({
   projectTitle: z.string().min(1, "Project Title is required."),
-  logline: z.string().min(10, "Logline should be at least 10 characters.").max(200, "Logline should be at most 200 characters."),
-  description: z.string().min(20, "Description should be at least 20 characters.").max(1000, "Description should be at most 1000 characters."),
-  genre: z.string().min(1, "Genre is required.").max(50, "Genre should be at most 50 characters."),
-  concept: z.string().min(20, "Concept should be at least 20 characters.").max(2000, "Concept should be at most 2000 characters."),
-  targetedRating: z.enum(Object.keys(FilmRatingEnum) as [FilmRatingType, ...FilmRatingType[]], { message: "Invalid rating selected." }),
-  storyLocation: z.string().min(1, "Story Location is required.").max(100, "Story Location should be at most 100 characters."),
-  specialRequest: z.string().max(1000, "Special Request should be at most 1000 characters.").optional(),
+  logline: z
+    .string()
+    .min(10, "Logline should be at least 10 characters.")
+    .max(200, "Logline should be at most 200 characters."),
+  description: z
+    .string()
+    .min(20, "Description should be at least 20 characters.")
+    .max(1000, "Description should be at most 1000 characters."),
+  genre: z
+    .string()
+    .min(1, "Genre is required.")
+    .max(50, "Genre should be at most 50 characters."),
+  concept: z
+    .string()
+    .min(20, "Concept should be at least 20 characters.")
+    .max(2000, "Concept should be at most 2000 characters."),
+  targetedRating: z.enum(
+    Object.keys(FilmRatingEnum) as [FilmRatingType, ...FilmRatingType[]],
+    { message: "Invalid rating selected." },
+  ),
+  storyLocation: z
+    .string()
+    .min(1, "Story Location is required.")
+    .max(100, "Story Location should be at most 100 characters."),
+  specialRequest: z
+    .string()
+    .max(1000, "Special Request should be at most 1000 characters.")
+    .optional(),
 });
-export type ScriptGenerationFormData = z.infer<typeof scriptGenerationFormSchema>;
+export type ScriptGenerationFormData = z.infer<
+  typeof scriptGenerationFormSchema
+>;
