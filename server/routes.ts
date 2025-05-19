@@ -1930,17 +1930,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ message: "Valid Script ID is required" });
                 }
                 
-                // Use optimized caching service (which handles caching internally)
+                // Use optimized suggestion service with caching from our new module
+                const { getActorSuggestionsWithCaching } = await import('./services/character-suggestion-optimizer');
                 console.log(`${logPrefix} Using optimized character suggestion service with caching`);
-                const aiSuggestions = await getCachedCharacterSuggestion(
+                
+                const aiSuggestions = await getActorSuggestionsWithCaching(
                     scriptId,
                     characterName,
-                    {
-                        filmGenre: filmGenreFromUI,
-                        roleType: roleTypeFromUI,
-                        budgetTier: budgetTierFromUI,
-                        gender: genderFilterFromUI,
-                    }
+                    filmGenreFromUI,
+                    roleTypeFromUI,
+                    budgetTierFromUI,
+                    genderFilterFromUI
                 );
                 
                 if (aiSuggestions.length === 0) {
@@ -1969,7 +1969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
                 
                 console.log(`${logPrefix} Returning ${finalSuggestions.length} suggestions`);
-                res.json(finalSuggestions);
+                return res.json(finalSuggestions);
             } catch (error) {
                 console.error(`${logPrefix} Error processing request:`, error);
                 next(error);
