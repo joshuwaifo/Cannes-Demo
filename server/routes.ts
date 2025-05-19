@@ -1747,9 +1747,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         async (req, res, next) => {
             try {
                 const formData = scriptGenerationFormSchema.parse(req.body);
-                const generatedScript =
-                    await generateScriptWithGemini(formData);
-                res.json({ script: generatedScript });
+                
+                // Import the enhanced script generation service
+                const { generateFeatureLengthScript, ScriptGenerationProgress } = await import('./services/enhanced-script-generation-service');
+                
+                // Set up SSE for progress updates if supported
+                const supportsSSE = req.headers.accept?.includes('text/event-stream');
+                
+                if (supportsSSE) {
+                    // Set up Server-Sent Events
+                    res.writeHead(200, {
+                        'Content-Type': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive'
+                    });
+                    
+                    try {
+                        // Generate the script with progress updates
+                        const generatedScript = await generateFeatureLengthScript(
+                            formData,
+                            (progress) => {
+                                // Send progress updates
+                                res.write(`data: ${JSON.stringify(progress)}\n\n`);
+                            }
+                        );
+                        
+                        // Send the final script
+                        res.write(`data: ${JSON.stringify({ 
+                            status: 'completed',
+                            statusMessage: 'Script generation complete',
+                            script: generatedScript
+                        })}\n\n`);
+                        
+                        res.end();
+                    } catch (error: any) {
+                        // Send error through SSE
+                        res.write(`data: ${JSON.stringify({
+                            status: 'failed',
+                            statusMessage: error.message || 'Script generation failed'
+                        })}\n\n`);
+                        res.end();
+                    }
+                } else {
+                    // Standard REST API response
+                    console.log("[API /generate-from-prompt] Using enhanced feature-length script generation");
+                    const generatedScript = await generateFeatureLengthScript(formData);
+                    res.json({ script: generatedScript });
+                }
             } catch (error) {
                 if (error instanceof ZodError) {
                     return res
