@@ -37,6 +37,8 @@ export default function ScriptWriter() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [currentGenerationPhase, setCurrentGenerationPhase] = useState<string>("");
+  const [targetPages, setTargetPages] = useState<number>(0);
 
   const form = useForm<ScriptGenerationFormData>({
     resolver: zodResolver(scriptGenerationFormSchema),
@@ -55,63 +57,140 @@ export default function ScriptWriter() {
   const generateScriptMutation = useMutation({
     mutationFn: async (data: ScriptGenerationFormData) => {
       setIsGenerating(true);
-      setGenerationProgress(10); // Initial progress
+      setGenerationProgress(5); // Initial progress
       setGeneratedScript(null);
       setGenerationError(null);
-
-      // Simulate progress - slower for mobile to prevent too many UI updates
-      const progressInterval = setInterval(() => {
-        setGenerationProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + Math.floor(Math.random() * 5) + 5; // Random increment between 5-10%
-        });
-      }, 2000); // Update progress every 2 seconds
+      setCurrentGenerationPhase("Initializing screenplay generation...");
 
       try {
         const controller = new AbortController();
-        // Set timeout for the request (2 minutes)
-        const timeoutId = setTimeout(() => controller.abort(), 120000);
-        
-        const response = await apiRequest(
-          "POST", 
-          "/api/scripts/generate-from-prompt", 
-          data,
-          { signal: controller.signal }
-        );
-        
-        clearTimeout(timeoutId);
-        
-        // Check if response is OK, if not, parse error message
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ 
-            message: "Failed to generate script. Server error." 
-          }));
+        // Set timeout for the request (5 minutes for feature-length script)
+        const timeoutId = setTimeout(() => controller.abort(), 300000);
+
+        // Check if browser supports Server-Sent Events
+        if (typeof EventSource !== 'undefined') {
+          return new Promise<string>((resolve, reject) => {
+            // Create event source for real-time updates
+            const eventSource = new EventSource('/api/scripts/generate-from-prompt', {
+              withCredentials: true
+            });
+
+            // Handle progress updates
+            eventSource.onmessage = (event) => {
+              try {
+                const data = JSON.parse(event.data);
+                
+                if (data.status === 'starting') {
+                  // Initial planning phase
+                  setTargetPages(data.targetPages);
+                  setGenerationProgress(5);
+                  setCurrentGenerationPhase(data.statusMessage);
+                } 
+                else if (data.status === 'generating') {
+                  // Calculate progress percentage (5% for starting, 95% for generation)
+                  const progressPercentage = 5 + Math.floor((data.currentChunk / data.totalChunks) * 95);
+                  setGenerationProgress(progressPercentage);
+                  setCurrentGenerationPhase(data.statusMessage);
+                } 
+                else if (data.status === 'completed') {
+                  // Generation completed successfully
+                  setGenerationProgress(100);
+                  setCurrentGenerationPhase(`Completed ${data.targetPages}-page screenplay`);
+                  eventSource.close();
+                  resolve(data.script);
+                }
+                else if (data.status === 'failed') {
+                  // Handle failure
+                  setGenerationError(data.statusMessage);
+                  eventSource.close();
+                  reject(new Error(data.statusMessage));
+                }
+              } catch (error) {
+                console.error('Error parsing SSE event:', error);
+                eventSource.close();
+                reject(new Error('Failed to parse server update'));
+              }
+            };
+
+            // Handle SSE connection errors
+            eventSource.onerror = () => {
+              eventSource.close();
+              reject(new Error('Connection to server lost during generation'));
+            };
+
+            // Send the form data
+            fetch('/api/scripts/generate-from-prompt', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream'
+              },
+              body: JSON.stringify(data),
+              signal: controller.signal
+            }).catch(error => {
+              eventSource.close();
+              reject(error);
+            });
+
+            // Clean up if the request is aborted
+            controller.signal.addEventListener('abort', () => {
+              eventSource.close();
+              reject(new Error('Script generation timed out after 5 minutes'));
+            });
+          });
+        } else {
+          // Fallback for browsers without SSE support
+          console.log('Browser does not support Server-Sent Events, using standard request');
           
-          // Map common status codes to user-friendly messages
-          let errorMessage = errorData.message || `Error ${response.status}`;
-          if (response.status === 500) {
-            errorMessage = "Our script generator is currently experiencing issues. Please try again later.";
-          } else if (response.status === 400) {
-            errorMessage = "Please check your script details and try again.";
-          } else if (response.status === 429) {
-            errorMessage = "You've made too many requests. Please wait a moment and try again.";
+          // Set up a simulated progress indicator for better UX
+          const progressInterval = setInterval(() => {
+            setGenerationProgress(prev => {
+              if (prev >= 90) {
+                return 90;
+              }
+              return prev + Math.floor(Math.random() * 3) + 2;
+            });
+            
+            // Update phase messages
+            if (generationProgress < 20) {
+              setCurrentGenerationPhase("Planning screenplay structure...");
+            } else if (generationProgress < 40) {
+              setCurrentGenerationPhase("Writing Act 1 (Setup)...");
+            } else if (generationProgress < 70) {
+              setCurrentGenerationPhase("Writing Act 2 (Confrontation)...");
+            } else {
+              setCurrentGenerationPhase("Writing Act 3 (Resolution)...");
+            }
+          }, 3000);
+          
+          // Standard API request
+          const response = await fetch('/api/scripts/generate-from-prompt', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data),
+            signal: controller.signal
+          });
+          
+          clearInterval(progressInterval);
+          clearTimeout(timeoutId);
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ 
+              message: "Failed to generate script" 
+            }));
+            
+            throw new Error(errorData.message || `Error ${response.status}`);
           }
           
-          throw new Error(errorMessage);
+          const result = await response.json();
+          setGenerationProgress(100);
+          setCurrentGenerationPhase("Script generation complete");
+          return result.script;
         }
-        
-        const result = await response.json();
-        clearInterval(progressInterval);
-        setGenerationProgress(100);
-        return result.script;
       } catch (error: any) {
-        clearInterval(progressInterval);
-        setGenerationProgress(0);
-        
-        // Handle specific error types
+        // Handle specific error cases
         if (error.name === 'AbortError') {
           throw new Error("Script generation timed out. Please try again with a simpler concept.");
         }
@@ -120,14 +199,16 @@ export default function ScriptWriter() {
           throw new Error("Network error. Please check your connection and try again.");
         }
         
-        throw error; // Re-throw other errors to be caught by onError
+        throw error;
       }
     },
     onSuccess: (scriptText: string) => {
       setGeneratedScript(scriptText);
       toast({
         title: "Script Generated",
-        description: "Your script has been successfully generated.",
+        description: targetPages > 0 
+          ? `Your ${targetPages}-page feature-length screenplay has been successfully generated.`
+          : "Your screenplay has been successfully generated.",
       });
       setIsGenerating(false);
     },
@@ -137,17 +218,15 @@ export default function ScriptWriter() {
       // Set user-friendly error message
       setGenerationError(errorMsg);
       
-      // Only show toast for non-network errors
-      if (!errorMsg.includes("Network error")) {
-        toast({
-          variant: "destructive",
-          title: "Generation Failed",
-          description: errorMsg,
-        });
-      }
+      toast({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: errorMsg,
+      });
       
       setIsGenerating(false);
       setGenerationProgress(0);
+      setCurrentGenerationPhase("");
     },
   });
 
@@ -300,14 +379,26 @@ export default function ScriptWriter() {
             <CardDescription>Your script will appear here.</CardDescription>
           </CardHeader>
           <CardContent className="h-[400px] sm:h-[500px] md:h-[600px] flex flex-col">
-            {/* Loading state */}
+            {/* Loading state with enhanced progress info */}
             {isGenerating && (
               <div className="flex flex-col items-center justify-center h-full p-4">
                 <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 text-primary animate-spin mb-4" />
-                <p className="text-base sm:text-lg font-medium mb-2 text-center">Generating Script...</p>
-                <p className="text-xs sm:text-sm text-muted-foreground mb-4 text-center">This may take a few minutes. Please wait.</p>
+                <p className="text-base sm:text-lg font-medium mb-2 text-center">Generating Screenplay</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-2 text-center">
+                  {currentGenerationPhase || "Processing your screenplay details..."}
+                </p>
+                {targetPages > 0 && (
+                  <p className="text-xs text-muted-foreground mb-4 text-center">
+                    Target length: {targetPages} pages
+                  </p>
+                )}
                 <Progress value={generationProgress} className="w-full max-w-xs sm:max-w-md" />
-                <p className="text-xs text-muted-foreground mt-2">{generationProgress}%</p>
+                <p className="text-xs text-muted-foreground mt-2 flex justify-between w-full max-w-xs sm:max-w-md">
+                  <span>Progress: {generationProgress}%</span>
+                  {targetPages > 0 && generationProgress > 5 && (
+                    <span>Est. page: {Math.floor((generationProgress - 5) / 95 * targetPages)}</span>
+                  )}
+                </p>
               </div>
             )}
             

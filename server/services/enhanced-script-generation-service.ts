@@ -3,10 +3,9 @@ import {
   GoogleGenAI,
   HarmCategory,
   HarmBlockThreshold,
-  type GenerationConfig as SDKGenerationConfig,
-  type Content as SDKContent,
-  type Tool as SDKTool,
-  type SafetySetting as SDKSafetySetting,
+  type GenerationConfig,
+  type Content,
+  type SafetySetting,
   type GenerateContentResponse,
 } from "@google/genai";
 import { ScriptGenerationFormData, FilmRatingEnum, FilmRatingType } from "@shared/schema";
@@ -21,7 +20,7 @@ const MAX_RETRIES = 3; // Maximum retries for a failed chunk
 
 let genAIClientInstance: GoogleGenAI | null = null;
 
-// Status updates interface
+// Status updates interface that can be exported
 export interface ScriptGenerationProgress {
   currentChunk: number;
   totalChunks: number;
@@ -49,14 +48,12 @@ function initializeGenAIClient(): GoogleGenAI {
   return genAIClientInstance;
 }
 
-const defaultSafetySettings: SDKSafetySetting[] = [
+const defaultSafetySettings: SafetySetting[] = [
   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
   { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
 ];
-
-const defaultTools: SDKTool[] = [{ googleSearch: {} }];
 
 // Helper to provide rating descriptions
 function getRatingDescription(ratingKey: FilmRatingType): string {
@@ -186,33 +183,33 @@ Screenplay Requirements:
 YOUR TASK: Continue the script in proper screenplay format from exactly where the previous section left off.
 `;
 
-  // Create the content structure for the request
-  const contentsForRequest: SDKContent[] = [{ role: "user", parts: [{ text: prompt }] }];
-
-  // Build the request object
-  const request: GenerateContentRequest = {
-    model: MODEL_NAME,
-    contents: contentsForRequest,
-    tools: defaultTools,
-    generationConfig: {
-      temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
-      maxOutputTokens: PAGE_CHUNK_SIZE * TOKENS_PER_PAGE * 1.5, // Add buffer space
-      responseMimeType: "text/plain",
-    },
-    safetySettings: defaultSafetySettings,
-  };
-
   try {
-    // Send the generation request
+    // Create the content structure for the request
+    const contentsForRequest: Content[] = [{ role: "user", parts: [{ text: prompt }] }];
+    
+    // Create the Gemini model with our config
+    const model = genAI.getGenerativeModel({
+      model: MODEL_NAME,
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: PAGE_CHUNK_SIZE * TOKENS_PER_PAGE * 1.5, // Add buffer space
+        responseMimeType: "text/plain",
+      },
+      safetySettings: defaultSafetySettings,
+    });
+    
     console.log(`${logPrefix} Sending chunk generation request to Gemini`);
-    const result: GenerateContentResult = await genAI.models.generateContent(request);
+    
+    // Generate content with the prompt
+    const result = await model.generateContent(contentsForRequest);
+    const response = result.response;
 
     // Error handling
-    if (!result) {
-      console.error(`${logPrefix} Gemini SDK returned a null or undefined result.`);
-      throw new Error("Gemini SDK returned a null or undefined result.");
+    if (!response) {
+      console.error(`${logPrefix} Gemini SDK returned a null or undefined response.`);
+      throw new Error("Gemini SDK returned a null or undefined response.");
     }
 
     if (result.promptFeedback?.blockReason) {
@@ -220,29 +217,11 @@ YOUR TASK: Continue the script in proper screenplay format from exactly where th
       throw new Error(`Request blocked by API: ${result.promptFeedback.blockReason}`);
     }
 
-    if (!result.candidates || result.candidates.length === 0) {
-      const safetyRatings = result.candidates?.[0]?.safetyRatings;
-      const finishReason = result.candidates?.[0]?.finishReason;
-      console.error(`${logPrefix} No valid candidates. Finish Reason: ${finishReason}, Safety Ratings:`, JSON.stringify(safetyRatings, null, 2));
-      throw new Error(`No valid candidates or blocked. Finish Reason: ${finishReason}. Safety: ${JSON.stringify(safetyRatings)}`);
-    }
-
     // Extract the text from the response
-    let chunkText = "";
-    if (result.candidates[0]?.content?.parts) {
-      const textPart = result.candidates[0].content.parts.find((part) => "text" in part);
-      if (textPart && "text" in textPart) {
-        chunkText = textPart.text;
-      }
-    }
+    const chunkText = response.text();
 
-    // Alternative extraction methods if needed
-    if (!chunkText && typeof (result.candidates[0].content as any).text === 'string') {
-      chunkText = (result.candidates[0].content as any).text;
-    }
-
-    if (!chunkText) {
-      console.error(`${logPrefix} Empty response text from Gemini. Full result object:`, JSON.stringify(result, null, 2));
+    if (!chunkText || chunkText.trim().length === 0) {
+      console.error(`${logPrefix} Empty response text from Gemini.`);
       throw new Error("Empty response text from Gemini.");
     }
 
@@ -254,8 +233,9 @@ YOUR TASK: Continue the script in proper screenplay format from exactly where th
 
     console.log(`${logPrefix} Successfully generated chunk ${chunkNumber} (${chunkText.length} chars)`);
     return chunkText;
-  } catch (error: any) {
-    console.error(`${logPrefix} Error generating script chunk:`, error.message || error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`${logPrefix} Error generating script chunk:`, errorMessage);
     throw error;
   }
 }
@@ -345,7 +325,7 @@ export async function generateFeatureLengthScript(
                 statusMessage: `Failed to generate chunk ${chunkNumber} after ${MAX_RETRIES} attempts`,
               });
             }
-            throw new Error(`Failed to generate chunk ${chunkNumber} after ${MAX_RETRIES} attempts: ${error.message}`);
+            throw new Error(`Failed to generate chunk ${chunkNumber} after ${MAX_RETRIES} attempts: ${error instanceof Error ? error.message : String(error)}`);
           }
           // Short pause before retry
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -405,8 +385,8 @@ export async function generateFeatureLengthScript(
     console.log(`${logPrefix} Successfully generated complete script for "${formData.projectTitle}". Length: ${completeScript.length} chars`);
     return completeScript;
     
-  } catch (error: any) {
-    console.error(`${logPrefix} Error in feature-length script generation:`, error.message || error);
-    throw new Error(`Script generation failed: ${error.message}`);
+  } catch (error: unknown) {
+    console.error(`${logPrefix} Error in feature-length script generation:`, error instanceof Error ? error.message : String(error));
+    throw new Error(`Script generation failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
