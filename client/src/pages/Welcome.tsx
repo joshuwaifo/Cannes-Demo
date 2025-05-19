@@ -4,11 +4,9 @@ import { Upload, PlaySquare, Loader2, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import FileUpload from "@/components/script/FileUpload";
 import { Progress } from "@/components/ui/progress";
-import { useState, useEffect } from "react"; // Removed unused Film icon
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-// Script and Scene types are not directly used in Welcome anymore for data checking before redirect
-// but keeping them doesn't harm if other parts might rely on them indirectly via queryClient.
 
 interface WelcomeProps {
   onTabChange?: (tab: TabType) => void;
@@ -22,25 +20,39 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
   const [processingStatus, setProcessingStatus] = useState("");
   const [projectNameInput, setProjectNameInput] = useState("");
 
+  // useEffect to clear Script Editor related caches when Welcome page mounts
+  useEffect(() => {
+    console.log("[Welcome] Page mounted. Clearing Script Analysis and related caches immediately.");
+
+    // React Query cache clearing for Script Analysis data
+    // removeQueries will clear any query whose key starts with the provided array.
+    queryClient.removeQueries({ queryKey: ["/api/scripts/current"] });
+    queryClient.removeQueries({ queryKey: ["/api/scripts/scenes"] });
+    queryClient.removeQueries({ queryKey: ["/api/scripts/brandable-scenes"] });
+    queryClient.removeQueries({ queryKey: ["/api/scripts/scene-variations"] });
+    queryClient.removeQueries({ queryKey: ["/api/scripts/characters"] }); // Used by CharacterCasting
+    queryClient.removeQueries({ queryKey: ["/api/scripts/extracted-characters"] }); // Also potentially used by CharacterCasting variants
+    queryClient.removeQueries({ queryKey: ["/api/scripts/suggest-locations"] }); // Current key for script-wide location suggestions
+    queryClient.removeQueries({ queryKey: ["/api/scenes/suggest-locations"] }); // Older key for scene-specific location suggestions, clear for safety
+    queryClient.removeQueries({ queryKey: ["/api/characters/suggest-actors"] }); // For actor suggestions
+
+    // Clear any localStorage/sessionStorage if they were used (currently not indicated for script data)
+    // localStorage.removeItem('someScriptAnalysisKey');
+    // sessionStorage.removeItem('someScriptWriterDraftKey');
+
+    console.log("[Welcome] Relevant React Query caches cleared.");
+  }, [queryClient]); // queryClient is stable, so this runs once on mount
+
   const uploadScriptMutation = useMutation({
     onMutate: async () => {
       console.log(
-        "[Welcome] New upload initiated. Clearing ALL relevant client-side caches.",
+        "[Welcome] New upload initiated. Clearing ALL client-side React Query caches (onMutate).",
       );
-      setProcessingProgress(5); // Small initial progress
+      setProcessingProgress(5);
       setProcessingStatus("Preparing for new script upload...");
-
-      // Clear all potentially relevant queries to ensure ScriptEditor gets fresh data
-      await queryClient.removeQueries(); // This is aggressive, consider more targeted if needed
-      // More targeted approach:
-      // await queryClient.removeQueries({ queryKey: ["/api/scripts/current"], exact: true });
-      // await queryClient.removeQueries({ queryKey: ["/api/scripts/scenes"], exact: true });
-      // await queryClient.removeQueries({ queryKey: ["/api/scripts/brandable-scenes"], exact: true });
-      // await queryClient.invalidateQueries({ queryKey: ["/api/scripts/scene-variations"] });
-      // await queryClient.invalidateQueries({ queryKey: ["/api/scripts/characters"] });
-      // await queryClient.invalidateQueries({ queryKey: ["/api/scenes/suggest-locations"] });
-      // await queryClient.invalidateQueries({ queryKey: ["/api/characters/suggest-actors"] });
-      console.log("[Welcome] Client-side caches reset for new script session.");
+      // This existing call clears all queries, which is appropriate for a new upload.
+      await queryClient.removeQueries(); 
+      console.log("[Welcome] All client-side React Query caches reset for new script session (onMutate).");
     },
     mutationFn: async (file: File) => {
       setProcessingProgress(10);
@@ -59,45 +71,29 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
         const errorText = await response.text();
         throw new Error(errorText || "Failed to upload script");
       }
-      return await response.json(); // Expecting { script: { id, title }, scenesCount, brandableScenesCount }
+      return await response.json();
     },
     onSuccess: async (data) => {
       toast({
         title: "Script Uploaded",
         description: "Server processing initiated...",
       });
-      setProcessingProgress(75); // Indicate server is doing its part
+      setProcessingProgress(75); 
       setProcessingStatus("Server processing script...");
 
-      // The backend /api/scripts/upload now does initial scene extraction & brandable analysis.
-      // We can directly navigate. ScriptEditor will fetch the details it needs.
       console.log(
-        "[Welcome] Upload successful. Server has processed. Invalidating queries for ScriptEditor to pick up.",
+        "[Welcome] Upload successful. Server has processed. ScriptEditor will fetch fresh data.",
       );
 
-      // Invalidate current script and scenes so ScriptEditor fetches the new ones.
-      // No need to `refetch` here in Welcome, ScriptEditor will do it on mount.
-      await queryClient.invalidateQueries({
-        queryKey: ["/api/scripts/current"],
-        exact: true,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["/api/scripts/scenes"],
-        exact: true,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["/api/scripts/brandable-scenes"],
-        exact: true,
-      });
+      // No need to explicitly invalidate here as removeQueries in onMutate (and useEffect for general Welcome load)
+      // already ensures a clean slate for the next load of ScriptEditor.
 
       setProcessingProgress(100);
       setProcessingStatus("Redirecting to Script Editor...");
 
       if (onTabChange) {
-        // A short delay to allow the user to see the "Redirecting" message
         setTimeout(() => {
           onTabChange("script");
-          // Reset progress for the Welcome page if the user navigates back
           setProcessingProgress(0);
           setProcessingStatus("");
         }, 500);
@@ -114,7 +110,6 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
     },
   });
 
-  // Simplified isProcessingScript, mainly reflects the mutation's pending state
   const isProcessingScript =
     uploadScriptMutation.isPending ||
     (uploadScriptMutation.isSuccess &&
@@ -127,34 +122,20 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
 
   return (
     <div className="flex-grow flex flex-col items-center justify-center py-10 md:py-14 px-4 bg-vadis-light-gray-bg">
-      {" "}
-      {/* Adjusted vertical padding */}
       <div className="text-center mb-10 md:mb-14 max-w-4xl w-full">
-        {" "}
-        {/* Wider main container for tagline and logo */}
         <div className="flex justify-center mb-8 md:mb-10">
-          {" "}
-          {/* Spacing for logo */}
           <img
             src="/assets/vadis-media-logo-dark.png"
             alt="Vadis Media Logo"
             className="w-full h-auto max-w-[280px] sm:max-w-[320px] md:max-w-[380px]"
           />
         </div>
-        {/* <h1 className="text-3xl font-bold mb-2 text-vadis-dark-text">Vadis Brand Marketplace</h1> */}{" "}
-        {/* Tagline styling */}
         <p className="text-lg md:text-xl text-gray-700 mb-10 md:mb-14">
-          {" "}
-          {/* Spacing and color for tagline */}
           AI-powered script analysis for Optimizing Funding and Casting
         </p>
         <div className="space-y-10 md:space-y-12">
-          {" "}
-          {/* Spacing between the two cards */}
           {isProcessingScript ? (
             <div className="bg-card rounded-xl shadow-xl p-6 sm:p-8 md:p-10 max-w-3xl mx-auto">
-              {" "}
-              {/* Card styling: rounded-xl, shadow-xl, padding, max-width, centered */}
               <div className="flex flex-col items-center">
                 <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
                 <h2 className="text-xl font-semibold mb-4 text-vadis-dark-text">
@@ -180,8 +161,6 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
             </div>
           ) : (
             <div className="bg-card rounded-xl shadow-xl p-6 sm:p-8 md:p-10 max-w-3xl mx-auto">
-              {" "}
-              {/* Card styling: rounded-xl, shadow-xl, padding, max-width, centered */}
               <h2 className="text-2xl font-semibold mb-4 flex items-center text-vadis-dark-text">
                 <Upload className="mr-2 h-6 w-6 text-primary" />
                 Get Started
@@ -221,15 +200,11 @@ export default function Welcome({ onTabChange }: WelcomeProps) {
             </div>
           )}
           <div className="bg-card rounded-xl shadow-xl p-6 sm:p-8 md:p-10 max-w-3xl mx-auto">
-            {" "}
-            {/* Card styling */}
             <h2 className="text-2xl font-semibold mb-4 flex items-center text-vadis-dark-text">
               <PlaySquare className="mr-2 h-6 w-6 text-primary" />
               How It Works
             </h2>
             <ul className="space-y-4 text-gray-700 text-left">
-              {" "}
-              {/* Enhanced list styling */}
               {[
                 "Upload your script PDF file.",
                 "Vadis AI will extract scenes from the script and analyze brand sponsorship opportunities.",

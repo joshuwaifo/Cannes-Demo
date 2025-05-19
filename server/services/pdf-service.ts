@@ -122,87 +122,150 @@ function createFallbackScenes(scriptText: string): ExtractedScene[] {
   return scenes;
 }
 
+// function extractScenes(scriptText: string): ExtractedScene[] {
+//   // Regular expression to find scene headings (INT./EXT. patterns)
+//   // This pattern better captures standard screenplay format scene headings:
+//   // They are usually all caps, start with INT/EXT, and sometimes include time of day
+//   const sceneHeadingRegex = /\b(INT\.?|EXT\.?|INT\.?\/EXT\.?|I\/E\.?)[\s\.\-]+(.*?)(?:\s*-\s*|\s+)(DAY|NIGHT|MORNING|EVENING|AFTERNOON|DAWN|DUSK|LATER|CONTINUOUS|MOMENTS LATER|SAME TIME)(?:\b|$)/gi;
+  
+//   // For PDFs that don't have standard formatting, also look for numbered scenes
+//   const numberedSceneRegex = /\bSCENE\s+(\d+)[:\.\s]+(.+?)$/gim;
+  
+//   const scenes: ExtractedScene[] = [];
+  
+//   // Find potential scene headings
+//   let match;
+//   let lastIndex = 0;
+//   let sceneNumber = 1;
+//   let allMatches: {index: number, heading: string}[] = [];
+  
+//   // Collect all matches from both regexes
+//   while ((match = sceneHeadingRegex.exec(scriptText)) !== null) {
+//     const fullMatch = match[0].trim();
+//     allMatches.push({
+//       index: match.index,
+//       heading: fullMatch
+//     });
+//   }
+  
+//   // Reset regex lastIndex
+//   sceneHeadingRegex.lastIndex = 0;
+  
+//   // Check for numbered scenes as well
+//   while ((match = numberedSceneRegex.exec(scriptText)) !== null) {
+//     const fullMatch = match[0].trim();
+//     allMatches.push({
+//       index: match.index,
+//       heading: fullMatch
+//     });
+//   }
+  
+//   // Sort matches by their position in the text
+//   allMatches.sort((a, b) => a.index - b.index);
+  
+//   // Now process matches in order
+//   for (const matchInfo of allMatches) {
+//     const heading = matchInfo.heading;
+//     const headingIndex = matchInfo.index;
+    
+//     // If not the first scene, extract content of previous scene
+//     if (scenes.length > 0) {
+//       const previousScene = scenes[scenes.length - 1];
+//       previousScene.content = scriptText
+//         .substring(lastIndex, headingIndex)
+//         .trim();
+//     }
+    
+//     // Add the new scene
+//     scenes.push({
+//       sceneNumber,
+//       heading,
+//       content: '' // Will be filled in the next iteration
+//     });
+    
+//     lastIndex = headingIndex + heading.length;
+//     sceneNumber++;
+//   }
+  
+//   // Handle the last scene's content
+//   if (scenes.length > 0) {
+//     const lastScene = scenes[scenes.length - 1];
+//     lastScene.content = scriptText
+//       .substring(lastIndex)
+//       .trim();
+//   }
+  
+//   // If no scenes were found using the regex, create at least one scene with the entire content
+//   if (scenes.length === 0) {
+//     scenes.push({
+//       sceneNumber: 1,
+//       heading: "UNTITLED SCENE",
+//       content: scriptText.trim()
+//     });
+//   }
+  
+//   return scenes;
+// }
+
 function extractScenes(scriptText: string): ExtractedScene[] {
-  // Regular expression to find scene headings (INT./EXT. patterns)
-  // This pattern better captures standard screenplay format scene headings:
-  // They are usually all caps, start with INT/EXT, and sometimes include time of day
   const sceneHeadingRegex = /\b(INT\.?|EXT\.?|INT\.?\/EXT\.?|I\/E\.?)[\s\.\-]+(.*?)(?:\s*-\s*|\s+)(DAY|NIGHT|MORNING|EVENING|AFTERNOON|DAWN|DUSK|LATER|CONTINUOUS|MOMENTS LATER|SAME TIME)(?:\b|$)/gi;
-  
-  // For PDFs that don't have standard formatting, also look for numbered scenes
-  const numberedSceneRegex = /\bSCENE\s+(\d+)[:\.\s]+(.+?)$/gim;
-  
+  const numberedSceneRegex = /^\s*\d+[\.\)]?\s+(.*?)(\s{2,}|$)/gm; // NEW: Matches "1. INT. LOCATION - TIME" or "1 INT. LOCATION" etc.
+
   const scenes: ExtractedScene[] = [];
-  
-  // Find potential scene headings
+  let allMatches: { index: number, heading: string }[] = [];
   let match;
-  let lastIndex = 0;
   let sceneNumber = 1;
-  let allMatches: {index: number, heading: string}[] = [];
-  
-  // Collect all matches from both regexes
+
   while ((match = sceneHeadingRegex.exec(scriptText)) !== null) {
-    const fullMatch = match[0].trim();
     allMatches.push({
       index: match.index,
-      heading: fullMatch
+      heading: match[0].trim()
     });
   }
-  
-  // Reset regex lastIndex
-  sceneHeadingRegex.lastIndex = 0;
-  
-  // Check for numbered scenes as well
+
   while ((match = numberedSceneRegex.exec(scriptText)) !== null) {
-    const fullMatch = match[0].trim();
-    allMatches.push({
-      index: match.index,
-      heading: fullMatch
-    });
+    const heading = match[0].trim();
+    // Avoid duplicates: ignore if this line contains INT/EXT (already caught)
+    if (!/\bINT\.?|EXT\.?/i.test(heading)) {
+      allMatches.push({
+        index: match.index,
+        heading
+      });
+    }
   }
-  
-  // Sort matches by their position in the text
+
   allMatches.sort((a, b) => a.index - b.index);
-  
-  // Now process matches in order
+
+  let lastIndex = 0;
   for (const matchInfo of allMatches) {
     const heading = matchInfo.heading;
     const headingIndex = matchInfo.index;
-    
-    // If not the first scene, extract content of previous scene
+
     if (scenes.length > 0) {
       const previousScene = scenes[scenes.length - 1];
-      previousScene.content = scriptText
-        .substring(lastIndex, headingIndex)
-        .trim();
+      previousScene.content = scriptText.substring(lastIndex, headingIndex).trim();
     }
-    
-    // Add the new scene
+
     scenes.push({
       sceneNumber,
       heading,
-      content: '' // Will be filled in the next iteration
+      content: ''
     });
-    
+
     lastIndex = headingIndex + heading.length;
     sceneNumber++;
   }
-  
-  // Handle the last scene's content
+
   if (scenes.length > 0) {
     const lastScene = scenes[scenes.length - 1];
-    lastScene.content = scriptText
-      .substring(lastIndex)
-      .trim();
-  }
-  
-  // If no scenes were found using the regex, create at least one scene with the entire content
-  if (scenes.length === 0) {
+    lastScene.content = scriptText.substring(lastIndex).trim();
+  } else {
     scenes.push({
       sceneNumber: 1,
       heading: "UNTITLED SCENE",
       content: scriptText.trim()
     });
   }
-  
+
   return scenes;
 }
