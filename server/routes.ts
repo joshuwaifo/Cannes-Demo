@@ -1873,21 +1873,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `${apiPrefix}/scripts/:scriptId/characters`,
         async (req, res, next) => {
             const scriptIdParam = req.params.scriptId;
+            const logPrefix = `[Characters Route for Script ID:${scriptIdParam}]`;
             try {
                 const scriptId = parseInt(scriptIdParam);
                 if (isNaN(scriptId))
                     return res
                         .status(400)
                         .json({ message: "Valid Script ID is required" });
+                
                 const script = await storage.getScriptById(scriptId);
                 if (!script || !script.content)
                     return res.status(404).json({
                         message: "Script not found or has no content",
                     });
-                const characters: ScriptCharacter[] =
-                    await extractCharactersWithGemini(script.content);
-                res.json(characters);
+                
+                // Extract all characters from the script using AI
+                console.log(`${logPrefix} Extracting characters from script content`);
+                const characters: ScriptCharacter[] = await extractCharactersWithGemini(script.content);
+                
+                // Start prefetching character suggestions in the background
+                // This improves performance by having suggestions ready before the user requests them
+                try {
+                    if (characters.length > 0) {
+                        console.log(`${logPrefix} Starting background prefetch for ${Math.min(5, characters.length)} main characters`);
+                        const { prefetchMainCharacterSuggestions } = await import('./services/character-suggestion-optimizer');
+                        
+                        // Don't await - let this run in the background
+                        prefetchMainCharacterSuggestions(scriptId).catch(prefetchError => {
+                            console.error(`${logPrefix} Background prefetching error: ${prefetchError.message}`);
+                        });
+                    }
+                } catch (prefetchError) {
+                    // Log but don't fail the request if prefetching fails
+                    console.error(`${logPrefix} Prefetch setup error: ${prefetchError.message}`);
+                }
+                
+                // Return the extracted characters to the client
+                return res.json(characters);
             } catch (error) {
+                console.error(`${logPrefix} Error extracting characters:`, error);
                 next(error);
             }
         },
