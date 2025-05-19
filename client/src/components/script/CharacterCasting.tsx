@@ -279,55 +279,90 @@ export default function CharacterCasting({
   const [customRoleType, setCustomRoleType] = useState("lead");
   const [customBudgetTier, setCustomBudgetTier] = useState(projectBudgetTier || "medium");
   const [customGender, setCustomGender] = useState<string>("any");
+  
+  // Track if prefetch has been initiated
+  const [prefetchInitiated, setPrefetchInitiated] = useState<boolean>(false);
 
+  // Get all characters from the script
   const { data: characters = [], isLoading: isLoadingCharacters } = useQuery<ScriptCharacter[]>({
     queryKey: ['/api/scripts/characters', scriptId],
     queryFn: async ({ queryKey }) => {
-      const [, sId] = queryKey as [string, number | null]; // Ensure scriptId can be null
+      const [, sId] = queryKey as [string, number | null];
       if (!sId) return [];
       const res = await apiRequest("GET", `/api/scripts/${sId}/characters`);
       return res.json();
     },
     enabled: !!scriptId,
     onSuccess: (data) => {
-        if (selectedCharacterName && !data.find(c => c.name === selectedCharacterName)) {
-            setSelectedCharacterName(null);
-        }
+      // Check if selected character still exists in the new data
+      if (selectedCharacterName && !data.find(c => c.name === selectedCharacterName)) {
+        setSelectedCharacterName(null);
+      }
+      
+      // Trigger prefetch of character suggestions when characters are first loaded
+      // This happens in the background and makes subsequent character selections faster
+      if (data.length > 0 && !prefetchInitiated && scriptId) {
+        setPrefetchInitiated(true);
+        triggerPrefetch(scriptId);
+      }
     }
   });
 
+  // Function to trigger background prefetch of all character suggestions
+  const triggerPrefetch = async (sId: number) => {
+    try {
+      console.log("[CharacterCasting] Starting prefetch for all characters...");
+      const res = await apiRequest("POST", `/api/scripts/${sId}/prefetch-character-suggestions`);
+      console.log("[CharacterCasting] Prefetch initiated successfully");
+    } catch (error) {
+      console.error("[CharacterCasting] Error initiating prefetch:", error);
+      // Non-critical error, no need to show to user
+    }
+  };
+
   const selectedCharacterObject = characters.find(c => c.name === selectedCharacterName);
 
-  const { data: actorSuggestions = [], isLoading: isLoadingActorSuggestions, refetch: refetchActorSuggestions, isFetching: isFetchingActorSuggestions, isError, error } = useQuery<ActorSuggestion[]>({
+  // Use React Query to get actor suggestions for the selected character
+  const { 
+    data: actorSuggestions = [], 
+    isLoading: isLoadingActorSuggestions, 
+    refetch: refetchActorSuggestions, 
+    isFetching: isFetchingActorSuggestions, 
+    isError, 
+    error 
+  } = useQuery<ActorSuggestion[]>({
     queryKey: [
-        '/api/characters/suggest-actors',
-        selectedCharacterName,
-        scriptId, // Add scriptId to queryKey
-        customGenre,
-        customRoleType,
-        customBudgetTier,
-        customGender,
-        selectedCharacterObject?.estimatedAgeRange
+      '/api/characters/suggest-actors',
+      selectedCharacterName,
+      scriptId,
+      customGenre,
+      customRoleType,
+      customBudgetTier,
+      customGender,
+      selectedCharacterObject?.estimatedAgeRange
     ],
     queryFn: async ({ queryKey }) => {
       const [, charName, currentScriptId, genre, roleType, budget, gender, charAge] = queryKey;
-      if (!charName || !currentScriptId) return []; // Ensure characterName and scriptId are present
+      if (!charName || !currentScriptId) return [];
 
+      // Use the optimized endpoint with caching
       const params = new URLSearchParams({
-        scriptId: String(currentScriptId), // Add scriptId to params
+        scriptId: String(currentScriptId),
         genre: genre as string,
         roleType: roleType as string,
         budgetTier: budget as string,
         gender: gender as string,
       });
-      // Character's age is part of queryKey, backend can use it if needed by fetching character details via scriptId & charName
 
       const res = await apiRequest("GET", `/api/characters/${charName}/suggest-actors?${params.toString()}`);
       return res.json();
     },
-    enabled: !!selectedCharacterName && !!scriptId, // Only fetch if a character AND scriptId are selected
+    enabled: !!selectedCharacterName && !!scriptId,
+    // Add shorter staleTime to take advantage of server-side caching
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
 
+  // Keep custom criteria in sync with props
   useEffect(() => {
     if (filmGenre) setCustomGenre(filmGenre);
   }, [filmGenre]);
@@ -336,11 +371,11 @@ export default function CharacterCasting({
     if (projectBudgetTier) setCustomBudgetTier(projectBudgetTier);
   }, [projectBudgetTier]);
 
-
+  // Handler for manual search
   const handleSearchActors = () => {
-      if (selectedCharacterName && scriptId) { // Ensure scriptId is present
-          refetchActorSuggestions();
-      }
+    if (selectedCharacterName && scriptId) {
+      refetchActorSuggestions();
+    }
   };
 
   if (isLoadingInitial || isLoadingCharacters) {

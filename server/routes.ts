@@ -1893,6 +1893,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
     );
 
+// Import moved to top of file
+
     app.get(
         `${apiPrefix}/characters/:characterName/suggest-actors`,
         async (req, res, next) => {
@@ -1911,159 +1913,186 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 gender?: string;
             };
             const logPrefix = `[Route Actor Suggestion for "${characterName}" in Script ${queryScriptId}]`;
+            
             try {
-                if (!characterName)
-                    return res
-                        .status(400)
-                        .json({ message: "Character name required" });
-                if (!queryScriptId)
-                    return res
-                        .status(400)
-                        .json({
-                            message: "Script ID query parameter is required",
-                        });
+                if (!characterName) {
+                    return res.status(400).json({ message: "Character name required" });
+                }
+                
+                if (!queryScriptId) {
+                    return res.status(400).json({
+                        message: "Script ID query parameter is required",
+                    });
+                }
 
                 const scriptId = parseInt(queryScriptId);
-                if (isNaN(scriptId))
-                    return res
-                        .status(400)
-                        .json({ message: "Valid Script ID is required" });
-
-                const scriptToUse = await storage.getScriptById(scriptId);
-                if (!scriptToUse || !scriptToUse.content) {
-                    return res
-                        .status(404)
-                        .json({
-                            message: `Script with ID ${scriptId} not found or is empty.`,
-                        });
+                if (isNaN(scriptId)) {
+                    return res.status(400).json({ message: "Valid Script ID is required" });
                 }
-
-                const allCharactersInScript: BackendExtractedCharacter[] =
-                    await extractCharactersWithGemini(scriptToUse.content);
-                const characterToCastDetails = allCharactersInScript.find(
-                    (c) => c.name === characterName.toUpperCase(),
+                
+                // Create criteria map for batch processing
+                const criteriaMap = new Map();
+                criteriaMap.set(characterName, {
+                    filmGenre: filmGenreFromUI,
+                    roleType: roleTypeFromUI,
+                    budgetTier: budgetTierFromUI,
+                    gender: genderFilterFromUI,
+                });
+                
+                // Use optimized batch service (which handles caching internally)
+                console.log(`${logPrefix} Using optimized batch character suggestion service`);
+                const batchResults = await getBatchCharacterSuggestions(
+                    scriptId,
+                    [characterName],
+                    criteriaMap
                 );
-
-                if (!characterToCastDetails) {
-                    console.warn(
-                        `${logPrefix} Character "${characterName}" not found for script ID ${scriptToUse.id}.`,
-                    );
-                    return res
-                        .status(404)
-                        .json({
-                            message: `Character "${characterName}" not found in script.`,
-                        });
-                }
-
-                let genderForDbFilter: string | undefined = undefined;
-                if (
-                    genderFilterFromUI &&
-                    genderFilterFromUI.toLowerCase() !== "any" &&
-                    genderFilterFromUI.toLowerCase() !== "all" &&
-                    genderFilterFromUI.toLowerCase() !== "unknown"
-                ) {
-                    genderForDbFilter = genderFilterFromUI;
-                    console.log(
-                        `${logPrefix} Using STRICT DB gender filter: ${genderForDbFilter}`,
-                    );
-                } else {
-                    console.log(
-                        `${logPrefix} NO strict gender filter for DB query (UI was 'any' or not specified).`,
-                    );
-                }
-
-                const preFilteredActors =
-                    await storage.getActorsForAISuggestionByCriteria({
-                        estimatedAgeRange:
-                            characterToCastDetails.estimatedAgeRange,
-                        gender: genderForDbFilter,
-                        limit: 100,
-                    });
-
-                if (preFilteredActors.length === 0) {
-                    console.log(
-                        `${logPrefix} No actors after pre-filtering. Character Age: ${characterToCastDetails.estimatedAgeRange}, DB Gender Filter Used: ${genderForDbFilter || "None"}`,
-                    );
+                
+                // Get AI suggestions for this character
+                const aiSuggestions = batchResults.get(characterName) || [];
+                
+                if (aiSuggestions.length === 0) {
+                    console.log(`${logPrefix} No suggestions found for character`);
                     return res.json([]);
                 }
-                console.log(
-                    `${logPrefix} Pre-filtered ${preFilteredActors.length} actors for AI. Char Age: ${characterToCastDetails.estimatedAgeRange}, DB Gender Filter Used: ${genderForDbFilter || "None"}`,
-                );
-
-                const finalFilmGenreForAI = filmGenreFromUI || "Any";
-                const finalRoleTypeForAI =
-                    roleTypeFromUI ||
-                    characterToCastDetails.roleType ||
-                    "Unknown";
-                const finalBudgetTierForAI =
-                    budgetTierFromUI ||
-                    characterToCastDetails.recommendedBudgetTier ||
-                    "Any";
-
-                const finalGenderForAIPrompt =
-                    genderFilterFromUI &&
-                    genderFilterFromUI.toLowerCase() !== "any" &&
-                    genderFilterFromUI.toLowerCase() !== "all" &&
-                    genderFilterFromUI.toLowerCase() !== "unknown"
-                        ? genderFilterFromUI
-                        : characterToCastDetails.gender &&
-                            characterToCastDetails.gender.toLowerCase() !==
-                                "unknown"
-                          ? characterToCastDetails.gender
-                          : "Any";
-
-                const aiSuggestions: ActorAISuggestion[] =
-                    await suggestActorsForCharacterViaGemini(
-                        scriptToUse.content,
-                        characterToCastDetails,
-                        preFilteredActors,
-                        {
-                            filmGenre: finalFilmGenreForAI,
-                            roleType: finalRoleTypeForAI,
-                            budgetTier: finalBudgetTierForAI,
-                            gender: finalGenderForAIPrompt,
-                        },
-                        5,
-                    );
-
-                if (aiSuggestions.length === 0) return res.json([]);
-
+                
+                // Transform AI suggestions to client format with actor details
                 const finalSuggestions: ClientActorSuggestion[] = [];
+                
                 for (const aiSugg of aiSuggestions) {
-                    const actorDetails = preFilteredActors.find(
-                        (a) => a.name === aiSugg.actorName,
-                    );
-                    if (actorDetails) {
+                    // Look up actor details from database
+                    const directDbActor = await storage.getActorByName(aiSugg.actorName);
+                    
+                    if (directDbActor) {
                         finalSuggestions.push({
-                            ...actorDetails,
+                            ...directDbActor,
                             matchReason: aiSugg.matchReason,
                             controversyLevel: aiSugg.controversyLevel,
                         });
                     } else {
                         console.warn(
-                            `${logPrefix} Actor "${aiSugg.actorName}" suggested by AI but not in pre-filtered list. Attempting direct DB lookup.`,
+                            `${logPrefix} Actor "${aiSugg.actorName}" not found in DB.`,
                         );
-                        const directDbActor = await storage.getActorByName(
-                            aiSugg.actorName,
-                        );
-                        if (directDbActor) {
-                            finalSuggestions.push({
-                                ...directDbActor,
-                                matchReason: aiSugg.matchReason,
-                                controversyLevel: aiSugg.controversyLevel,
-                            });
-                        } else {
-                            console.warn(
-                                `${logPrefix} Actor "${aiSugg.actorName}" also not found in direct DB lookup.`,
-                            );
-                        }
                     }
                 }
+                
+                console.log(`${logPrefix} Returning ${finalSuggestions.length} suggestions`);
                 res.json(finalSuggestions);
             } catch (error) {
+                console.error(`${logPrefix} Error processing request:`, error);
                 next(error);
             }
         },
+    );
+    
+    // New endpoint: Batch get actor suggestions for multiple characters
+    app.post(
+        `${apiPrefix}/characters/batch-suggest-actors`,
+        async (req, res, next) => {
+            try {
+                const { scriptId, characters } = req.body as {
+                    scriptId: number,
+                    characters: {
+                        name: string,
+                        criteria: {
+                            filmGenre?: string;
+                            roleType?: string;
+                            budgetTier?: string;
+                            gender?: string;
+                        }
+                    }[]
+                };
+                
+                if (!scriptId) {
+                    return res.status(400).json({ 
+                        message: "Script ID is required" 
+                    });
+                }
+                
+                if (!characters || !Array.isArray(characters) || characters.length === 0) {
+                    return res.status(400).json({ 
+                        message: "At least one character is required" 
+                    });
+                }
+                
+                // Prepare criteria map
+                const criteriaMap = new Map();
+                const characterNames = [];
+                
+                for (const character of characters) {
+                    characterNames.push(character.name);
+                    criteriaMap.set(character.name, character.criteria || {});
+                }
+                
+                // Use batch service to get suggestions for all characters
+                const batchResults = await getBatchCharacterSuggestions(
+                    scriptId,
+                    characterNames,
+                    criteriaMap
+                );
+                
+                // Transform to client response format
+                const response: Record<string, ClientActorSuggestion[]> = {};
+                
+                for (const [characterName, aiSuggestions] of batchResults.entries()) {
+                    if (aiSuggestions.length === 0) {
+                        response[characterName] = [];
+                        continue;
+                    }
+                    
+                    const characterSuggestions: ClientActorSuggestion[] = [];
+                    
+                    for (const aiSugg of aiSuggestions) {
+                        const actorDetails = await storage.getActorByName(aiSugg.actorName);
+                        
+                        if (actorDetails) {
+                            characterSuggestions.push({
+                                ...actorDetails,
+                                matchReason: aiSugg.matchReason,
+                                controversyLevel: aiSugg.controversyLevel,
+                            });
+                        }
+                    }
+                    
+                    response[characterName] = characterSuggestions;
+                }
+                
+                res.json(response);
+            } catch (error) {
+                console.error('[Batch Character Suggest] Error:', error);
+                next(error);
+            }
+        }
+    );
+    
+    // Prefetch character suggestions for all characters in a script
+    app.post(
+        `${apiPrefix}/scripts/:scriptId/prefetch-character-suggestions`,
+        async (req, res, next) => {
+            const scriptIdParam = req.params.scriptId;
+            
+            try {
+                const scriptId = parseInt(scriptIdParam);
+                if (isNaN(scriptId)) {
+                    return res.status(400).json({ message: "Valid Script ID is required" });
+                }
+                
+                // Start the prefetch process asynchronously - don't wait for it to complete
+                import('./services/character-batch-service').then(service => {
+                    service.prefetchAllCharacterSuggestions(scriptId)
+                        .catch(error => {
+                            console.error(`[Prefetch] Error prefetching for script ${scriptId}:`, error);
+                        });
+                });
+                
+                // Immediately return success response
+                res.status(202).json({ 
+                    message: "Character suggestions prefetch started",
+                    scriptId: scriptId
+                });
+            } catch (error) {
+                next(error);
+            }
+        }
     );
 
     const httpServer = createServer(app);
