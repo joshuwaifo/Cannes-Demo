@@ -1893,7 +1893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
     );
 
-// Import moved to top of file
+        // Import needs to be at the top of file
 
     app.get(
         `${apiPrefix}/characters/:characterName/suggest-actors`,
@@ -1901,7 +1901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const characterName = req.params.characterName;
             const {
                 scriptId: queryScriptId,
-                genre: filmGenreFromUI,
+                filmGenre: filmGenreFromUI,
                 roleType: roleTypeFromUI,
                 budgetTier: budgetTierFromUI,
                 gender: genderFilterFromUI, // Explicitly from UI
@@ -1930,25 +1930,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ message: "Valid Script ID is required" });
                 }
                 
-                // Create criteria map for batch processing
-                const criteriaMap = new Map();
-                criteriaMap.set(characterName, {
-                    filmGenre: filmGenreFromUI,
-                    roleType: roleTypeFromUI,
-                    budgetTier: budgetTierFromUI,
-                    gender: genderFilterFromUI,
-                });
-                
-                // Use optimized batch service (which handles caching internally)
-                console.log(`${logPrefix} Using optimized batch character suggestion service`);
-                const batchResults = await getBatchCharacterSuggestions(
+                // Use optimized caching service (which handles caching internally)
+                console.log(`${logPrefix} Using optimized character suggestion service with caching`);
+                const aiSuggestions = await getCachedCharacterSuggestion(
                     scriptId,
-                    [characterName],
-                    criteriaMap
+                    characterName,
+                    {
+                        filmGenre: filmGenreFromUI,
+                        roleType: roleTypeFromUI,
+                        budgetTier: budgetTierFromUI,
+                        gender: genderFilterFromUI,
+                    }
                 );
-                
-                // Get AI suggestions for this character
-                const aiSuggestions = batchResults.get(characterName) || [];
                 
                 if (aiSuggestions.length === 0) {
                     console.log(`${logPrefix} No suggestions found for character`);

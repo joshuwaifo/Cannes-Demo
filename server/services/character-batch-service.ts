@@ -1,5 +1,5 @@
 import { ActorAISuggestion, suggestActorsForCharacterViaGemini } from './ai-suggestion-service';
-import { extractCharactersWithGemini } from './file-upload-service';
+import { extractCharactersWithGemini, ExtractedCharacter } from './file-upload-service';
 import * as storage from '../storage';
 import { Actor as DbActor } from '@shared/schema';
 
@@ -49,203 +49,147 @@ function cacheSuggestions(cacheKey: string, suggestions: ActorAISuggestion[]): v
   });
 }
 
-// Process all character suggestions in a batch
-export async function getBatchCharacterSuggestions(
+// Process a single character suggestion with caching
+export async function getCachedCharacterSuggestion(
   scriptId: number,
-  characterNames: string[],
-  criteriaMap: Map<string, {
+  characterName: string,
+  criteria: {
     filmGenre?: string;
     roleType?: string;
     budgetTier?: string;
     gender?: string;
-  }>
-) {
-  // Get script content once
+  }
+): Promise<ActorAISuggestion[]> {
+  const cacheKey = createCacheKey(characterName, scriptId, criteria);
+  const cachedSuggestions = getCachedSuggestions(cacheKey);
+  
+  if (cachedSuggestions) {
+    console.log(`[Cache] Using cached suggestions for "${characterName}"`);
+    return cachedSuggestions;
+  }
+  
+  // Get script content
   const script = await storage.getScriptById(scriptId);
   if (!script || !script.content) {
     throw new Error(`Script with ID ${scriptId} not found or has no content`);
   }
   
-  // Extract all characters once
+  // Extract characters from script
   const allCharactersInScript = await extractCharactersWithGemini(script.content);
+  const characterDetails = allCharactersInScript.find(
+    (c) => c.name === characterName.toUpperCase()
+  );
   
-  // Results map to store suggestions for each character
-  const results = new Map<string, ActorAISuggestion[]>();
-  
-  // Prepare batches of characters to process together
-  // Start with prefiltering for all characters at once
-  const characterDetailsMap = new Map();
-  const actorPreFilterPromises = [];
-  
-  for (const charName of characterNames) {
-    const characterDetails = allCharactersInScript.find(
-      (c) => c.name === charName.toUpperCase()
-    );
-    
-    if (!characterDetails) {
-      console.warn(`Character "${charName}" not found in script ${scriptId}`);
-      results.set(charName, []);
-      continue;
-    }
-    
-    characterDetailsMap.set(charName, characterDetails);
-    
-    // Get criteria for this character
-    const criteria = criteriaMap.get(charName) || {};
-    
-    // Check cache first
-    const cacheKey = createCacheKey(charName, scriptId, criteria);
-    const cachedSuggestions = getCachedSuggestions(cacheKey);
-    
-    if (cachedSuggestions) {
-      console.log(`[Batch Character Suggest] Using cached suggestions for "${charName}"`);
-      results.set(charName, cachedSuggestions);
-      continue;
-    }
-    
-    // Determine gender filter for DB query
-    let genderForDbFilter: string | undefined = undefined;
-    if (
-      criteria.gender &&
-      criteria.gender.toLowerCase() !== "any" &&
-      criteria.gender.toLowerCase() !== "all" &&
-      criteria.gender.toLowerCase() !== "unknown"
-    ) {
-      genderForDbFilter = criteria.gender;
-    }
-    
-    // Pre-filter actors for this character
-    const preFilterPromise = storage.getActorsForAISuggestionByCriteria({
-      estimatedAgeRange: characterDetails.estimatedAgeRange,
-      gender: genderForDbFilter,
-      limit: 100,
-    }).then(actors => {
-      return { charName, actors };
-    });
-    
-    actorPreFilterPromises.push(preFilterPromise);
+  if (!characterDetails) {
+    console.warn(`Character "${characterName}" not found in script ${scriptId}`);
+    return [];
   }
   
-  // Wait for all pre-filtering to complete
-  const preFilteredActorsResults = await Promise.all(actorPreFilterPromises);
-  
-  // Now process suggestions for characters that weren't cached
-  const suggestionPromises = [];
-  
-  for (const { charName, actors } of preFilteredActorsResults) {
-    if (results.has(charName)) continue; // Skip if we already have cached results
-    
-    const characterDetails = characterDetailsMap.get(charName);
-    const criteria = criteriaMap.get(charName) || {};
-    
-    if (actors.length === 0) {
-      console.log(`No actors after pre-filtering for "${charName}"`);
-      results.set(charName, []);
-      continue;
-    }
-    
-    console.log(`Pre-filtered ${actors.length} actors for "${charName}"`);
-    
-    // Prepare final criteria for AI
-    const finalFilmGenreForAI = criteria.filmGenre || "Any";
-    const finalRoleTypeForAI = criteria.roleType || characterDetails.roleType || "Unknown";
-    const finalBudgetTierForAI = criteria.budgetTier || characterDetails.recommendedBudgetTier || "Any";
-    
-    const finalGenderForAIPrompt =
-      criteria.gender &&
-      criteria.gender.toLowerCase() !== "any" &&
-      criteria.gender.toLowerCase() !== "all" &&
-      criteria.gender.toLowerCase() !== "unknown"
-        ? criteria.gender
-        : characterDetails.gender &&
-          characterDetails.gender.toLowerCase() !== "unknown"
-          ? characterDetails.gender
-          : "Any";
-    
-    // Add suggestion promise for this character
-    const suggestionPromise = suggestActorsForCharacterViaGemini(
-      script.content,
-      characterDetails,
-      actors,
-      {
-        filmGenre: finalFilmGenreForAI,
-        roleType: finalRoleTypeForAI,
-        budgetTier: finalBudgetTierForAI,
-        gender: finalGenderForAIPrompt,
-      },
-      5
-    ).then(suggestions => {
-      // Cache the results
-      const cacheKey = createCacheKey(charName, scriptId, criteria);
-      cacheSuggestions(cacheKey, suggestions);
-      
-      return { charName, suggestions };
-    });
-    
-    suggestionPromises.push(suggestionPromise);
+  // Determine gender filter for DB query
+  let genderForDbFilter: string | undefined = undefined;
+  if (
+    criteria.gender &&
+    criteria.gender.toLowerCase() !== "any" &&
+    criteria.gender.toLowerCase() !== "all" &&
+    criteria.gender.toLowerCase() !== "unknown"
+  ) {
+    genderForDbFilter = criteria.gender;
   }
   
-  // Process all remaining suggestions in parallel
-  const suggestionResults = await Promise.all(suggestionPromises);
+  // Pre-filter actors for this character
+  const preFilteredActors = await storage.getActorsForAISuggestionByCriteria({
+    estimatedAgeRange: characterDetails.estimatedAgeRange,
+    gender: genderForDbFilter,
+    limit: 100,
+  });
   
-  // Add suggestion results to the final map
-  for (const { charName, suggestions } of suggestionResults) {
-    results.set(charName, suggestions);
+  if (preFilteredActors.length === 0) {
+    console.log(`No actors after pre-filtering for "${characterName}"`);
+    return [];
   }
   
-  return results;
+  // Prepare final criteria for AI
+  const finalFilmGenreForAI = criteria.filmGenre || "Any";
+  const finalRoleTypeForAI = criteria.roleType || characterDetails.roleType || "Unknown";
+  const finalBudgetTierForAI = criteria.budgetTier || characterDetails.recommendedBudgetTier || "Any";
+  
+  const finalGenderForAIPrompt =
+    criteria.gender &&
+    criteria.gender.toLowerCase() !== "any" &&
+    criteria.gender.toLowerCase() !== "all" &&
+    criteria.gender.toLowerCase() !== "unknown"
+      ? criteria.gender
+      : characterDetails.gender &&
+        characterDetails.gender.toLowerCase() !== "unknown"
+        ? characterDetails.gender
+        : "Any";
+  
+  // Get suggestions from AI
+  const suggestions = await suggestActorsForCharacterViaGemini(
+    script.content,
+    characterDetails,
+    preFilteredActors,
+    {
+      filmGenre: finalFilmGenreForAI,
+      roleType: finalRoleTypeForAI,
+      budgetTier: finalBudgetTierForAI,
+      gender: finalGenderForAIPrompt,
+    },
+    5
+  );
+  
+  // Cache the results
+  cacheSuggestions(cacheKey, suggestions);
+  
+  return suggestions;
 }
 
 // Prefetch character suggestions for all characters in a script
-export async function prefetchAllCharacterSuggestions(scriptId: number) {
+export async function prefetchScriptCharacterSuggestions(scriptId: number): Promise<void> {
   console.log(`[Prefetch] Starting character suggestion prefetching for script ${scriptId}`);
   
-  // Get script
-  const script = await storage.getScriptById(scriptId);
-  if (!script || !script.content) {
-    console.error(`[Prefetch] Script with ID ${scriptId} not found or has no content`);
-    return;
-  }
-  
-  // Extract all characters
-  const allCharactersInScript = await extractCharactersWithGemini(script.content);
-  
-  // Get character names
-  const characterNames = allCharactersInScript.map(c => c.name);
-  console.log(`[Prefetch] Found ${characterNames.length} characters to prefetch`);
-  
-  // Create default criteria for all characters
-  const criteriaMap = new Map();
-  for (const charName of characterNames) {
-    criteriaMap.set(charName, {
-      filmGenre: "",
-      roleType: "lead",
-      budgetTier: "medium",
-      gender: "any"
-    });
-  }
-  
   try {
-    // Batch process in groups of 3 to avoid overloading
-    const BATCH_SIZE = 3;
-    for (let i = 0; i < characterNames.length; i += BATCH_SIZE) {
-      const batchNames = characterNames.slice(i, i + BATCH_SIZE);
-      console.log(`[Prefetch] Processing batch ${i/BATCH_SIZE + 1} with ${batchNames.length} characters`);
-      
-      const batchCriteriaMap = new Map();
-      for (const name of batchNames) {
-        batchCriteriaMap.set(name, criteriaMap.get(name));
-      }
-      
-      await getBatchCharacterSuggestions(scriptId, batchNames, batchCriteriaMap);
-      
-      // Small delay between batches to prevent rate limiting
-      if (i + BATCH_SIZE < characterNames.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+    // Get script
+    const script = await storage.getScriptById(scriptId);
+    if (!script || !script.content) {
+      console.error(`[Prefetch] Script with ID ${scriptId} not found or has no content`);
+      return;
     }
     
-    console.log(`[Prefetch] Successfully prefetched suggestions for ${characterNames.length} characters`);
+    // Extract all characters
+    const allCharactersInScript = await extractCharactersWithGemini(script.content);
+    
+    if (allCharactersInScript.length === 0) {
+      console.log(`[Prefetch] No characters found in script ${scriptId}`);
+      return;
+    }
+    
+    console.log(`[Prefetch] Found ${allCharactersInScript.length} characters to prefetch`);
+    
+    // Process main characters first (limit to top 5 to avoid overloading)
+    const mainCharacters = allCharactersInScript.slice(0, 5);
+    
+    // Process each character with default criteria
+    for (const character of mainCharacters) {
+      const defaultCriteria = {
+        filmGenre: "",
+        roleType: "lead",
+        budgetTier: "medium",
+        gender: "any"
+      };
+      
+      try {
+        console.log(`[Prefetch] Processing character "${character.name}"`);
+        await getCachedCharacterSuggestion(scriptId, character.name, defaultCriteria);
+      } catch (error) {
+        console.error(`[Prefetch] Error processing character "${character.name}":`, error);
+      }
+      
+      // Small delay between characters to prevent rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    console.log(`[Prefetch] Successfully prefetched suggestions for ${mainCharacters.length} main characters`);
   } catch (error) {
     console.error(`[Prefetch] Error prefetching character suggestions:`, error);
   }
