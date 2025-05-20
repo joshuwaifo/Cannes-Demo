@@ -282,6 +282,7 @@ export default function CharacterCasting({
   const [actorAge, setActorAge] = useState<string>("");
   const [characterSummary, setCharacterSummary] = useState<string>("");
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [isLoadingActors, setIsLoadingActors] = useState(false);
   
   // Track if prefetch has been initiated
   const [prefetchInitiated, setPrefetchInitiated] = useState<boolean>(false);

@@ -19,9 +19,10 @@ import {
 import {
     suggestActorsForCharacterViaGemini,
     ActorAISuggestion,
-    suggestLocationsForScriptViaGemini, // Import the new function
+    suggestLocationsForScriptViaGemini,
     LocationAISuggestion,
 } from "./services/ai-suggestion-service";
+import { registerCharacterRoutes } from "./routes/character-routes";
 import { z } from "zod";
 import {
     insertProductSchema,
