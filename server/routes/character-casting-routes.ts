@@ -352,4 +352,139 @@ export function registerCharacterCastingRoutes(app: Express, apiPrefix: string):
       }
     }
   );
+  
+  // Batch get actor suggestions for multiple characters
+  app.post(
+    `${apiPrefix}/characters/batch-suggest-actors`,
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { scriptId, characters } = req.body as {
+          scriptId: number,
+          characters: {
+            name: string,
+            criteria: {
+              filmGenre?: string;
+              roleType?: string;
+              budgetTier?: string;
+              gender?: string;
+            }
+          }[]
+        };
+        
+        const logPrefix = `[Batch Actor Suggestion for Script ${scriptId}]`;
+        
+        if (!scriptId) {
+          return res.status(400).json({ 
+            message: "Script ID is required" 
+          });
+        }
+        
+        if (!characters || !Array.isArray(characters) || characters.length === 0) {
+          return res.status(400).json({ 
+            message: "At least one character is required" 
+          });
+        }
+        
+        // Get the script content
+        const script = await storage.getScriptById(scriptId);
+        if (!script || !script.content) {
+          return res.status(404).json({
+            message: "Script not found or has no content",
+          });
+        }
+        
+        // Process each character
+        const response: Record<string, ClientActorSuggestion[]> = {};
+        
+        for (const char of characters) {
+          const { name: characterName, criteria } = char;
+          
+          if (!characterName) {
+            continue;
+          }
+          
+          console.log(`${logPrefix} Processing character "${characterName}"`);
+          
+          try {
+            // Get character details from script
+            const allCharacters = await extractCharacters(script.content);
+            const characterDetails = allCharacters.find(c => c.name === characterName.toUpperCase());
+            
+            if (!characterDetails) {
+              console.warn(`${logPrefix} Character "${characterName}" not found in script`);
+              response[characterName] = [];
+              continue;
+            }
+            
+            // Filter actors from database based on search criteria
+            const filteredActors = await filterActorsFromDatabase({
+              estimatedAgeRange: characterDetails.estimatedAgeRange,
+              gender: criteria.gender,
+              roleType: criteria.roleType,
+              budgetTier: criteria.budgetTier,
+              limit: 100
+            });
+            
+            if (filteredActors.length === 0) {
+              console.log(`${logPrefix} No actors found after database filtering for "${characterName}"`);
+              response[characterName] = [];
+              continue;
+            }
+            
+            // Find actors for this character using the selection agent
+            const aiSuggestions = await findActorsForCharacter(
+              script.content,
+              characterName,
+              filteredActors,
+              {
+                filmGenre: criteria.filmGenre,
+                roleType: criteria.roleType,
+                budgetTier: criteria.budgetTier,
+                gender: criteria.gender
+              }
+            );
+            
+            if (aiSuggestions.length === 0) {
+              console.log(`${logPrefix} No suggestions found for character "${characterName}"`);
+              response[characterName] = [];
+              continue;
+            }
+            
+            // Transform AI suggestions to client format with actor details
+            const characterSuggestions: ClientActorSuggestion[] = [];
+            
+            for (const aiSugg of aiSuggestions) {
+              // Look up actor details from database
+              const actorDetails = await storage.getActorByName(aiSugg.actorName);
+              
+              if (actorDetails) {
+                characterSuggestions.push({
+                  ...actorDetails,
+                  matchReason: aiSugg.matchReason,
+                  confidenceScore: aiSugg.confidenceScore,
+                  controversyLevel: aiSugg.controversyLevel,
+                });
+              } else {
+                console.warn(
+                  `${logPrefix} Actor "${aiSugg.actorName}" not found in DB for character "${characterName}".`
+                );
+              }
+            }
+            
+            console.log(`${logPrefix} Found ${characterSuggestions.length} suggestions for "${characterName}"`);
+            response[characterName] = characterSuggestions;
+          } catch (charError) {
+            console.error(`${logPrefix} Error processing character "${characterName}":`, charError);
+            response[characterName] = [];
+          }
+        }
+        
+        console.log(`${logPrefix} Returning batch results for ${Object.keys(response).length} characters`);
+        res.json(response);
+      } catch (error) {
+        console.error('[Batch Character Suggest] Error:', error);
+        next(error);
+      }
+    }
+  );
 }
