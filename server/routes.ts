@@ -1064,7 +1064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 // Start the prefetch process asynchronously - don't wait for it to complete
                 import('./services/character-batch-service').then(service => {
-                    service.prefetchAllCharacterSuggestions(scriptId)
+                    service.prefetchScriptCharacterSuggestions(scriptId)
                         .catch(error => {
                             console.error(`[Prefetch] Error prefetching for script ${scriptId}:`, error);
                         });
