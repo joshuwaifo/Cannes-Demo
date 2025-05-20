@@ -6,8 +6,16 @@
  * character selection dropdown.
  */
 
-import { initializeGeminiClient } from '../ai-suggestion-service';
-import { ExtractedCharacter } from '../../types';
+// Import the ExtractedCharacter type from a shared location
+export interface ExtractedCharacter {
+  name: string;
+  estimatedAgeRange?: string;
+  gender?: string;
+  roleType?: string;
+  recommendedBudgetTier?: string;
+  description?: string;
+}
+import { getAIClient, extractJsonFromText, sanitizeText } from './ai-client';
 import { GenerationConfig } from '@google/generative-ai';
 
 interface GeminiCharacterResponse {
@@ -36,9 +44,11 @@ export async function extractCharactersFromScript(
   );
 
   try {
-    const { genAI, safetySettings } = initializeGeminiClient();
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+    // Get shared AI client
+    const { client, safetySettings, modelName } = getAIClient();
+    
+    const model = client.getGenerativeModel({
+      model: modelName,
       safetySettings,
       generationConfig: {
         responseMimeType: "application/json",
@@ -67,7 +77,7 @@ export async function extractCharactersFromScript(
     Important: Only extract real characters who speak or are directly mentioned, not scene direction labels or camera instructions.
 
     SCREENPLAY:
-    ${scriptContentForPrompt}
+    ${sanitizeText(scriptContentForPrompt)}
 
     Reply with ONLY a JSON object in the following format, with no additional text or explanation:
     {
@@ -91,28 +101,19 @@ export async function extractCharactersFromScript(
 
     console.log(`${logPrefix} Got response from Gemini, parsing JSON...`);
 
-    try {
-      // Extract JSON from the response text (in case there's surrounding text)
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : responseText;
-      
-      const parsedData: GeminiCharacterResponse = JSON.parse(jsonStr);
-      
-      // Validate the response format
-      if (!parsedData.characters || !Array.isArray(parsedData.characters)) {
-        console.error(`${logPrefix} Invalid response format:`, parsedData);
-        return [];
-      }
-
-      const characters = parsedData.characters;
-      console.log(`${logPrefix} Successfully extracted ${characters.length} characters`);
-      
-      return characters;
-    } catch (parseError) {
-      console.error(`${logPrefix} Error parsing JSON response:`, parseError);
-      console.error(`${logPrefix} Raw response:`, responseText);
+    // Extract JSON from the response text
+    const parsedData = extractJsonFromText(responseText) as GeminiCharacterResponse;
+    
+    // Validate the response format
+    if (!parsedData || !parsedData.characters || !Array.isArray(parsedData.characters)) {
+      console.error(`${logPrefix} Invalid response format:`, parsedData);
       return [];
     }
+
+    const characters = parsedData.characters;
+    console.log(`${logPrefix} Successfully extracted ${characters.length} characters`);
+    
+    return characters;
   } catch (error) {
     console.error(`${logPrefix} Error extracting characters:`, error);
     return [];

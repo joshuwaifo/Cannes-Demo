@@ -5,14 +5,9 @@
  * It runs after file upload and populates the genre dropdown.
  */
 
-import { initializeGeminiClient } from '../ai-suggestion-service';
+import { GenrePrediction } from '../../types';
+import { getAIClient, extractJsonFromText, sanitizeText } from './ai-client';
 import { GenerationConfig } from '@google/generative-ai';
-
-interface GenrePredictionResponse {
-  primaryGenre: string;
-  secondaryGenres: string[];
-  confidence: number;
-}
 
 /**
  * Predicts the genre of a script using Gemini AI
@@ -22,7 +17,7 @@ interface GenrePredictionResponse {
  */
 export async function predictScriptGenre(
   scriptContent: string,
-): Promise<GenrePredictionResponse | null> {
+): Promise<GenrePrediction | null> {
   if (!scriptContent || scriptContent.trim().length < 100) {
     console.log(
       "[Genre Agent] Script content is too short or empty. Skipping genre prediction.",
@@ -36,9 +31,11 @@ export async function predictScriptGenre(
   );
 
   try {
-    const { genAI, safetySettings } = initializeGeminiClient();
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+    // Get shared AI client
+    const { client, safetySettings, modelName } = getAIClient();
+    
+    const model = client.getGenerativeModel({
+      model: modelName,
       safetySettings,
       generationConfig: {
         responseMimeType: "application/json",
@@ -86,7 +83,7 @@ export async function predictScriptGenre(
     But don't limit yourself to these if you detect others.
 
     SCREENPLAY:
-    ${scriptContentForPrompt}
+    ${sanitizeText(scriptContentForPrompt)}
 
     Reply with ONLY a JSON object in the following format, with no additional text or explanation:
     {
@@ -102,27 +99,18 @@ export async function predictScriptGenre(
 
     console.log(`${logPrefix} Got response from Gemini, parsing JSON...`);
 
-    try {
-      // Extract JSON from the response text (in case there's surrounding text)
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : responseText;
-      
-      const parsedData: GenrePredictionResponse = JSON.parse(jsonStr);
-      
-      // Validate the response format
-      if (!parsedData.primaryGenre || !parsedData.secondaryGenres || !Array.isArray(parsedData.secondaryGenres)) {
-        console.error(`${logPrefix} Invalid response format:`, parsedData);
-        return null;
-      }
-
-      console.log(`${logPrefix} Successfully predicted genre: ${parsedData.primaryGenre}`);
-      
-      return parsedData;
-    } catch (parseError) {
-      console.error(`${logPrefix} Error parsing JSON response:`, parseError);
-      console.error(`${logPrefix} Raw response:`, responseText);
+    // Extract JSON from the response text
+    const parsedData = extractJsonFromText(responseText) as GenrePrediction;
+    
+    // Validate the response format
+    if (!parsedData || !parsedData.primaryGenre || !parsedData.secondaryGenres || !Array.isArray(parsedData.secondaryGenres)) {
+      console.error(`${logPrefix} Invalid response format:`, parsedData);
       return null;
     }
+
+    console.log(`${logPrefix} Successfully predicted genre: ${parsedData.primaryGenre}`);
+    
+    return parsedData;
   } catch (error) {
     console.error(`${logPrefix} Error predicting genre:`, error);
     return null;
