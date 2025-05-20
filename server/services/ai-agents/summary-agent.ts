@@ -5,7 +5,7 @@
  * It runs in parallel with the description agent when a character is selected.
  */
 
-import { CharacterSummary } from '../../types';
+import { CharacterSummary } from './shared-types';
 import { getAIClient, extractJsonFromText, sanitizeText } from './ai-client';
 import { GenerationConfig } from '@google/generative-ai';
 

@@ -5,7 +5,7 @@
  * It runs after file upload and populates the genre dropdown.
  */
 
-import { GenrePrediction } from '../../types';
+import { GenrePrediction } from './shared-types';
 import { getAIClient, extractJsonFromText, sanitizeText } from './ai-client';
 import { GenerationConfig } from '@google/generative-ai';
 

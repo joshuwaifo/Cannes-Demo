@@ -6,15 +6,7 @@
  * character selection dropdown.
  */
 
-// Import the ExtractedCharacter type from a shared location
-export interface ExtractedCharacter {
-  name: string;
-  estimatedAgeRange?: string;
-  gender?: string;
-  roleType?: string;
-  recommendedBudgetTier?: string;
-  description?: string;
-}
+import { ExtractedCharacter } from './shared-types';
 import { getAIClient, extractJsonFromText, sanitizeText } from './ai-client';
 import { GenerationConfig } from '@google/generative-ai';
 

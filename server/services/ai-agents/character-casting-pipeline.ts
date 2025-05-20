@@ -10,7 +10,7 @@ import { predictScriptGenre } from './genre-agent';
 import { estimateCharacterDetails } from './description-agent';
 import { generateCharacterSummary } from './summary-agent';
 import { rankActorsForCharacter, ActorRanking } from './selection-agent';
-import { ExtractedCharacter, CharacterSummary, GenrePrediction } from '../../types';
+import { ExtractedCharacter, CharacterSummary, GenrePrediction } from './shared-types';
 import { Actor as DbActor } from '@shared/schema';
 
 // Cache for character summaries to avoid redundant calls

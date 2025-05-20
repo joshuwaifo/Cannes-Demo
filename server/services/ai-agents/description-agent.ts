@@ -6,7 +6,7 @@
  * and budget tier. It runs when a character is selected in the UI.
  */
 
-import { ExtractedCharacter } from '../../types';
+import { ExtractedCharacter } from './shared-types';
 import { getAIClient, extractJsonFromText, sanitizeText } from './ai-client';
 import { GenerationConfig } from '@google/generative-ai';
 
