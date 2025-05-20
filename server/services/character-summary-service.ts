@@ -7,7 +7,12 @@
 
 import { extractCharactersWithGemini } from './file-upload-service';
 import * as storage from '../storage';
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold, GenerateContentRequest } from '@google/genai';
+import {
+  GoogleGenerativeAI,
+  HarmCategory,
+  HarmBlockThreshold,
+  GenerationConfig
+} from "@google/generative-ai";
 
 // Cache structure for storing character summaries
 interface SummaryCacheEntry {
@@ -50,7 +55,9 @@ export function cacheSummary(characterName: string, scriptId: number, summary: s
 // Clear character summary cache for a specific script
 export function clearScriptSummaryCache(scriptId: number): void {
   let count = 0;
-  for (const key of characterSummaryCache.keys()) {
+  // Convert to array first to avoid iterator issues
+  const keysArray = Array.from(characterSummaryCache.keys());
+  for (const key of keysArray) {
     if (key.startsWith(`${scriptId}:`)) {
       characterSummaryCache.delete(key);
       count++;
@@ -67,10 +74,10 @@ export function clearAllSummaryCache(): void {
 }
 
 // Initialize Gemini client
-let genAIClientInstance: GoogleGenAI | null = null;
-const MODEL_NAME = "gemini-2.5-flash-preview-04-17";
+let genAIClientInstance: GoogleGenerativeAI | null = null;
+const MODEL_NAME = "gemini-1.5-flash"; // Using Gemini 1.5 Flash for character summaries
 
-function initializeGenAIClient(): GoogleGenAI {
+function initializeGenAIClient(): GoogleGenerativeAI {
   if (genAIClientInstance) return genAIClientInstance;
   
   const apiKey = process.env.GEMINI_API_KEY;
@@ -78,7 +85,7 @@ function initializeGenAIClient(): GoogleGenAI {
     throw new Error("GEMINI_API_KEY environment variable is not set");
   }
   
-  genAIClientInstance = new GoogleGenAI(apiKey);
+  genAIClientInstance = new GoogleGenerativeAI(apiKey);
   return genAIClientInstance;
 }
 
@@ -125,6 +132,10 @@ export async function generateCharacterSummary(
           threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
         },
       ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1024,
+      } as GenerationConfig,
     });
     
     // Prepare prompt for character summary
@@ -153,18 +164,8 @@ export async function generateCharacterSummary(
     Character Summary for ${characterName}:
     `;
     
-    const request: GenerateContentRequest = {
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 1024,
-        topP: 0.8,
-        topK: 40,
-      },
-    };
-    
     console.log(`[CharSummary] Sending request to Gemini for "${characterName}"`);
-    const result = await model.generateContent(request);
+    const result = await model.generateContent(prompt);
     const summary = result.response.text().trim();
     
     // Cache the summary

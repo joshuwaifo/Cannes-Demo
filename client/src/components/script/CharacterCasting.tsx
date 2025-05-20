@@ -275,10 +275,13 @@ export default function CharacterCasting({
   onCharacterSelect
 }: CharacterCastingProps) {
   const [selectedCharacterName, setSelectedCharacterName] = useState<string | null>(null);
-  const [customGenre, setCustomGenre] = useState(filmGenre || "");
+  const [customGenre, setCustomGenre] = useState(filmGenre || "any");
   const [customRoleType, setCustomRoleType] = useState("lead");
   const [customBudgetTier, setCustomBudgetTier] = useState(projectBudgetTier || "medium");
   const [customGender, setCustomGender] = useState<string>("any");
+  const [actorAge, setActorAge] = useState<string>("");
+  const [characterSummary, setCharacterSummary] = useState<string>("");
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   
   // Track if prefetch has been initiated
   const [prefetchInitiated, setPrefetchInitiated] = useState<boolean>(false);
@@ -292,21 +295,23 @@ export default function CharacterCasting({
       const res = await apiRequest("GET", `/api/scripts/${sId}/characters`);
       return res.json();
     },
-    enabled: !!scriptId,
-    onSuccess: (data) => {
-      // Check if selected character still exists in the new data
-      if (selectedCharacterName && !data.find(c => c.name === selectedCharacterName)) {
-        setSelectedCharacterName(null);
-      }
-      
-      // Trigger prefetch of character suggestions when characters are first loaded
-      // This happens in the background and makes subsequent character selections faster
-      if (data.length > 0 && !prefetchInitiated && scriptId) {
-        setPrefetchInitiated(true);
-        triggerPrefetch(scriptId);
-      }
-    }
+    enabled: !!scriptId
   });
+  
+  // Side effects when characters data changes
+  useEffect(() => {
+    // Check if selected character still exists in the new data
+    if (selectedCharacterName && characters.length > 0 && !characters.find((c: ScriptCharacter) => c.name === selectedCharacterName)) {
+      setSelectedCharacterName(null);
+      setCharacterSummary("");
+    }
+    
+    // Trigger prefetch of character suggestions when characters are first loaded
+    if (characters.length > 0 && !prefetchInitiated && scriptId) {
+      setPrefetchInitiated(true);
+      triggerPrefetch(scriptId);
+    }
+  }, [characters, selectedCharacterName, scriptId, prefetchInitiated]);
 
   // Function to trigger background prefetch of all character suggestions
   const triggerPrefetch = async (sId: number) => {
@@ -320,9 +325,37 @@ export default function CharacterCasting({
     }
   };
 
+  // Function to get character summary when a character is selected
+  const fetchCharacterSummary = async (characterName: string) => {
+    if (!characterName || !scriptId) return;
+    
+    setIsLoadingSummary(true);
+    try {
+      const res = await apiRequest("GET", `/api/characters/${characterName}/summary?scriptId=${scriptId}`);
+      const data = await res.json();
+      setCharacterSummary(data.summary || "No character summary available.");
+    } catch (error) {
+      console.error("[CharacterCasting] Error fetching character summary:", error);
+      setCharacterSummary("Failed to load character summary.");
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  // Update character summary when character selection changes
+  useEffect(() => {
+    if (selectedCharacterName) {
+      fetchCharacterSummary(selectedCharacterName);
+    } else {
+      setCharacterSummary("");
+    }
+  }, [selectedCharacterName, scriptId]);
+
   const selectedCharacterObject = characters.find(c => c.name === selectedCharacterName);
 
   // Use React Query to get actor suggestions for the selected character
+  // We've disabled automatic fetching by setting enabled to false,
+  // so suggestions will only be loaded when the user clicks "Find Actors"
   const { 
     data: actorSuggestions = [], 
     isLoading: isLoadingActorSuggestions, 
@@ -339,10 +372,10 @@ export default function CharacterCasting({
       customRoleType,
       customBudgetTier,
       customGender,
-      selectedCharacterObject?.estimatedAgeRange
+      actorAge // Use our explicit actor age instead of estimated age
     ],
     queryFn: async ({ queryKey }) => {
-      const [, charName, currentScriptId, genre, roleType, budget, gender, charAge] = queryKey;
+      const [, charName, currentScriptId, genre, roleType, budget, gender, age] = queryKey;
       if (!charName || !currentScriptId) return [];
 
       // Use the optimized endpoint with caching
@@ -353,12 +386,16 @@ export default function CharacterCasting({
         budgetTier: budget as string,
         gender: gender as string,
       });
+      
+      // Add actor age if specified
+      if (age) {
+        params.append('actorAge', age as string);
+      }
 
       const res = await apiRequest("GET", `/api/characters/${charName}/suggest-actors?${params.toString()}`);
       return res.json();
     },
-    enabled: !!selectedCharacterName && !!scriptId,
-    // Add shorter staleTime to take advantage of server-side caching
+    enabled: false, // Disable automatic fetching - user must click "Find Actors" button
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
   });
 
@@ -435,23 +472,49 @@ export default function CharacterCasting({
 
       {selectedCharacterObject && (
         <Card className="bg-muted/50 p-3 border-dashed">
-            <div className="flex justify-between items-center">
-                <CardDescription className="text-xs mb-2">Refine search criteria for "{selectedCharacterObject.name}"</CardDescription>
-                {selectedCharacterObject.estimatedAgeRange && (
-                    <div className="text-xs text-muted-foreground mb-2 flex items-center">
-                        <UserCircle2 className="h-3.5 w-3.5 mr-1" />
-                        AI Est. Age: {selectedCharacterObject.estimatedAgeRange}
-                    </div>
-                )}
-            </div>
-            <div className="grid grid-cols-2 gap-2 mb-2">
+            <CardDescription className="text-xs mb-2">Refine search criteria for "{selectedCharacterObject.name}"</CardDescription>
+            
+            {/* Character Summary */}
+            {isLoadingSummary ? (
+                <div className="mb-3 p-2 border rounded bg-muted/30">
+                    <Skeleton className="h-4 w-full mb-1" />
+                    <Skeleton className="h-4 w-4/5 mb-1" />
+                    <Skeleton className="h-4 w-5/6" />
+                </div>
+            ) : characterSummary ? (
+                <div className="mb-3 p-2 border rounded bg-muted/30 text-xs text-muted-foreground leading-snug max-h-[120px] overflow-y-auto">
+                    <p>{characterSummary}</p>
+                </div>
+            ) : null}
+            
+            <div className="grid grid-cols-2 gap-2 mb-3">
                 <div>
                     <Label htmlFor="cast-genre" className="text-xs">Genre</Label>
-                    <Input id="cast-genre" value={customGenre} onChange={e => setCustomGenre(e.target.value)} placeholder="e.g., Action, Drama"/>
+                    <Select 
+                        value={customGenre} 
+                        onValueChange={(value: string) => setCustomGenre(value)}
+                    >
+                        <SelectTrigger id="cast-genre"><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="any">Any Genre</SelectItem>
+                            <SelectItem value="action">Action</SelectItem>
+                            <SelectItem value="comedy">Comedy</SelectItem>
+                            <SelectItem value="drama">Drama</SelectItem>
+                            <SelectItem value="sci-fi">Sci-Fi</SelectItem>
+                            <SelectItem value="horror">Horror</SelectItem>
+                            <SelectItem value="romance">Romance</SelectItem>
+                            <SelectItem value="thriller">Thriller</SelectItem>
+                            <SelectItem value="fantasy">Fantasy</SelectItem>
+                            <SelectItem value="adventure">Adventure</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
                 <div>
                     <Label htmlFor="cast-role" className="text-xs">Role Type</Label>
-                     <Select value={customRoleType} onValueChange={setCustomRoleType}>
+                     <Select 
+                        value={customRoleType} 
+                        onValueChange={(value: string) => setCustomRoleType(value)}
+                     >
                         <SelectTrigger id="cast-role"><SelectValue/></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="lead">Lead</SelectItem>
@@ -462,7 +525,10 @@ export default function CharacterCasting({
                 </div>
                 <div>
                     <Label htmlFor="cast-gender" className="text-xs">Gender</Label>
-                     <Select value={customGender} onValueChange={setCustomGender}>
+                     <Select 
+                        value={customGender} 
+                        onValueChange={(value: string) => setCustomGender(value)}
+                     >
                         <SelectTrigger id="cast-gender"><SelectValue placeholder="Any gender" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="male">Male</SelectItem>
@@ -474,7 +540,10 @@ export default function CharacterCasting({
                 </div>
                 <div>
                      <Label htmlFor="cast-budget" className="text-xs">Budget Tier</Label>
-                     <Select value={customBudgetTier} onValueChange={setCustomBudgetTier}>
+                     <Select 
+                        value={customBudgetTier} 
+                        onValueChange={(value: string) => setCustomBudgetTier(value)}
+                     >
                         <SelectTrigger id="cast-budget"><SelectValue/></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="low">Low (e.g., &lt;$1M)</SelectItem>
@@ -484,8 +553,29 @@ export default function CharacterCasting({
                         </SelectContent>
                     </Select>
                 </div>
+                <div>
+                    <Label htmlFor="actor-age" className="text-xs">Actor Age</Label>
+                    <Input 
+                        id="actor-age" 
+                        value={actorAge} 
+                        onChange={(e) => {
+                            // Only allow numerical input
+                            const value = e.target.value.replace(/[^0-9]/g, '');
+                            setActorAge(value);
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="e.g., 35"
+                    />
+                </div>
             </div>
-            <Button onClick={handleSearchActors} size="sm" disabled={isFetchingActorSuggestions || !selectedCharacterName || !scriptId}>
+            <Button 
+                onClick={handleSearchActors} 
+                size="sm" 
+                disabled={isFetchingActorSuggestions || !selectedCharacterName || !scriptId}
+                className="w-full"
+            >
                 <UserSearch className="h-4 w-4 mr-1"/>
                 {isFetchingActorSuggestions ? "Searching..." : "Find Actors"}
             </Button>
