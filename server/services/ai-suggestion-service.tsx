@@ -312,26 +312,15 @@ Ensure the output is a single, clean JSON object without any surrounding text or
         }
 
         try {
-            // Attempt to fix common JSON errors before parsing
-            let fixedJson = cleanJsonText;
-            
-            // Fix 1: Remove text between the end of a property value and the next comma or bracket
-            fixedJson = fixedJson.replace(/"matchReason"\s*:\s*"([^"]*)"\s*[^,}\]]*([,}\]])/g, '"matchReason": "$1"$2');
-            fixedJson = fixedJson.replace(/"confidenceScore"\s*:\s*([0-9.]+)\s*[^,}\]]*([,}\]])/g, '"confidenceScore": $1$2');
-            
-            // Log the cleaned JSON
-            console.log(`${logPrefix} Attempting to parse fixed JSON:`, fixedJson.substring(0, 100) + '...');
-            
             const parsedResponse: GeminiActorSuggestionResponse =
-                JSON.parse(fixedJson);
-            
+                JSON.parse(cleanJsonText);
             if (
                 !parsedResponse.suggestedActors ||
                 !Array.isArray(parsedResponse.suggestedActors)
             ) {
                 console.error(
                     `${logPrefix} Format error after cleaning. Cleaned JSON:`,
-                    fixedJson,
+                    cleanJsonText,
                     "Original Raw:",
                     rawResponseText,
                 );
