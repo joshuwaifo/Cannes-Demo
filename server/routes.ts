@@ -19,9 +19,10 @@ import {
 import {
     suggestActorsForCharacterViaGemini,
     ActorAISuggestion,
-    suggestLocationsForScriptViaGemini, // Import the new function
+    suggestLocationsForScriptViaGemini,
     LocationAISuggestion,
 } from "./services/ai-suggestion-service";
+import { registerCharacterCastingRoutes } from "./routes/character-casting-routes";
 import { z } from "zod";
 import {
     insertProductSchema,
@@ -194,6 +195,9 @@ async function _generateAndSaveSceneVariationsForRoute(
 
 export async function registerRoutes(app: Express): Promise<Server> {
     const apiPrefix = "/api";
+    
+    // Register modular character casting routes with our AI agents
+    registerCharacterCastingRoutes(app, apiPrefix);
 
     // --- Actor Routes ---
     app.get(`${apiPrefix}/actors`, async (req, res, next) => {
