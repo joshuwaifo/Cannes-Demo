@@ -1,0 +1,81 @@
+// AI-Enhanced Actor Suggestion Workflow Refactor
+
+/*
+Overview:
+You are to refactor the Character Casting Suggestions workflow into a modular pipeline
+using specialized AI agents and cached inference. The script parsing, genre prediction,
+role analysis, and actor suggestion must happen as separate agents working in parallel
+and sequenced only where necessary.
+
+Keep the existing Gemini AI logic, model version, and selection result rendering logic intact.
+Do not suggest actors until "Find Actors" is clicked.
+*/
+
+// -----------------------------
+// TASK 1: Character Extraction Agent
+// -----------------------------
+/*
+- Extract all character names from the uploaded script using an AI agent named `extraction agent`
+- Populate the dropdown for character selection with these names
+- Run this immediately after file upload completes
+*/
+
+// -----------------------------
+// TASK 2: Genre Prediction Agent
+// -----------------------------
+/*
+- Use another AI agent (`genre agent`) to predict the genre of the uploaded script
+- Populate the genre dropdown with the predicted genre
+- The dropdown must remain editable so the user can select a different genre if needed
+*/
+
+// -----------------------------
+// TASK 3: Character Role Pre-fill (description agent)
+// -----------------------------
+/*
+- When a user selects a character, run an AI agent (`description agent`) to estimate:
+  - Role Type (e.g., Lead, Supporting)
+  - Estimated Age (as integer)
+  - Gender
+  - Budget Tier
+- Use this information to prefill the right-hand search criteria inputs
+- Store the output in an in-memory cache (e.g., Map) for later use
+*/
+
+// -----------------------------
+// TASK 4: Summary Agent
+// -----------------------------
+/*
+- Still on character selection, in parallel with description agent,
+  use `summary agent` to generate a concise summary of the character
+- Store this summary in the same cache (keyed by character name)
+- This will be used later in actor ranking
+*/
+
+// -----------------------------
+// TASK 5: Actor Database Filtering
+// -----------------------------
+/*
+- When the user clicks "Find Actors", filter actors from the existing database
+  based on the filled search criteria (role type, gender, age range, budget tier)
+- Do not call any AI model here; use pure logic-based filtering
+*/
+
+// -----------------------------
+// TASK 6: Selection Agent Ranking
+// -----------------------------
+/*
+- After getting matched actor names, pass them along with the character summary
+  to the AI agent `selection agent`
+- Ask the agent to return the top 3 actors and include a justification for each
+- Display them using the existing logic for actor suggestions
+*/
+
+// -----------------------------
+// TASK 7: Final Integration
+// -----------------------------
+/*
+- Ensure that actor suggestions only occur when "Find Actors" is clicked
+- Retain all the styling, selection, and summary update logic
+- The AI calls must exclusively use the existing Gemini import and MODEL_NAME
+*/
