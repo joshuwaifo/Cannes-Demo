@@ -1,0 +1,209 @@
+[Gemini Characters] Starting character extraction and age estimation from script (length: 144256).
+[Gemini Characters] Successfully extracted 30 unique characters with age estimates.
+[Storage/ActorFilter] DB Query Criteria: minBY=undefined, maxBY=undefined, STRICT GENDER (if specified):'undefined'. Conditions count: 0
+[Storage/ActorFilter] Found 100 actors after DB pre-filtering.
+[Gemini Actor Suggest for "SIMON" (Age: Adult, TargetCastingGender: Any)] Sending request to Gemini with 100 pre-filtered actors. Target Casting Gender for AI: Any
+[Gemini Actor Suggest for "RAUL" (Age: Adult, TargetCastingGender: Any)] Received 5 valid suggestions.
+[Prefetch] Successfully prefetched suggestions for "RAUL"
+[Cache Miss] Generating new actor suggestions for "SIMON"
+[Gemini Characters] Starting character extraction and age estimation from script (length: 144256).
+1:33:56 PM [express] GET /api/characters/MILES/summary 200 in 11ms
+[Gemini Characters] Successfully extracted 32 unique characters with age estimates.
+[Storage/ActorFilter] DB Query Criteria: minBY=undefined, maxBY=undefined, STRICT GENDER (if specified):'undefined'. Conditions count: 0
+[Storage/ActorFilter] Found 100 actors after DB pre-filtering.
+[Gemini Actor Suggest for "SIMON" (Age: Adult, TargetCastingGender: Any)] Sending request to Gemini with 100 pre-filtered actors. Target Casting Gender for AI: Any
+[Gemini Actor Suggest for "SIMON" (Age: Adult, TargetCastingGender: Any)] Received 5 valid suggestions.
+[Prefetch] Processing character "MIKE ERGANIAN"
+[Gemini Characters] Starting character extraction and age estimation from script (length: 144256).
+[Gemini Characters] Successfully extracted 25 unique characters with age estimates.
+[Storage/ActorFilter] DB Query Criteria: minBY=1973, maxBY=1977, STRICT GENDER (if specified):'undefined'. Conditions count: 3
+[Storage/ActorFilter] Found 56 actors after DB pre-filtering.
+[Gemini Actor Suggest for "MIKE ERGANIAN" (Age: around 50, TargetCastingGender: Any)] Sending request to Gemini with 56 pre-filtered actors. Target Casting Gender for AI: Any
+[Gemini Actor Suggest for "SIMON" (Age: Adult, TargetCastingGender: Any)] Received 5 valid suggestions.
+[Prefetch] Successfully prefetched suggestions for "SIMON"
+[Cache Miss] Generating new actor suggestions for "MIKE ERGANIAN"
+[Gemini Characters] Starting character extraction and age estimation from script (length: 144256).
+[Gemini Characters] Successfully extracted 25 unique characters with age estimates.
+[Storage/ActorFilter] DB Query Criteria: minBY=1973, maxBY=1977, STRICT GENDER (if specified):'undefined'. Conditions count: 3
+[Storage/ActorFilter] Found 56 actors after DB pre-filtering.
+[Gemini Actor Suggest for "MIKE ERGANIAN" (Age: around 50, TargetCastingGender: Any)] Sending request to Gemini with 56 pre-filtered actors. Target Casting Gender for AI: Any
+[Gemini Actor Suggest for "MIKE ERGANIAN" (Age: around 50, TargetCastingGender: Any)] Received 5 valid suggestions.
+[Prefetch] Processing character "CHRISTINE ERGANIAN"
+[Gemini Characters] Starting character extraction and age estimation from script (length: 144256).
+[Route Actor Suggestion for "MILES" in Script 323] Using optimized character suggestion service with caching
+[Cache Miss] Generating new actor suggestions for "MILES"
+[Gemini Characters] Starting character extraction and age estimation from script (length: 144256).
+[Gemini Actor Suggest for "MIKE ERGANIAN" (Age: around 50, TargetCastingGender: Any)] Received 5 valid suggestions.
+[Prefetch] Successfully prefetched suggestions for "MIKE ERGANIAN"
+[Cache Miss] Generating new actor suggestions for "CHRISTINE ERGANIAN"
+[Gemini Characters] Successfully extracted 30 unique characters with age estimates.
+[Storage/ActorFilter] DB Query Criteria: minBY=undefined, maxBY=undefined, STRICT GENDER (if specified):'undefined'. Conditions count: 0
+[Gemini Characters] Starting character extraction and age estimation from script (length: 144256).
+[Storage/ActorFilter] Found 100 actors after DB pre-filtering.
+[Gemini Actor Suggest for "CHRISTINE ERGANIAN" (Age: Adult, TargetCastingGender: Any)] Sending request to Gemini with 100 pre-filtered actors. Target Casting Gender for AI: Any
+[Gemini Characters] Successfully extracted 32 unique characters with age estimates.
+[Storage/ActorFilter] DB Query Criteria: minBY=1979, maxBY=1986, STRICT GENDER (if specified):'male'. Conditions count: 4
+[Storage/ActorFilter] Found 37 actors after DB pre-filtering.
+[Gemini Actor Suggest for "MILES" (Age: 40-45, TargetCastingGender: male)] Sending request to Gemini with 37 pre-filtered actors. Target Casting Gender for AI: male
+[Gemini Characters] Successfully extracted 29 unique characters with age estimates.
+[Storage/ActorFilter] DB Query Criteria: minBY=undefined, maxBY=undefined, STRICT GENDER (if specified):'undefined'. Conditions count: 0
+[Storage/ActorFilter] Found 100 actors after DB pre-filtering.
+[Gemini Actor Suggest for "CHRISTINE ERGANIAN" (Age: Adult, TargetCastingGender: Any)] Sending request to Gemini with 100 pre-filtered actors. Target Casting Gender for AI: Any
+[Gemini Actor Suggest for "MILES" (Age: 40-45, TargetCastingGender: male)] Parse JSON error after cleaning. Cleaned JSON: {
+  "suggestedActors": [
+    {
+      "actorName": "Aaron Paul",
+      "matchReason": "Aaron Paul is a male actor whose DOB (1979) places him at approximately 44 years old, fitting squarely within the 40-45 age range. His salary tier as an Established Lead aligns well with a medium budget, making him a suitable candidate for a lead role based on age, gender, and budget criteria.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.9
+     instigated... ---
+    },
+    {
+      "actorName": "Diego Luna",
+      "matchReason": "Diego Luna is a male actor born in 1979, making him about 43 years old, fitting perfectly within the 40-45 age range. His status as an Established Lead with a salary in the $2M+ range fits the medium budget requirement for a lead role.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.9
+    },
+    {
+      "actorName": "James McAvoy",
+      "matchReason": "James McAvoy is a male actor born in 1979, approximately 44 years old, fitting the 40-45 age range. His Established Lead salary ($3M-$8M+) is suitable for a medium budget production requiring a lead actor with significant range and intensity.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.92
+    },
+    {
+      "actorName": "Steven Yeun",
+      "matchReason": "Steven Yeun is a male actor born in 1983, around 40 years old, which is within the specified 40-45 age range. As an Established Lead ($1M+ salary), he fits the medium budget tier and is highly regarded for his versatile dramatic performances, suitable for an unspecified lead role.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.93
+    },
+    {
+      "actorName": "Riz Ahmed",
+      "matchReason": "Riz Ahmed is a male actor born in 1982, making him about 41 years old, fitting the 40-45 age range. His salary as an Established Lead ($1M+) is appropriate for a medium budget, and he is known for bringing intensity and depth to lead roles.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.91
+    }
+  ]
+} Original Raw: ```json
+{
+  "suggestedActors": [
+    {
+      "actorName": "Aaron Paul",
+      "matchReason": "Aaron Paul is a male actor whose DOB (1979) places him at approximately 44 years old, fitting squarely within the 40-45 age range. His salary tier as an Established Lead aligns well with a medium budget, making him a suitable candidate for a lead role based on age, gender, and budget criteria.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.9
+     instigated... ---
+    },
+    {
+      "actorName": "Diego Luna",
+      "matchReason": "Diego Luna is a male actor born in 1979, making him about 43 years old, fitting perfectly within the 40-45 age range. His status as an Established Lead with a salary in the $2M+ range fits the medium budget requirement for a lead role.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.9
+    },
+    {
+      "actorName": "James McAvoy",
+      "matchReason": "James McAvoy is a male actor born in 1979, approximately 44 years old, fitting the 40-45 age range. His Established Lead salary ($3M-$8M+) is suitable for a medium budget production requiring a lead actor with significant range and intensity.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.92
+    },
+    {
+      "actorName": "Steven Yeun",
+      "matchReason": "Steven Yeun is a male actor born in 1983, around 40 years old, which is within the specified 40-45 age range. As an Established Lead ($1M+ salary), he fits the medium budget tier and is highly regarded for his versatile dramatic performances, suitable for an unspecified lead role.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.93
+    },
+    {
+      "actorName": "Riz Ahmed",
+      "matchReason": "Riz Ahmed is a male actor born in 1982, making him about 41 years old, fitting the 40-45 age range. His salary as an Established Lead ($1M+) is appropriate for a medium budget, and he is known for bringing intensity and depth to lead roles.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.91
+    }
+  ]
+}
+``` Parse Error: SyntaxError: Expected ',' or '}' after property value in JSON at position 451
+    at JSON.parse (<anonymous>)
+    at suggestActorsForCharacterViaGemini (/home/runner/workspace/server/services/ai-suggestion-service.tsx:316:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async getActorSuggestionsWithCaching (/home/runner/workspace/server/services/character-suggestion-optimizer.ts:89:23)
+    at async <anonymous> (/home/runner/workspace/server/routes.ts:930:39)
+[Route Actor Suggestion for "MILES" in Script 323] No suggestions found for character
+1:35:24 PM [express] GET /api/characters/MILES/suggest-actors 200 in 29657ms :: []
+[Gemini Actor Suggest for "CHRISTINE ERGANIAN" (Age: Adult, TargetCastingGender: Any)] Parse JSON error after cleaning. Cleaned JSON: {
+  "suggestedActors": [
+    {
+      "actorName": "Alicia Vikander",
+      "matchReason": "Fits the 'Adult' age range and 'medium' budget as an established lead; offers versatility and nuanced performance suitable for a lead role; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.9
+     Menzies.
+    },
+    {
+      "actorName": "Alison Brie",
+      "matchReason": "Fits the 'Adult' age range and 'medium' budget as an established lead; known for versatility across comedy and drama, suitable for an undefined lead character; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.88
+    },
+    {
+      "actorName": "Allison Janney",
+      "matchReason": "A highly capable established lead fitting the 'medium' budget; offers strength and versatility ideal for an 'Adult' lead role; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.87
+    },
+    {
+      "actorName": "Carey Mulligan",
+      "matchReason": "Fits the 'Adult' age range and 'medium' budget as a highly acclaimed lead; provides depth and nuance suitable for a character-driven lead role; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.89
+    },
+    {
+      "actorName": "Annette Bening",
+      "matchReason": "A respected established lead fitting the 'medium' budget; offers sophistication and complexity suitable for an 'Adult' lead role; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.86
+    }
+  ]
+} Original Raw: ```json
+{
+  "suggestedActors": [
+    {
+      "actorName": "Alicia Vikander",
+      "matchReason": "Fits the 'Adult' age range and 'medium' budget as an established lead; offers versatility and nuanced performance suitable for a lead role; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.9
+     Menzies.
+    },
+    {
+      "actorName": "Alison Brie",
+      "matchReason": "Fits the 'Adult' age range and 'medium' budget as an established lead; known for versatility across comedy and drama, suitable for an undefined lead character; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.88
+    },
+    {
+      "actorName": "Allison Janney",
+      "matchReason": "A highly capable established lead fitting the 'medium' budget; offers strength and versatility ideal for an 'Adult' lead role; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.87
+    },
+    {
+      "actorName": "Carey Mulligan",
+      "matchReason": "Fits the 'Adult' age range and 'medium' budget as a highly acclaimed lead; provides depth and nuance suitable for a character-driven lead role; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.89
+    },
+    {
+      "actorName": "Annette Bening",
+      "matchReason": "A respected established lead fitting the 'medium' budget; offers sophistication and complexity suitable for an 'Adult' lead role; gender aligns with the common interpretation of the name Christine.",
+      "controversyLevel": "none",
+      "confidenceScore": 0.86
+    }
+  ]
+}
+``` Parse Error: SyntaxError: Expected ',' or '}' after property value in JSON at position 369
+    at JSON.parse (<anonymous>)
+    at suggestActorsForCharacterViaGemini (/home/runner/workspace/server/services/ai-suggestion-service.tsx:316:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async getCachedCharacterSuggestion (/home/runner/workspace/server/services/character-batch-service.ts:128:23)
+    at async Module.prefetchScriptCharacterSuggestions (/home/runner/workspace/server/services/character-batch-service.ts:183:9)
+[Prefetch] Successfully prefetched suggestions for 5 main characters
+[Gemini Actor Suggest for "CHRISTINE ERGANIAN" (Age: Adult, TargetCastingGender: Any)] Received 5 valid suggestions.
+[Prefetch] Successfully prefetched suggestions for "CHRISTINE ERGANIAN"
+[Prefetch] Completed prefetching for script 323
