@@ -639,7 +639,7 @@
 // export async function getActorsForAISuggestionByCriteria(criteria: {
 //   minBirthYear?: number;
 //   maxBirthYear?: number;
-//   gender?: string;
+//   gender?: string; // This is the gender from the UI or a derived one
 //   limit?: number;
 //   estimatedAgeRange?: string; // Added to receive character's age range
 // }): Promise<Actor[]> {
@@ -691,14 +691,18 @@
 //     );
 //   }
 
+//   // *** CRUCIAL GENDER FILTER CHANGE HERE ***
 //   if (
 //     gender &&
 //     gender.toLowerCase() !== "any" &&
 //     gender.toLowerCase() !== "all" &&
 //     gender.toLowerCase() !== "unknown"
 //   ) {
+//     // If a specific gender is passed (e.g., "Female" from UI), strictly filter by it.
 //     conditions.push(sql`lower(${actors.gender}) = ${gender.toLowerCase()}`);
 //   }
+//   // If gender is 'any', 'all', 'unknown', or undefined, no gender condition is added at this DB stage,
+//   // allowing a broader pool for the AI, which will then be instructed on gender preference.
 
 //   let query = db.select().from(actors).$dynamic();
 //   if (conditions.length > 0) {
@@ -706,11 +710,11 @@
 //   }
 
 //   console.log(
-//     `[Storage/ActorFilter] Criteria: minBY=${minBirthYear}, maxBY=${maxBirthYear}, gender=${gender}. Conditions count: ${conditions.length}`,
+//     `[Storage/ActorFilter] DB Query Criteria: minBY=${minBirthYear}, maxBY=${maxBirthYear}, STRICT GENDER (if specified):'${gender}'. Conditions count: ${conditions.length}`,
 //   );
 //   const results = await query.orderBy(asc(actors.name)).limit(limit);
 //   console.log(
-//     `[Storage/ActorFilter] Found ${results.length} actors after pre-filtering.`,
+//     `[Storage/ActorFilter] Found ${results.length} actors after DB pre-filtering.`,
 //   );
 //   return results;
 // }
@@ -841,22 +845,22 @@
 import { db } from "@db";
 import {
   products,
-  scripts,
+  scripts, // Ensure scripts is imported
   scenes,
   sceneVariations,
   actors,
   locations,
   insertProductSchema,
-  insertScriptSchema,
+  insertScriptSchema, // Ensure insertScriptSchema is imported
   insertSceneSchema,
   insertSceneVariationSchema,
   insertActorSchema,
   insertLocationSchema,
   Product,
   ProductCategory,
-  Script,
+  Script, // Ensure Script type is imported
   Scene,
-  SceneVariation, // Base type from schema
+  SceneVariation, 
   Actor,
   Location,
 } from "@shared/schema";
@@ -874,10 +878,11 @@ import {
   lte,
   placeholder,
   ilike,
-} from "drizzle-orm"; // Added or, gte, lte, ilike
+} from "drizzle-orm";
 import { ZodError } from "zod";
 
 // --- Utility: Get Product for Scene Variation ---
+// ... (getProductForVariation remains the same)
 async function getProductForVariation(
   productId: number,
 ): Promise<Product | null> {
@@ -889,7 +894,9 @@ async function getProductForVariation(
   return result.length > 0 ? result[0] : null;
 }
 
+
 // --- Products ---
+// ... (Product functions remain the same)
 export async function getProducts(
   options: {
     search?: string;
@@ -995,6 +1002,7 @@ export async function deleteProduct(id: number): Promise<boolean> {
   return result.length > 0;
 }
 
+
 // --- Scripts ---
 export async function getCurrentScript(): Promise<Script | null> {
   const result = await db
@@ -1004,6 +1012,7 @@ export async function getCurrentScript(): Promise<Script | null> {
     .limit(1);
   return result.length > 0 ? result[0] : null;
 }
+
 export async function getScriptById(id: number): Promise<Script | null> {
   const result = await db
     .select()
@@ -1012,31 +1021,50 @@ export async function getScriptById(id: number): Promise<Script | null> {
     .limit(1);
   return result.length > 0 ? result[0] : null;
 }
+
+// --- BEGIN MODIFICATION (Task 1.2) ---
 export async function createScript(
-  data: Omit<Script, "id" | "createdAt" | "updatedAt">,
+  data: Omit<Script, "id" | "createdAt" | "updatedAt"> & {
+    expectedReleaseDate?: string | null;
+    totalBudget?: number | null;
+  },
 ): Promise<Script> {
   try {
-    const validatedData = insertScriptSchema.parse({ ...data });
+    // The insertScriptSchema from shared/schema.ts already includes these new fields as optional
+    // So, we can directly parse the data object.
+    const validatedData = insertScriptSchema.parse({
+      title: data.title,
+      content: data.content,
+      expectedReleaseDate: data.expectedReleaseDate, // Will be undefined or null if not provided
+      totalBudget: data.totalBudget, // Will be undefined or null if not provided
+    });
+
     const result = await db.insert(scripts).values(validatedData).returning();
     return result[0];
   } catch (e) {
     if (e instanceof ZodError) {
+      console.error("Zod validation error in createScript:", e.errors);
       throw new Error(
-        `Validation error: ${e.errors.map((err: any) => `${err.path.join(".")}: ${err.message}`).join(", ")}`,
+        `Validation error creating script: ${e.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join(", ")}`,
       );
     }
+    console.error("Error in createScript:", e);
     throw e;
   }
 }
+// --- END MODIFICATION (Task 1.2) ---
+
 export async function updateScript(
   id: number,
   data: Partial<Omit<Script, "id" | "createdAt">>,
 ): Promise<Script | null> {
   try {
-    const partialSchema = insertScriptSchema
+    // Ensure the partial schema also considers the new optional fields if they can be updated
+    const partialSchema = insertScriptSchema 
       .partial()
       .omit({ id: true, createdAt: true, updatedAt: true });
     const validatedUpdateData = partialSchema.parse(data);
+
     const result = await db
       .update(scripts)
       .set({ ...validatedUpdateData, updatedAt: new Date() })
@@ -1046,18 +1074,20 @@ export async function updateScript(
   } catch (e) {
     if (e instanceof ZodError) {
       throw new Error(
-        `Validation error: ${e.errors.map((err: any) => `${err.path.join(".")}: ${err.message}`).join(", ")}`,
+        `Validation error updating script: ${e.errors.map((err) => `${err.path.join(".")}: ${err.message}`).join(", ")}`,
       );
     }
     throw e;
   }
 }
+
 export async function deleteScript(id: number): Promise<boolean> {
   const result = await db.delete(scripts).where(eq(scripts.id, id)).returning();
   return result.length > 0;
 }
 
 // --- Scenes ---
+// ... (Scene functions remain the same)
 export async function getScenesByScriptId(scriptId: number): Promise<Scene[]> {
   return await db
     .select()
@@ -1125,7 +1155,9 @@ export async function deleteScene(id: number): Promise<boolean> {
   return result.length > 0;
 }
 
+
 // --- Scene Variations ---
+// ... (SceneVariation functions remain the same)
 export async function getSceneVariations(
   sceneId: number,
 ): Promise<SceneVariation[]> {
@@ -1279,7 +1311,7 @@ export async function selectVariation(
       if (result.length > 0) {
         const productDetails = await getProductForVariation(
           result[0].productId,
-        ); // Use non-transactional db for this read, or pass tx if product needs to be in same tx
+        );
         return {
           ...result[0],
           productName: productDetails?.name,
@@ -1296,7 +1328,9 @@ export async function selectVariation(
   }
 }
 
+
 // --- Product Matching ---
+// ... (getTopMatchingProductsForScene remains the same)
 export async function getTopMatchingProductsForScene(
   sceneId: number,
   suggestedCategories: ProductCategory[],
@@ -1352,7 +1386,9 @@ export async function getTopMatchingProductsForScene(
   }
 }
 
+
 // --- Actors ---
+// ... (Actor functions remain the same, except getActorsForAISuggestionByCriteria if modified for age)
 export async function getActors(
   options: {
     search?: string;
@@ -1478,30 +1514,29 @@ export async function getActorByName(name: string): Promise<Actor | null> {
 export async function getActorsForAISuggestionByCriteria(criteria: {
   minBirthYear?: number;
   maxBirthYear?: number;
-  gender?: string; // This is the gender from the UI or a derived one
+  gender?: string;
   limit?: number;
-  estimatedAgeRange?: string; // Added to receive character's age range
+  estimatedAgeRange?: string;
 }): Promise<Actor[]> {
   const { gender, limit = 60, estimatedAgeRange } = criteria;
-  let { minBirthYear, maxBirthYear } = criteria; // Make mutable
+  let { minBirthYear, maxBirthYear } = criteria;
 
   const conditions = [];
   const currentYear = new Date().getFullYear();
 
   if (!minBirthYear && !maxBirthYear && estimatedAgeRange) {
-    // Calculate birth year range from estimatedAgeRange if not directly provided
     const ageParts = estimatedAgeRange.match(/\d+/g);
     if (ageParts && ageParts.length === 1) {
       const age = parseInt(ageParts[0]);
       if (!isNaN(age)) {
-        minBirthYear = currentYear - age - 2; // Tighter buffer: +/- 2 years
+        minBirthYear = currentYear - age - 2;
         maxBirthYear = currentYear - age + 2;
       }
     } else if (ageParts && ageParts.length >= 2) {
       const minAge = parseInt(ageParts[0]);
       const maxAge = parseInt(ageParts[ageParts.length - 1]);
       if (!isNaN(minAge) && !isNaN(maxAge)) {
-        minBirthYear = currentYear - maxAge - 1; // Tighter buffer: +/- 1 year for ranges
+        minBirthYear = currentYear - maxAge - 1;
         maxBirthYear = currentYear - minAge + 1;
       }
     } else if (estimatedAgeRange.toLowerCase().includes("teen")) {
@@ -1523,42 +1558,33 @@ export async function getActorsForAISuggestionByCriteria(criteria: {
       sql`CAST(SUBSTRING(${actors.dateOfBirth}, 1, 4) AS INTEGER) <= ${maxBirthYear}`,
     );
   }
-  // Ensure dateOfBirth is not null or empty if we are filtering by it
   if (minBirthYear || maxBirthYear) {
     conditions.push(
       sql`${actors.dateOfBirth} IS NOT NULL AND ${actors.dateOfBirth} != ''`,
     );
   }
 
-  // *** CRUCIAL GENDER FILTER CHANGE HERE ***
   if (
     gender &&
     gender.toLowerCase() !== "any" &&
     gender.toLowerCase() !== "all" &&
     gender.toLowerCase() !== "unknown"
   ) {
-    // If a specific gender is passed (e.g., "Female" from UI), strictly filter by it.
     conditions.push(sql`lower(${actors.gender}) = ${gender.toLowerCase()}`);
   }
-  // If gender is 'any', 'all', 'unknown', or undefined, no gender condition is added at this DB stage,
-  // allowing a broader pool for the AI, which will then be instructed on gender preference.
 
   let query = db.select().from(actors).$dynamic();
   if (conditions.length > 0) {
     query = query.where(and(...conditions));
   }
 
-  console.log(
-    `[Storage/ActorFilter] DB Query Criteria: minBY=${minBirthYear}, maxBY=${maxBirthYear}, STRICT GENDER (if specified):'${gender}'. Conditions count: ${conditions.length}`,
-  );
   const results = await query.orderBy(asc(actors.name)).limit(limit);
-  console.log(
-    `[Storage/ActorFilter] Found ${results.length} actors after DB pre-filtering.`,
-  );
   return results;
 }
 
+
 // --- Locations ---
+// ... (Location functions remain the same)
 export async function getLocations(
   options: {
     search?: string;
@@ -1672,7 +1698,6 @@ export async function deleteLocation(id: number): Promise<boolean> {
     .returning();
   return result.length > 0;
 }
-// New function for AI Location Suggestion
 export async function getAllLocationsForAISuggestion(): Promise<Location[]> {
   return await db
     .select()
