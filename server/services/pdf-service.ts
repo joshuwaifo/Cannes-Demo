@@ -207,62 +207,75 @@ function createFallbackScenes(scriptText: string): ExtractedScene[] {
 //   return scenes;
 // }
 
+type ExtractedScene = {
+  sceneNumber: number;
+  heading: string;
+  content: string;
+};
+
 function extractScenes(scriptText: string): ExtractedScene[] {
-  const sceneHeadingRegex = /\b(INT\.?|EXT\.?|INT\.?\/EXT\.?|I\/E\.?)[\s\.\-]+(.*?)(?:\s*-\s*|\s+)(DAY|NIGHT|MORNING|EVENING|AFTERNOON|DAWN|DUSK|LATER|CONTINUOUS|MOMENTS LATER|SAME TIME)(?:\b|$)/gi;
-  const numberedSceneRegex = /^\s*\d+[\.\)]?\s+(.*?)(\s{2,}|$)/gm; // NEW: Matches "1. INT. LOCATION - TIME" or "1 INT. LOCATION" etc.
+  const sceneHeadingRegex = /\b(?:\d+\.\s*)?(INT\.?|EXT\.?|I\/E\.?|INT\/EXT\.?)[\s\.\-]+(.*?)(?:\s*[-\s]+\s*)(DAY|NIGHT|EVENING|MORNING|AFTERNOON|DUSK|DAWN|LATER|CONTINUOUS|MOMENTS LATER|SAME TIME)?\b/gi;
+  const looseNumberedSceneRegex = /^\s*(\d+)[\.\)]\s+(?!INT\.?|EXT\.?|I\/E\.?|INT\/EXT\.?)([^\n]+)$/gim;
 
-  const scenes: ExtractedScene[] = [];
-  let allMatches: { index: number, heading: string }[] = [];
-  let match;
-  let sceneNumber = 1;
+  type MatchInfo = { index: number; heading: string };
+  const allMatches: MatchInfo[] = [];
+  let match: RegExpExecArray | null;
 
+  const seenIndices = new Set<number>();
+
+  // Match standard and semi-standard scene headings
   while ((match = sceneHeadingRegex.exec(scriptText)) !== null) {
-    allMatches.push({
-      index: match.index,
-      heading: match[0].trim()
-    });
-  }
-
-  while ((match = numberedSceneRegex.exec(scriptText)) !== null) {
-    const heading = match[0].trim();
-    // Avoid duplicates: ignore if this line contains INT/EXT (already caught)
-    if (!/\bINT\.?|EXT\.?/i.test(heading)) {
+    if (!seenIndices.has(match.index)) {
       allMatches.push({
         index: match.index,
-        heading
+        heading: match[0].trim()
       });
+      seenIndices.add(match.index);
+    }
+  }
+
+  // Match scenes that are only numbered like: "1. SOME SCENE LABEL"
+  while ((match = looseNumberedSceneRegex.exec(scriptText)) !== null) {
+    const fullMatch = match[0].trim();
+    if (!/\b(INT\.?|EXT\.?|I\/E\.?)\b/i.test(fullMatch) && !seenIndices.has(match.index)) {
+      allMatches.push({
+        index: match.index,
+        heading: fullMatch
+      });
+      seenIndices.add(match.index);
     }
   }
 
   allMatches.sort((a, b) => a.index - b.index);
 
+  const scenes: ExtractedScene[] = [];
+  let sceneNumber = 1;
   let lastIndex = 0;
+
   for (const matchInfo of allMatches) {
-    const heading = matchInfo.heading;
     const headingIndex = matchInfo.index;
 
     if (scenes.length > 0) {
-      const previousScene = scenes[scenes.length - 1];
-      previousScene.content = scriptText.substring(lastIndex, headingIndex).trim();
+      scenes[scenes.length - 1].content = scriptText.substring(lastIndex, headingIndex).trim();
     }
 
     scenes.push({
       sceneNumber,
-      heading,
+      heading: matchInfo.heading,
       content: ''
     });
 
-    lastIndex = headingIndex + heading.length;
+    lastIndex = headingIndex + matchInfo.heading.length;
     sceneNumber++;
   }
 
+  // Add final scene content
   if (scenes.length > 0) {
-    const lastScene = scenes[scenes.length - 1];
-    lastScene.content = scriptText.substring(lastIndex).trim();
+    scenes[scenes.length - 1].content = scriptText.substring(lastIndex).trim();
   } else {
     scenes.push({
       sceneNumber: 1,
-      heading: "UNTITLED SCENE",
+      heading: 'UNTITLED SCENE',
       content: scriptText.trim()
     });
   }
