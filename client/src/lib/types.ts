@@ -60,11 +60,13 @@ export type ScriptDisplayProps = {
   isLoading: boolean;
   onSave: () => Promise<void>;
   onReanalyze: () => Promise<void>;
+  onAnalyzeVfx?: () => Promise<void>;
   onGeneratePlacements?: () => Promise<void>;
   onExport?: () => Promise<void>;
   activeScene: Scene | null;
   isSaving?: boolean;
   isReanalyzing?: boolean;
+  isAnalyzingVfx?: boolean;
   isGenerating?: boolean;
   isExporting?: boolean;
 };

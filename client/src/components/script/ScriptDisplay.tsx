@@ -11,13 +11,16 @@ export default function ScriptDisplay({
   isLoading,
   onSave,
   onReanalyze,
+  onAnalyzeVfx,
   onGeneratePlacements,
-  activeScene, // Make sure this prop type matches what's passed from ScriptEditor
+  activeScene,
+  isSaving,
+  isReanalyzing,
+  isAnalyzingVfx,
+  isGenerating,
+  isExporting,
 }: ScriptDisplayProps) {
   const [editorContent, setEditorContent] = useState<string>("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [isReanalyzing, setIsReanalyzing] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {

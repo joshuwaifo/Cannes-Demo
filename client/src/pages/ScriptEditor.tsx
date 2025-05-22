@@ -1772,11 +1772,13 @@ export default function ScriptEditor() {
                             isLoading={false}
                             onSave={async () => { console.warn("Save not implemented"); }}
                             onReanalyze={() => reanalyzeScriptMutation.mutate()}
+                            onAnalyzeVfx={() => analyzeVfxMutation.mutate()}
                             onGeneratePlacements={() => generatePlacementsMutation.mutate()}
                             onExport={handleExport}
                             activeScene={activeSceneObject || null}
                             isSaving={false}
                             isReanalyzing={reanalyzeScriptMutation.isPending}
+                            isAnalyzingVfx={analyzeVfxMutation.isPending}
                             isGenerating={generatePlacementsMutation.isPending}
                             isExporting={isExporting}
                         />
