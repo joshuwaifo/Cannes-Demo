@@ -77,12 +77,14 @@ export default function SceneBreakdown({
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
             Vadis AI Suggested Brandable Scenes {/* Changed AI to Vadis AI */}
           </h3>
-          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-            <p className="text-sm text-yellow-800 mb-2 font-medium">
-              {/* Changed AI to Vadis AI */}
-              {`There are ${scenes.length} scenes with product placement potential. Vadis AI has suggested the following scenes for their branding potential:`}
+          <div className="bg-green-50 border border-green-200 rounded-md p-3">
+            <p className="text-sm text-green-800 mb-2 font-medium">
+              {`VADIS AI SUGGESTED BRANDABLE SCENES`}
             </p>
-            <ul className="text-xs text-yellow-700 space-y-1">
+            <p className="text-xs text-green-600 mb-2">
+              {`There are ${scenes.filter(scene => brandableSceneIds.includes(scene.id)).length} scenes with product placement potential. Vadis AI has suggested the following scenes for their branding potential:`}
+            </p>
+            <ul className="text-xs text-green-700 space-y-1">
               {scenes
                 .filter((scene) => brandableSceneIds.includes(scene.id))
                 .map((scene) => {
@@ -92,9 +94,8 @@ export default function SceneBreakdown({
 
                   return (
                     <li key={scene.id} className="flex items-center">
-                      <Star className="h-4 w-4 mr-1 text-yellow-600" />{" "}
-                      {/* Changed icon */}
-                      Scene {scene.sceneNumber}: {scene.heading} ({category})
+                      <Star className="h-4 w-4 mr-1 text-green-600" />
+                      Scene {scene.sceneNumber}: {scene.heading.length > 30 ? scene.heading.substring(0, 30) + "..." : scene.heading} ({category})
                     </li>
                   );
                 })}
