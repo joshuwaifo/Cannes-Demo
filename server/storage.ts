@@ -871,7 +871,7 @@ export async function createOrUpdateVfxSceneDetail(
   sceneId: number,
   qualityTier: VfxQualityTierType,
   data: {
-    vfxElementsSummary: string;
+    vfxElementsSummaryForTier: string;
     estimatedVfxCost: number;
     costEstimationNotes: string;
     conceptualImageUrl?: string | null;
@@ -894,7 +894,7 @@ export async function createOrUpdateVfxSceneDetail(
     const vfxData = {
       sceneId,
       qualityTier,
-      vfxElementsSummary: data.vfxElementsSummary,
+      vfxElementsSummaryForTier: data.vfxElementsSummaryForTier,
       estimatedVfxCost: data.estimatedVfxCost,
       costEstimationNotes: data.costEstimationNotes,
       conceptualImageUrl: data.conceptualImageUrl || null,
@@ -906,7 +906,7 @@ export async function createOrUpdateVfxSceneDetail(
       const [updated] = await db
         .update(vfxSceneDetails)
         .set({
-          vfxElementsSummary: vfxData.vfxElementsSummary,
+          vfxElementsSummaryForTier: vfxData.vfxElementsSummaryForTier,
           estimatedVfxCost: vfxData.estimatedVfxCost,
           costEstimationNotes: vfxData.costEstimationNotes,
           conceptualImageUrl: vfxData.conceptualImageUrl,

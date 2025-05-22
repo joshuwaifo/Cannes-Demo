@@ -455,3 +455,83 @@ function createPlacementDescription(request: GenerationRequest): string {
   const { scene, product, variationNumber } = request;
   return `Variation ${variationNumber}: ${product.name} in scene ${scene.sceneNumber} (${scene.heading}).`;
 }
+
+// --- VFX Concept Image Generation ---
+interface VFXGenerationRequest {
+  vfxDescription: string;
+  vfxKeywords: string[];
+  qualityTier: string;
+  vfxElementsSummary: string;
+}
+
+interface VFXGenerationResult {
+  imageUrl: string;
+  success: boolean;
+  error?: string;
+}
+
+export async function generateVFXConceptualImage(
+  request: VFXGenerationRequest
+): Promise<VFXGenerationResult> {
+  const logPrefix = `[VFX Concept Gen ${request.qualityTier}]`;
+  
+  try {
+    console.log(`${logPrefix} Starting VFX concept image generation`);
+    
+    const replicate = getReplicateClient();
+    
+    // Create a detailed prompt for VFX concept art
+    const prompt = `Professional VFX concept art, ${request.qualityTier.toLowerCase()} quality: ${request.vfxElementsSummary}. Scene: ${request.vfxDescription}. Keywords: ${request.vfxKeywords.join(', ')}. Cinematic lighting, detailed, realistic, production quality, visual effects breakdown style`;
+    
+    const finalPrompt = prompt.length > MAX_PROMPT_LENGTH 
+      ? prompt.substring(0, MAX_PROMPT_LENGTH) + "..." 
+      : prompt;
+    
+    console.log(`${logPrefix} Using prompt (${finalPrompt.length} chars): ${finalPrompt.substring(0, 100)}...`);
+    
+    const input = {
+      prompt: finalPrompt,
+      negative_prompt: "nsfw, nude, naked, offensive, violence, gore, explicit language, text, words, letters, watermark, signature, blurry, low quality, distorted, deformed, bad anatomy, extra limbs, disfigured, multiple views",
+      width: 1024,
+      height: 576,
+      num_outputs: 1,
+      scheduler: "euler_a",
+      num_inference_steps: 8,
+      guidance_scale: 2.5,
+    };
+    
+    console.log(`${logPrefix} Calling Replicate for VFX concept image...`);
+    
+    const output: any = await safeReplicateCall(
+      () => replicate.run(`${REPLICATE_IMAGE_MODEL}`, { input }),
+      `VFX Concept Image ${request.qualityTier}`
+    );
+    
+    if (!output || !Array.isArray(output) || output.length === 0) {
+      throw new Error("No image generated from Replicate");
+    }
+    
+    const imageUrl = output[0];
+    if (!imageUrl || typeof imageUrl !== "string") {
+      throw new Error("Invalid image URL received from Replicate");
+    }
+    
+    const sanitizedUrl = getSanitizedImageUrl(imageUrl);
+    const success = sanitizedUrl !== FALLBACK_IMAGE_URL;
+    
+    console.log(`${logPrefix} VFX concept image generation completed. Success: ${success}`);
+    
+    return {
+      imageUrl: sanitizedUrl,
+      success,
+    };
+    
+  } catch (error: any) {
+    console.error(`${logPrefix} Error generating VFX concept image:`, error.message || error);
+    return {
+      imageUrl: FALLBACK_IMAGE_URL,
+      success: false,
+      error: error.message || "Unknown error",
+    };
+  }
+}

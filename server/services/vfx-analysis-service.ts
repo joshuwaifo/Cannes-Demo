@@ -62,6 +62,136 @@ Scene Content: ${scene.content.substring(0, 1000)}${scene.content.length > 1000 
 /**
  * Analyze script scenes for VFX requirements using Gemini AI
  */
+export async function generateAndStoreVFXTierDetailsForScene(scene: Scene): Promise<void> {
+  const logPrefix = `[VFX Tier Gen Scene ${scene.id}]`;
+  
+  try {
+    // Check if scene has VFX description
+    if (!scene.vfxDescription || scene.vfxDescription.trim() === '') {
+      console.warn(`${logPrefix} Scene has no VFX description, skipping tier generation`);
+      return;
+    }
+
+    console.log(`${logPrefix} Starting VFX tier detail generation`);
+    
+    const genAI = initializeGenAIClient();
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    // Import VFX quality tiers and services
+    const { VfxQualityTierEnum } = await import("@shared/schema");
+    const { generateVFXConceptualImage } = await import("./replicate-service");
+    const { createOrUpdateVfxSceneDetail } = await import("../storage");
+    
+    const vfxKeywords = scene.vfxKeywords || [];
+    const qualityTiers = Object.keys(VfxQualityTierEnum) as Array<keyof typeof VfxQualityTierEnum>;
+    
+    console.log(`${logPrefix} Processing ${qualityTiers.length} quality tiers: ${qualityTiers.join(', ')}`);
+    
+    // Process each quality tier
+    for (const tier of qualityTiers) {
+      try {
+        console.log(`${logPrefix} Processing ${tier} tier`);
+        
+        // Generate tier-specific details with Gemini
+        const prompt = `You are a VFX supervisor creating detailed cost estimates and element breakdowns.
+
+TASK: Analyze this VFX scene and provide specific details for ${tier} quality tier production.
+
+SCENE DESCRIPTION: ${scene.vfxDescription}
+VFX KEYWORDS: ${vfxKeywords.join(', ')}
+QUALITY TIER: ${tier}
+
+COST ESTIMATION GUIDELINES:
+- LOW tier: Basic VFX, simple compositing (5k-15k USD for short sequence)
+- MEDIUM tier: Professional VFX, detailed simulations (20k-75k USD for short sequence) 
+- HIGH tier: Photorealistic, complex VFX (100k-500k USD for short sequence)
+
+Please provide a JSON response with this exact structure:
+{
+  "vfxElementsSummary": "Brief description of VFX elements for this tier",
+  "estimatedVfxCost": 25000,
+  "costEstimationNotes": "Brief justification for the cost estimate"
+}
+
+INSTRUCTIONS:
+1. vfxElementsSummary: 1-2 sentences describing what VFX elements would be created for this tier
+2. estimatedVfxCost: Specific dollar amount within the tier range
+3. costEstimationNotes: Brief explanation of cost factors
+
+Return ONLY the JSON object, no additional text.`;
+
+        const request: GenerateContentRequest = {
+          contents: [{
+            role: "user",
+            parts: [{ text: prompt }]
+          }]
+        };
+
+        const result: GenerateContentResult = await model.generateContent(request);
+        
+        if (!result.response?.text) {
+          throw new Error(`No response from Gemini for ${tier} tier`);
+        }
+
+        const responseText = result.response.text();
+        console.log(`${logPrefix} Received ${tier} tier response (${responseText.length} chars)`);
+        
+        // Extract and parse JSON
+        const jsonStr = extractJsonFromString(responseText) || responseText.trim();
+        const tierDetails = JSON.parse(jsonStr);
+        
+        if (!tierDetails.vfxElementsSummary || !tierDetails.estimatedVfxCost || !tierDetails.costEstimationNotes) {
+          throw new Error(`Invalid tier details structure for ${tier}`);
+        }
+
+        console.log(`${logPrefix} ${tier} tier: ${tierDetails.vfxElementsSummary} (Cost: $${tierDetails.estimatedVfxCost})`);
+        
+        // Generate concept image
+        let conceptualImageUrl = null;
+        try {
+          console.log(`${logPrefix} Generating concept image for ${tier} tier`);
+          const imageResult = await generateVFXConceptualImage({
+            vfxDescription: scene.vfxDescription,
+            vfxKeywords: vfxKeywords,
+            qualityTier: tier,
+            vfxElementsSummary: tierDetails.vfxElementsSummary
+          });
+          
+          if (imageResult.success) {
+            conceptualImageUrl = imageResult.imageUrl;
+            console.log(`${logPrefix} ${tier} tier concept image generated successfully`);
+          } else {
+            console.warn(`${logPrefix} ${tier} tier concept image generation failed: ${imageResult.error}`);
+          }
+        } catch (imageError) {
+          console.error(`${logPrefix} Error generating ${tier} tier concept image:`, imageError);
+        }
+        
+        // Store tier details in database
+        await createOrUpdateVfxSceneDetail(scene.id, tier, {
+          vfxElementsSummaryForTier: tierDetails.vfxElementsSummary,
+          estimatedVfxCost: parseInt(tierDetails.estimatedVfxCost),
+          costEstimationNotes: tierDetails.costEstimationNotes,
+          conceptualImageUrl: conceptualImageUrl,
+          conceptualVideoUrl: null, // Future enhancement
+        });
+        
+        console.log(`${logPrefix} ${tier} tier details stored successfully`);
+        
+      } catch (tierError) {
+        console.error(`${logPrefix} Error processing ${tier} tier:`, tierError);
+        // Continue with other tiers even if one fails
+      }
+    }
+    
+    console.log(`${logPrefix} VFX tier detail generation completed`);
+    
+  } catch (error) {
+    console.error(`${logPrefix} Error during VFX tier generation:`, error);
+    throw error;
+  }
+}
+
 export async function analyzeAndStoreScriptVFX(
   scriptId: number,
   scriptContent: string,
