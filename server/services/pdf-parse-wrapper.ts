@@ -2,28 +2,10 @@ import fs from 'fs';
 import path from 'path';
 import originalPdfParse from 'pdf-parse';
 
-// Create a wrapper around pdf-parse to handle the file system check it does
+// Create a wrapper around pdf-parse to handle PDF parsing safely
 const pdfParse = async (dataBuffer: Buffer, options?: any): Promise<any> => {
   try {
-    // Create test directory and file if they don't exist
-    const testDir = path.join(process.cwd(), 'test', 'data');
-    
-    // Create test directory structure if it doesn't exist
-    if (!fs.existsSync(path.join(process.cwd(), 'test'))) {
-      fs.mkdirSync(path.join(process.cwd(), 'test'));
-    }
-    
-    if (!fs.existsSync(testDir)) {
-      fs.mkdirSync(testDir);
-    }
-    
-    // Create empty test file if it doesn't exist
-    const testFilePath = path.join(testDir, '05-versions-space.pdf');
-    if (!fs.existsSync(testFilePath)) {
-      fs.writeFileSync(testFilePath, Buffer.from([]));
-    }
-    
-    // Call the original pdf-parse function
+    // Call the original pdf-parse function directly
     return await originalPdfParse(dataBuffer, options);
   } catch (error) {
     console.error('Error in pdf-parse wrapper:', error);

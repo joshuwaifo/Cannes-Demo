@@ -79,7 +79,7 @@ function getRatingDescription(ratingKey: FilmRatingType): string {
 const APPROX_TOKENS_PER_CHAR = 0.25; // Rough estimate of tokens per character
 const MIN_TOTAL_TOKENS = 32000;
 const MAX_TOTAL_TOKENS = 48000;
-const MAX_ITERATION_TOKENS = 2000; // Maximum tokens per API call
+const MAX_ITERATION_TOKENS = 8000; // Maximum tokens per API call
 const CONTEXT_LINES = 20; // Number of lines to provide as context from previous generation
 
 export async function generateScriptWithGemini(

@@ -3,11 +3,11 @@ import {
   pgTable,
   text,
   serial,
-  integer,
+  integer, // Keep integer for budget
   timestamp,
   jsonb,
   boolean,
-  // numeric, // We might use numeric for cost later if high precision is needed
+  // numeric, // Alternative for budget if decimals are needed
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -15,7 +15,7 @@ import { z } from "zod";
 import { relations } from "drizzle-orm";
 
 // --- Users ---
-// ... (existing users schema - unchanged)
+// ... (User schema remains the same)
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -32,7 +32,7 @@ export type User = typeof users.$inferSelect;
 
 
 // --- Products ---
-// ... (existing products schema - unchanged)
+// ... (Product related enums and schema remain the same)
 export const ProductCategory = {
   BEVERAGE: "BEVERAGE",
   ELECTRONICS: "ELECTRONICS",
@@ -48,7 +48,7 @@ export const FilmRatingEnum = {
   PG_13: "PG-13",
   R: "R",
   NC_17: "NC-17",
-  NR: "NR", 
+  NR: "NR", // Not Rated
 } as const;
 export type FilmRatingType = keyof typeof FilmRatingEnum;
 
@@ -85,6 +85,7 @@ export const GenreEnum = {
   Any: "Any",
 } as const;
 export type GenreType = keyof typeof GenreEnum;
+
 export type ProductCategory = keyof typeof ProductCategory;
 
 export const products = pgTable("products", {
@@ -136,13 +137,14 @@ export type Product = typeof products.$inferSelect;
 
 
 // --- Scripts ---
-// ... (existing scripts schema - unchanged)
 export const scripts = pgTable("scripts", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   content: text("content").notNull(),
-  expectedReleaseDate: text("expected_release_date"), 
-  totalBudget: integer("total_budget"), 
+  // --- BEGIN MODIFICATION (Task 1.2) ---
+  expectedReleaseDate: text("expected_release_date"), // Nullable
+  totalBudget: integer("total_budget"), // Nullable, storing as whole dollars
+  // --- END MODIFICATION (Task 1.2) ---
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -154,8 +156,10 @@ export const scriptsRelations = relations(scripts, ({ many }) => ({
 export const insertScriptSchema = createInsertSchema(scripts, {
   title: (schema) => schema.min(1, "Title cannot be empty"),
   content: (schema) => schema.min(1, "Content cannot be empty"),
-  expectedReleaseDate: z.string().optional().nullable(), 
-  totalBudget: z.number().int().positive().optional().nullable(), 
+  // --- BEGIN MODIFICATION (Task 1.2) ---
+  expectedReleaseDate: z.string().optional().nullable(), // Validate as string (YYYY-MM-DD) or allow null
+  totalBudget: z.number().int().positive().optional().nullable(), // Validate as positive integer or allow null
+  // --- END MODIFICATION (Task 1.2) ---
 });
 
 export type InsertScript = z.infer<typeof insertScriptSchema>;
@@ -163,7 +167,7 @@ export type Script = typeof scripts.$inferSelect;
 
 
 // --- Scenes ---
-// ... (scenes schema with VFX fields from Subtask 1.1 - unchanged for this subtask)
+// ... (Scene schema remains the same)
 export const scenes = pgTable("scenes", {
   id: serial("id").primaryKey(),
   scriptId: integer("script_id")
@@ -175,34 +179,26 @@ export const scenes = pgTable("scenes", {
   isBrandable: boolean("is_brandable").default(false).notNull(),
   brandableReason: text("brandable_reason"),
   suggestedCategories: jsonb("suggested_categories").$type<ProductCategory[]>(),
-  is_vfx_scene: boolean("is_vfx_scene").default(false).notNull(),
-  vfx_description: text("vfx_description"), 
-  vfx_keywords: jsonb("vfx_keywords").$type<string[] | null>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// --- BEGIN MODIFICATION FOR Subtask 1.2 ---
 export const scenesRelations = relations(scenes, ({ one, many }) => ({
   script: one(scripts, {
     fields: [scenes.scriptId],
     references: [scripts.id],
   }),
   variations: many(sceneVariations),
-  vfxDetails: many(vfxSceneDetails), // New relation for VFX details
 }));
-// --- END MODIFICATION FOR Subtask 1.2 ---
 
-export const insertSceneSchema = createInsertSchema(scenes, {
-  vfx_description: z.string().optional().nullable(),
-  vfx_keywords: z.array(z.string()).optional().nullable(),
-});
+export const insertSceneSchema = createInsertSchema(scenes);
 
 export type InsertScene = z.infer<typeof insertSceneSchema>;
 export type Scene = typeof scenes.$inferSelect;
 
+
 // --- Scene Variations ---
-// ... (existing sceneVariations schema - unchanged)
+// ... (SceneVariation schema remains the same)
 export const sceneVariations = pgTable("scene_variations", {
   id: serial("id").primaryKey(),
   sceneId: integer("scene_id")
@@ -245,8 +241,9 @@ export type SceneVariation = typeof sceneVariations.$inferSelect & {
   productImageUrl?: string | null;
 };
 
+
 // --- Actors ---
-// ... (existing actors schema - unchanged)
+// ... (Actor schema remains the same)
 export const actors = pgTable("actors", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -279,7 +276,7 @@ export type Actor = typeof actors.$inferSelect;
 
 
 // --- Locations ---
-// ... (existing locations schema - unchanged)
+// ... (Location schema remains the same)
 export const locations = pgTable("locations", {
   id: serial("id").primaryKey(),
   country: text("country").notNull(),
@@ -310,51 +307,9 @@ export const insertLocationSchema = createInsertSchema(locations, {
 export type InsertLocation = z.infer<typeof insertLocationSchema>;
 export type Location = typeof locations.$inferSelect;
 
-// --- BEGIN MODIFICATION FOR Subtask 1.2 ---
-// VFX Quality Tier Enum (Conceptual - not a direct DB enum for now, but for typing)
-export const VfxQualityTierEnum = {
-  LOW: "low",
-  MEDIUM: "medium",
-  HIGH: "high",
-} as const;
-export type VfxQualityTierType = keyof typeof VfxQualityTierEnum;
-
-// New Table: vfx_scene_details
-export const vfxSceneDetails = pgTable("vfx_scene_details", {
-  id: serial("id").primaryKey(),
-  sceneId: integer("scene_id")
-    .references(() => scenes.id, { onDelete: "cascade" })
-    .notNull(),
-  qualityTier: text("quality_tier").notNull().$type<VfxQualityTierType>(), // e.g., 'low', 'medium', 'high'
-  conceptualImageUrl: text("conceptual_image_url"),
-  conceptualVideoUrl: text("conceptual_video_url"),
-  estimatedVfxCost: integer("estimated_vfx_cost"), // Storing as integer for simplicity, could be numeric for decimals
-  costEstimationNotes: text("cost_estimation_notes"),
-  vfxElementsSummaryForTier: text("vfx_elements_summary_for_tier"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-export const vfxSceneDetailsRelations = relations(vfxSceneDetails, ({ one }) => ({
-  scene: one(scenes, {
-    fields: [vfxSceneDetails.sceneId],
-    references: [scenes.id],
-  }),
-}));
-
-export const insertVfxSceneDetailSchema = createInsertSchema(vfxSceneDetails, {
-  qualityTier: z.enum(
-    Object.values(VfxQualityTierEnum) as [VfxQualityTierType, ...VfxQualityTierType[]]
-  ),
-  estimatedVfxCost: z.number().int().min(0).optional().nullable(),
-});
-
-export type InsertVfxSceneDetail = z.infer<typeof insertVfxSceneDetailSchema>;
-export type VfxSceneDetail = typeof vfxSceneDetails.$inferSelect;
-// --- END MODIFICATION FOR Subtask 1.2 ---
 
 // --- Script Generation Form ---
-// ... (existing scriptGenerationFormSchema - unchanged)
+// ... (ScriptGenerationForm schema remains the same)
 export const scriptGenerationFormSchema = z.object({
   projectTitle: z.string().min(1, "Project Title is required."),
   logline: z
