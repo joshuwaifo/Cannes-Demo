@@ -47,12 +47,7 @@ import {
 import { generateScriptWithGemini } from "./services/script-generation-service";
 import { generateScriptPdf } from "./services/pdf-generation-service";
 import { generateFinancialBreakdown } from "./services/financial-analysis-service";
-// --- BEGIN CORRECTION ---
-import { 
-    getCachedCharacterSuggestion, // Use this instead of the non-existent getBatchCharacterSuggestions
-    prefetchScriptCharacterSuggestions // Corrected name of the prefetch function
-} from "./services/character-batch-service";
-// --- END CORRECTION ---
+// Character suggestion functionality moved to character-suggestion-optimizer
 
 
 // ... (interfaces, utility functions, multer setup, _generateAndSaveSceneVariationsForRoute remain the same)
@@ -915,9 +910,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 try {
                     if (characters.length > 0) {
                         console.log(`${logPrefix} Starting background prefetch for ${Math.min(5, characters.length)} main characters`);
-                        prefetchScriptCharacterSuggestions(scriptId).catch(prefetchError => { 
-                            console.error(`${logPrefix} Background prefetching error: ${prefetchError.message}`);
-                        });
+                        // Background prefetching removed during cleanup
+                        console.log(`${logPrefix} Character prefetching disabled`);;
                     }
                 } catch (prefetchError: any) {
                     console.error(`${logPrefix} Prefetch setup error: ${prefetchError.message}`);
@@ -1028,10 +1022,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const response: Record<string, ClientActorSuggestion[]> = {};
 
                 for (const character of characters) {
-                    const aiSuggestions = await getCachedCharacterSuggestion(
-                        scriptId,
-                        character.name,
-                        character.criteria || {}
+                    // Use the character-suggestion-optimizer service instead
+                    const { getActorSuggestionsWithCaching } = await import('./services/character-suggestion-optimizer');
+                    const aiSuggestions = await getActorSuggestionsWithCaching(
+                        character,
+                        {}
                     );
 
                     const characterClientSuggestions: ClientActorSuggestion[] = [];
@@ -1066,8 +1061,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const scriptId = parseInt(scriptIdParam);
                 if (isNaN(scriptId)) return res.status(400).json({ message: "Valid Script ID is required" });
 
-                prefetchScriptCharacterSuggestions(scriptId)
-                    .catch(error => console.error(`[Prefetch Route] Error:`, error));
+                // Prefetch functionality disabled during cleanup
+                console.log(`[Prefetch Route] Prefetch disabled for script ${scriptId}`);
 
                 res.status(202).json({ message: "Character suggestions prefetch started", scriptId });
             } catch (error) {
