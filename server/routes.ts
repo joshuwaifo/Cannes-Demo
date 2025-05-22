@@ -47,6 +47,7 @@ import {
 import { generateScriptWithGemini } from "./services/script-generation-service";
 import { generateScriptPdf } from "./services/pdf-generation-service";
 import { generateFinancialBreakdown } from "./services/financial-analysis-service";
+import { analyzeAndStoreScriptVFX } from "./services/vfx-analysis-service";
 // Character suggestion functionality moved to character-suggestion-optimizer
 
 
@@ -461,6 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 let analysisResult: AIAnalysisResponseForRoutes = { brandableScenes: [] };
                 if (createdScenes.length > 0) {
+                    // Analyze brandable scenes
                     analysisResult = await identifyBrandableScenesWithGemini(createdScenes, 5);
                     const updatePromises = analysisResult.brandableScenes.map(
                         (brandable) =>
@@ -473,6 +475,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                             ),
                     );
                     await Promise.all(updatePromises);
+
+                    // Analyze VFX scenes
+                    try {
+                        await analyzeAndStoreScriptVFX(script.id, parsedScript.content, createdScenes);
+                        console.log(`[Upload] VFX analysis completed for script ${script.id}`);
+                    } catch (vfxError) {
+                        console.error(`[Upload] VFX analysis failed for script ${script.id}:`, vfxError);
+                        // Don't fail the upload if VFX analysis fails
+                    }
                 }
 
                 res.status(201).json({
