@@ -1505,6 +1505,28 @@ export default function ScriptEditor() {
         },
     });
 
+    const analyzeVfxMutation = useMutation({
+        mutationFn: async () => {
+            if (!script?.id) throw new Error("No script available");
+            return apiRequest("POST", `/api/scripts/${script.id}/initiate-vfx-analysis`, {});
+        },
+        onSuccess: () => {
+            toast({
+                title: "VFX Analysis Complete",
+                description: "VFX scenes have been analyzed and identified.",
+            });
+            queryClient.invalidateQueries({ queryKey: ["/api/scripts/scenes", script?.id] });
+            queryClient.invalidateQueries({ queryKey: ["/api/scripts/brandable-scenes", script?.id] });
+        },
+        onError: (error: Error) => {
+            toast({ 
+                variant: "destructive", 
+                title: "VFX Analysis Failed", 
+                description: error.message 
+            });
+        },
+    });
+
     const generatePlacementsMutation = useMutation({
         mutationFn: async () => {
             if (activeSceneId) {
