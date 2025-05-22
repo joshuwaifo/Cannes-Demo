@@ -1846,13 +1846,22 @@ export default function ScriptEditor() {
                                 />
                             </div>
                             
-                            {/* VFX Scene Details Component */}
-                            <VfxSceneDetails
-                                scriptId={script?.id || 0}
-                                activeScene={activeSceneObject}
-                                initialSelectedVfxTier={activeSceneObject.selectedVfxTier || null}
-                                onVfxTierSelect={handleVfxTierSelect}
-                            />
+                            {/* VFX Scenes Component */}
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <VfxScenes
+                                    activeSceneDetails={activeSceneObject}
+                                    projectTitle={script?.title}
+                                    scenes={scenes}
+                                    vfxScenes={[]} 
+                                    isLoading={false}
+                                    selectedSceneId={activeSceneId}
+                                    onVfxTierSelect={handleVfxTierSelect}
+                                    onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
+                                    videoGenerationStates={videoGenerationStates}
+                                    onViewVideo={handleViewVideo}
+                                    onImageZoom={handleImageZoom}
+                                />
+                            </div>
                         </>
                     ) : (
                         activeSceneId === null && scenes.length > 0 && (

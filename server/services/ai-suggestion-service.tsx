@@ -57,6 +57,38 @@ const defaultSafetySettings: SDKSafetySetting[] = [
 
 const defaultTools: SDKTool[] = [{ googleSearch: {} }];
 
+// --- Helper function to retry API calls with exponential backoff ---
+async function retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            lastError = error;
+            
+            // Check if it's a 503 Service Unavailable (model overloaded)
+            if (error.message?.includes('503') || error.message?.includes('overloaded')) {
+                if (attempt < maxRetries) {
+                    const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+                    console.log(`[Gemini API] Retry attempt ${attempt + 1}/${maxRetries + 1} after ${delay}ms delay due to overload`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+            }
+            
+            // For non-503 errors, don't retry
+            throw error;
+        }
+    }
+    
+    throw lastError;
+}
+
 // --- Helper function to extract JSON from a potentially dirty string ---
 function extractJsonFromString(str: string): string | null {
     if (!str || typeof str !== "string") return null;
@@ -247,8 +279,11 @@ Ensure the output is a single, clean JSON object without any surrounding text or
         console.log(
             `${logPrefix} Sending request to Gemini with ${availableActorsFromDb.length} pre-filtered actors. Target Casting Gender for AI: ${targetCastingGender}`,
         );
-        const result: GenerateContentResult =
-            await aiClient.models.generateContent(request);
+        const result: GenerateContentResult = await retryWithBackoff(
+            () => aiClient.models.generateContent(request),
+            3, // max retries
+            2000 // base delay in ms
+        );
 
         if (!result) {
             console.error(
