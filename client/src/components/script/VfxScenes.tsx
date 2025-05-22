@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +64,24 @@ export default function VfxScenes({
   const [isImageZoomModalOpen, setIsImageZoomModalOpen] = useState(false);
   const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set());
   const [generatedImages, setGeneratedImages] = useState<{[key: string]: string}>({});
+
+  // Auto-generate images for all tiers when VFX scene is selected
+  useEffect(() => {
+    if (activeSceneDetails && activeSceneDetails.isVfxScene) {
+      const vfxDetails = (activeSceneDetails as SceneWithVfxDetails).vfxDetails || [];
+      const allTiers: VfxQualityTierType[] = ['LOW', 'MEDIUM', 'HIGH'];
+      
+      // Generate images for tiers that have details but no image yet
+      allTiers.forEach(tier => {
+        const tierDetail = vfxDetails.find(detail => detail.qualityTier === tier);
+        const tierKey = `${activeSceneDetails.id}-${tier}`;
+        
+        if (tierDetail && tierDetail.estimatedVfxCost && !tierDetail.conceptualImageUrl && !generatingImages.has(tierKey)) {
+          handleGenerateImage(tier);
+        }
+      });
+    }
+  }, [activeSceneDetails?.id, activeSceneDetails?.isVfxScene]);
 
   if (!activeSceneDetails || !activeSceneDetails.isVfxScene) {
     return null;
