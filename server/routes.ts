@@ -1300,6 +1300,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
     });
 
+    // VFX Image Generation Route
+    app.post(`${apiPrefix}/scenes/:sceneId/generate-vfx-image`, async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const sceneId = parseInt(req.params.sceneId);
+            if (isNaN(sceneId)) {
+                return res.status(400).json({ message: "Valid Scene ID is required" });
+            }
+
+            const { qualityTier } = req.body;
+            if (!qualityTier || !['LOW', 'MEDIUM', 'HIGH'].includes(qualityTier)) {
+                return res.status(400).json({ message: "Valid qualityTier (LOW, MEDIUM, HIGH) is required" });
+            }
+
+            const logPrefix = `[VFX IMG Gen Scene ${sceneId}]`;
+            console.log(`${logPrefix} Starting VFX image generation for ${qualityTier} tier`);
+
+            // Get the scene
+            const scene = await storage.getSceneById(sceneId);
+            if (!scene) {
+                return res.status(404).json({ message: "Scene not found" });
+            }
+
+            if (!scene.isVfxScene) {
+                return res.status(400).json({ message: "Scene is not marked as a VFX scene" });
+            }
+
+            // Check if scene is also brandable and get selected brand image
+            let brandableImageUrl: string | undefined;
+            if (scene.isBrandable) {
+                const variations = await storage.getSceneVariations(sceneId);
+                const selectedVariation = variations.find(v => v.isSelected);
+                if (selectedVariation?.imageUrl) {
+                    brandableImageUrl = selectedVariation.imageUrl;
+                    console.log(`${logPrefix} Scene is also brandable, using reference image for VFX generation`);
+                }
+            }
+
+            // Import VFX generation service
+            const { generateVFXImage } = await import("./services/replicate-service");
+
+            // Generate VFX image using same model as brandable scenes
+            const result = await generateVFXImage({
+                scene,
+                vfxDescription: scene.vfxDescription || "VFX scene",
+                vfxKeywords: scene.vfxKeywords || [],
+                qualityTier,
+                brandableImageUrl
+            });
+
+            if (!result.success) {
+                console.error(`${logPrefix} VFX image generation failed:`, result.error);
+                return res.status(500).json({ 
+                    message: "VFX image generation failed", 
+                    error: result.error 
+                });
+            }
+
+            console.log(`${logPrefix} VFX image generated successfully: ${result.imageUrl.substring(0, 50)}...`);
+
+            res.status(200).json({
+                message: "VFX image generated successfully",
+                imageUrl: result.imageUrl,
+                sceneId,
+                qualityTier
+            });
+
+        } catch (error) {
+            console.error(`[VFX Image Generation Route] Error:`, error);
+            next(error);
+        }
+    });
+
+    // VFX Video Generation Route
+    app.post(`${apiPrefix}/scenes/:sceneId/generate-vfx-video`, async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const sceneId = parseInt(req.params.sceneId);
+            if (isNaN(sceneId)) {
+                return res.status(400).json({ message: "Valid Scene ID is required" });
+            }
+
+            const { qualityTier, imageUrl } = req.body;
+            if (!qualityTier || !['LOW', 'MEDIUM', 'HIGH'].includes(qualityTier)) {
+                return res.status(400).json({ message: "Valid qualityTier (LOW, MEDIUM, HIGH) is required" });
+            }
+
+            if (!imageUrl || typeof imageUrl !== 'string') {
+                return res.status(400).json({ message: "Valid imageUrl is required for video generation" });
+            }
+
+            const logPrefix = `[VFX VIDEO Gen Scene ${sceneId}]`;
+            console.log(`${logPrefix} Starting VFX video generation for ${qualityTier} tier from image`);
+
+            // Get the scene
+            const scene = await storage.getSceneById(sceneId);
+            if (!scene) {
+                return res.status(404).json({ message: "Scene not found" });
+            }
+
+            if (!scene.isVfxScene) {
+                return res.status(400).json({ message: "Scene is not marked as a VFX scene" });
+            }
+
+            // Import VFX video generation service
+            const { generateVFXVideoFromImage } = await import("./services/replicate-service");
+
+            // Generate VFX video using same model as brandable scenes
+            const result = await generateVFXVideoFromImage(imageUrl, scene, qualityTier);
+
+            if (!result.predictionId) {
+                console.error(`${logPrefix} VFX video generation failed:`, result.error);
+                return res.status(500).json({ 
+                    message: "VFX video generation failed", 
+                    error: result.error 
+                });
+            }
+
+            console.log(`${logPrefix} VFX video generation started. Prediction ID: ${result.predictionId}`);
+
+            res.status(200).json({
+                message: "VFX video generation started",
+                predictionId: result.predictionId,
+                status: result.status,
+                sceneId,
+                qualityTier
+            });
+
+        } catch (error) {
+            console.error(`[VFX Video Generation Route] Error:`, error);
+            next(error);
+        }
+    });
+
     const httpServer = createServer(app);
     return httpServer;
 }
