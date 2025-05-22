@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sparkles, Info, DollarSign } from "lucide-react";
 import type { Scene, VfxQualityTierType, VfxSceneDetail } from "@shared/schema";
-import { ImageZoomModal } from "@/components/ui/image-zoom-modal";
+import ImageZoomModal from "@/components/script/ImageZoomModal";
 
 export interface VfxSceneDetailsProps {
   scriptId: number;

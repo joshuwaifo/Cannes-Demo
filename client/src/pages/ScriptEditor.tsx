@@ -1278,6 +1278,7 @@ import CharacterCasting from "@/components/script/CharacterCasting";
 // --- BEGIN MODIFICATION (Task 1.4) ---
 import FinancialAnalysisModal from "@/components/script/FinancialAnalysisModal";
 // --- END MODIFICATION (Task 1.4) ---
+import { VfxSceneDetails } from "@/components/script/VfxSceneDetails";
 import {
     Script,
     Scene,
@@ -1552,6 +1553,34 @@ export default function ScriptEditor() {
         },
     });
 
+    // VFX tier selection mutation
+    const selectVfxTierMutation = useMutation({
+        mutationFn: async ({ sceneId, qualityTier }: { sceneId: number; qualityTier: string }) => {
+            return apiRequest(`/api/scenes/${sceneId}/select-vfx-tier`, {
+                method: "PUT",
+                body: JSON.stringify({ qualityTier }),
+                headers: { "Content-Type": "application/json" },
+            });
+        },
+        onSuccess: (data) => {
+            toast({
+                title: "VFX Tier Selected",
+                description: `${data.selectedTier} quality tier selected with cost $${data.selectedCost?.toLocaleString() || 0}`,
+            });
+            // Invalidate queries to refresh data
+            queryClient.invalidateQueries({ queryKey: ["/api/scripts/scenes"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/scripts/vfx-scenes"] });
+        },
+        onError: (error: Error) => {
+            console.error("VFX tier selection failed:", error);
+            toast({
+                title: "VFX Tier Selection Failed",
+                description: error.message || "An unknown error occurred.",
+                variant: "destructive",
+            });
+        },
+    });
+
 
     // ... (video polling logic: stopPollingPrediction, pollPredictionStatus, startPollingPrediction, and startVideoGenerationMutation remain the same)
     const stopPollingPrediction = useCallback((predictionId: string) => {
@@ -1677,6 +1706,11 @@ export default function ScriptEditor() {
     const handleLocationSelection = (location: ClientSuggestedLocation) => { setSelectedLocations(prev => { const exists = prev.some(l => l.id === location.id); if (exists) { return prev.filter(l => l.id !== location.id); } else { return [...prev, location]; } }); };
     const handleProductSelection = (product: SceneVariation) => { setSelectedProducts(prev => { const exists = prev.some(p => p.id === product.id); if (exists) { return prev.filter(p => p.id !== product.id); } else { return [...prev, product]; } }); };
 
+    // VFX tier selection handler
+    const handleVfxTierSelect = (sceneId: number, tier: string, cost: number) => {
+        selectVfxTierMutation.mutate({ sceneId, qualityTier: tier });
+    };
+
     const openSelectionInfoModal = () => { setIsSelectionInfoModalOpen(true); };
 
     // --- BEGIN MODIFICATION (Task 1.4) ---
@@ -1794,23 +1828,34 @@ export default function ScriptEditor() {
                         />
                     </div>
                     {scenes.length > 0 && activeSceneId !== null && activeSceneObject ? (
-                        <div className="bg-white rounded-lg shadow p-4">
-                            <BrandableScenes
-                                activeSceneDetails={activeSceneObject}
-                                projectTitle={script?.title}
-                                scenes={scenes}
-                                productVariations={sceneVariations}
-                                isLoading={isLoadingCurrentVariations}
-                                selectedSceneId={activeSceneId}
-                                onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
-                                videoGenerationStates={videoGenerationStates}
-                                onViewVideo={handleViewVideo}
-                                onImageZoom={handleImageZoom}
-                                selectedProducts={selectedProducts}
-                                onProductSelect={handleProductSelection}
+                        <>
+                            <div className="bg-white rounded-lg shadow p-4">
+                                <BrandableScenes
+                                    activeSceneDetails={activeSceneObject}
+                                    projectTitle={script?.title}
+                                    scenes={scenes}
+                                    productVariations={sceneVariations}
+                                    isLoading={isLoadingCurrentVariations}
+                                    selectedSceneId={activeSceneId}
+                                    onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
+                                    videoGenerationStates={videoGenerationStates}
+                                    onViewVideo={handleViewVideo}
+                                    onImageZoom={handleImageZoom}
+                                    selectedProducts={selectedProducts}
+                                    onProductSelect={handleProductSelection}
+                                />
+                            </div>
+                            
+                            {/* VFX Scene Details Component */}
+                            <VfxSceneDetails
+                                scriptId={script?.id || 0}
+                                activeScene={activeSceneObject}
+                                initialSelectedVfxTier={activeSceneObject.selectedVfxTier || null}
+                                onVfxTierSelect={handleVfxTierSelect}
                             />
-                        </div>
-                    ) : ( activeSceneId === null && scenes.length > 0 && (
+                        </>
+                    ) : (
+                        activeSceneId === null && scenes.length > 0 && (
                             <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
                                 <Info className="inline-block mr-2 h-5 w-5" />
                                 Select a scene from the breakdown list to view details and placement options.
