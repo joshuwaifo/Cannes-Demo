@@ -283,55 +283,23 @@ export async function analyzeAndStoreScriptVFX(
     
     const scenesFormatted = formatScenesForPrompt(allScenes);
     
-    const prompt = `You are a VFX supervisor analyzing a script to identify scenes that require visual effects work.
+    const prompt = `Analyze these script scenes to identify which ones require VFX work.
 
-TASK: Analyze each scene and determine if it contains VFX elements that would require post-production visual effects work.
+VFX scenes include: explosions, supernatural elements, impossible physics, weather effects, sci-fi technology, green screen needs, digital environments, superhuman abilities.
 
-VFX SCENES typically include:
-- Explosions, fire effects, or destruction
-- Supernatural/magical elements
-- Creatures or monsters (dragons, aliens, etc.)
-- Flying vehicles or impossible physics
-- Weather effects (storms, tornadoes, etc.)
-- Sci-fi technology or energy effects
-- Green screen/background replacement needs
-- Digital environments or impossible locations
-- Superhuman abilities or powers
-- Time manipulation or dimensional effects
+NON-VFX scenes include: regular dialogue, normal human actions, real vehicles, natural outdoor scenes, interior scenes with practical props.
 
-NON-VFX SCENES typically include:
-- Regular dialogue in normal locations
-- Standard human actions and interactions
-- Real-world vehicles and technology
-- Natural outdoor scenes without effects
-- Interior scenes with practical props
-- Basic stunts that can be done practically
-
-SCENES TO ANALYZE:
 ${scenesFormatted}
 
-INSTRUCTIONS:
-1. For each scene, determine if it requires VFX work
-2. If it's a VFX scene, provide a brief 1-2 sentence description of the main VFX elements
-3. If it's a VFX scene, list 3-5 specific keywords describing the VFX elements
+For each scene, respond with exactly this format (one line per scene):
+sceneId|isVfxScene|description|keywords
 
-Return your analysis as a JSON array with this exact structure:
-[
-  {
-    "sceneId": 123,
-    "sceneNumber": 1,
-    "isVfxScene": true,
-    "vfxDescription": "Massive explosion destroys the building with debris flying everywhere",
-    "vfxKeywords": ["explosion", "debris", "destruction", "fire", "smoke"]
-  },
-  {
-    "sceneId": 124,
-    "sceneNumber": 2,
-    "isVfxScene": false
-  }
-]
+Examples:
+123|true|Explosion destroys building|explosion,destruction,debris
+124|false||
+125|true|Character flies through air|flying,supernatural,gravity
 
-IMPORTANT: Return ONLY the JSON array, no additional text or formatting.`;
+Use this exact format - one line per scene, separated by | characters. For non-VFX scenes, use "false" and leave description and keywords empty but keep the | separators.`;
 
     const request: GenerateContentRequest = {
       contents: [{
@@ -350,33 +318,38 @@ IMPORTANT: Return ONLY the JSON array, no additional text or formatting.`;
     const responseText = result.response.text();
     console.log(`${logPrefix} Received response from Gemini (${responseText.length} chars)`);
     
-    // Extract and parse JSON
-    const jsonStr = extractJsonFromString(responseText);
-    if (!jsonStr) {
-      console.error(`${logPrefix} Failed to extract JSON. Raw response preview:`, responseText.substring(0, 500));
-      throw new Error("Could not extract JSON from Gemini response");
-    }
-
-    console.log(`${logPrefix} Extracted JSON length: ${jsonStr.length}`);
-
-    let analysisResults: VfxSceneAnalysis[];
-    try {
-      analysisResults = JSON.parse(jsonStr);
-      console.log(`${logPrefix} Successfully parsed ${analysisResults.length} scene analyses`);
-    } catch (parseError: any) {
-      console.error(`${logPrefix} JSON Parse Error:`, parseError.message);
+    // Parse the simple text format: sceneId|isVfxScene|description|keywords
+    const lines = responseText.trim().split('\n');
+    const analysisResults: VfxSceneAnalysis[] = [];
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      if (!trimmedLine || !trimmedLine.includes('|')) continue;
       
-      // Show context around the error
-      const errorPos = parseError.message.match(/position (\d+)/)?.[1];
-      if (errorPos) {
-        const pos = parseInt(errorPos);
-        const start = Math.max(0, pos - 100);
-        const end = Math.min(jsonStr.length, pos + 100);
-        console.error(`${logPrefix} Error context:`, jsonStr.substring(start, end));
+      const parts = trimmedLine.split('|');
+      if (parts.length < 2) continue;
+      
+      const sceneId = parseInt(parts[0]);
+      const isVfxScene = parts[1].toLowerCase() === 'true';
+      const vfxDescription = parts[2] || null;
+      const vfxKeywords = parts[3] ? parts[3].split(',').map(k => k.trim()) : [];
+      
+      if (!isNaN(sceneId)) {
+        // Find scene number from the scenes array
+        const scene = allScenes.find(s => s.id === sceneId);
+        const sceneNumber = scene ? scene.sceneNumber : 0;
+        
+        analysisResults.push({
+          sceneId,
+          sceneNumber,
+          isVfxScene,
+          vfxDescription,
+          vfxKeywords
+        });
       }
-      
-      throw new Error(`Failed to parse VFX analysis response: ${parseError.message}`);
     }
+    
+    console.log(`${logPrefix} Successfully parsed ${analysisResults.length} scene analyses`);
 
     // Update scenes in database
     let updatedCount = 0;
