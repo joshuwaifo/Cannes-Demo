@@ -62,6 +62,8 @@ export default function VfxScenes({
 }: VfxScenesProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [isImageZoomModalOpen, setIsImageZoomModalOpen] = useState(false);
+  const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set());
+  const [generatedImages, setGeneratedImages] = useState<{[key: string]: string}>({});
 
   if (!activeSceneDetails || !activeSceneDetails.isVfxScene) {
     return null;
@@ -86,6 +88,46 @@ export default function VfxScenes({
     } else {
       setSelectedImageUrl(imageUrl);
       setIsImageZoomModalOpen(true);
+    }
+  };
+
+  const handleGenerateImage = async (tier: VfxQualityTierType) => {
+    if (!activeSceneDetails) return;
+    
+    const tierKey = `${activeSceneDetails.id}-${tier}`;
+    setGeneratingImages(prev => new Set([...prev, tierKey]));
+    
+    try {
+      const response = await fetch(`/api/scenes/${activeSceneDetails.id}/generate-vfx-image`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          qualityTier: tier
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate VFX image: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      setGeneratedImages(prev => ({
+        ...prev,
+        [tierKey]: result.imageUrl
+      }));
+      
+      console.log(`VFX image generated for ${tier} tier:`, result.imageUrl);
+      
+    } catch (error) {
+      console.error('Error generating VFX image:', error);
+    } finally {
+      setGeneratingImages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(tierKey);
+        return newSet;
+      });
     }
   };
 
@@ -184,8 +226,24 @@ export default function VfxScenes({
                               </div>
                             </div>
                           ) : (
-                            <div className="h-32 w-full rounded bg-gray-100 flex items-center justify-center">
-                              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                            <div className="h-32 w-full rounded bg-gray-100 flex flex-col items-center justify-center gap-2">
+                              {generatingImages.has(`${activeSceneDetails.id}-${tier}`) ? (
+                                <>
+                                  <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                                  <p className="text-xs text-gray-600">Generating VFX image...</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-xs text-gray-600 mb-2">No image generated</p>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleGenerateImage(tier)}
+                                    className="bg-purple-600 hover:bg-purple-700"
+                                  >
+                                    Generate Image
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           )}
                           
