@@ -1278,7 +1278,7 @@ import CharacterCasting from "@/components/script/CharacterCasting";
 // --- BEGIN MODIFICATION (Task 1.4) ---
 import FinancialAnalysisModal from "@/components/script/FinancialAnalysisModal";
 // --- END MODIFICATION (Task 1.4) ---
-import { VfxSceneDetails } from "@/components/script/VfxSceneDetails";
+import VfxScenes from "@/components/script/VfxScenes";
 import {
     Script,
     Scene,
