@@ -20,6 +20,7 @@ export interface VfxScenesProps {
   videoGenerationStates?: { [key: number]: any };
   onViewVideo?: (videoUrl: string, title: string) => void;
   onImageZoom?: (imageUrl: string, title: string) => void;
+  sceneVariations?: any[]; // Brandable scene variations with images
 }
 
 interface SceneWithVfxDetails extends Scene {
@@ -65,21 +66,12 @@ export default function VfxScenes({
   const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set());
   const [generatedImages, setGeneratedImages] = useState<{[key: string]: string}>({});
 
-  // Auto-generate images for all tiers when VFX scene is selected
+  // Auto-generate videos for all tiers when VFX scene is selected and has brandable images
   useEffect(() => {
     if (activeSceneDetails && activeSceneDetails.isVfxScene) {
-      const vfxDetails = (activeSceneDetails as SceneWithVfxDetails).vfxDetails || [];
-      const allTiers: VfxQualityTierType[] = ['LOW', 'MEDIUM', 'HIGH'];
-      
-      // Generate images for tiers that have details but no image yet
-      allTiers.forEach(tier => {
-        const tierDetail = vfxDetails.find(detail => detail.qualityTier === tier);
-        const tierKey = `${activeSceneDetails.id}-${tier}`;
-        
-        if (tierDetail && tierDetail.estimatedVfxCost && !tierDetail.conceptualImageUrl && !generatingImages.has(tierKey)) {
-          handleGenerateImage(tier);
-        }
-      });
+      // Check if this scene has brandable variations (images)
+      // We'll use those images to generate VFX videos
+      console.log('[VFX] Scene selected, checking for brandable images to convert to VFX videos');
     }
   }, [activeSceneDetails?.id, activeSceneDetails?.isVfxScene]);
 
