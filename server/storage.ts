@@ -7,12 +7,14 @@ import {
   sceneVariations,
   actors,
   locations,
+  vfxSceneDetails,
   insertProductSchema,
   insertScriptSchema, // Ensure insertScriptSchema is imported
   insertSceneSchema,
   insertSceneVariationSchema,
   insertActorSchema,
   insertLocationSchema,
+  insertVfxSceneDetailSchema,
   Product,
   ProductCategory,
   Script, // Ensure Script type is imported
@@ -20,6 +22,8 @@ import {
   SceneVariation, 
   Actor,
   Location,
+  VfxSceneDetail,
+  VfxQualityTierType,
 } from "@shared/schema";
 import {
   eq,
@@ -860,4 +864,82 @@ export async function getAllLocationsForAISuggestion(): Promise<Location[]> {
     .select()
     .from(locations)
     .orderBy(asc(locations.country), asc(locations.region));
+}
+
+// --- VFX Scene Details Functions ---
+export async function createOrUpdateVfxSceneDetail(
+  sceneId: number,
+  qualityTier: VfxQualityTierType,
+  data: {
+    vfxElementsSummary: string;
+    estimatedVfxCost: number;
+    costEstimationNotes: string;
+    conceptualImageUrl?: string | null;
+    conceptualVideoUrl?: string | null;
+  }
+): Promise<VfxSceneDetail> {
+  try {
+    // Check if a record already exists for this scene and tier
+    const existing = await db
+      .select()
+      .from(vfxSceneDetails)
+      .where(
+        and(
+          eq(vfxSceneDetails.sceneId, sceneId),
+          eq(vfxSceneDetails.qualityTier, qualityTier)
+        )
+      )
+      .limit(1);
+
+    const vfxData = {
+      sceneId,
+      qualityTier,
+      vfxElementsSummary: data.vfxElementsSummary,
+      estimatedVfxCost: data.estimatedVfxCost,
+      costEstimationNotes: data.costEstimationNotes,
+      conceptualImageUrl: data.conceptualImageUrl || null,
+      conceptualVideoUrl: data.conceptualVideoUrl || null,
+    };
+
+    if (existing.length > 0) {
+      // Update existing record
+      const [updated] = await db
+        .update(vfxSceneDetails)
+        .set({
+          vfxElementsSummary: vfxData.vfxElementsSummary,
+          estimatedVfxCost: vfxData.estimatedVfxCost,
+          costEstimationNotes: vfxData.costEstimationNotes,
+          conceptualImageUrl: vfxData.conceptualImageUrl,
+          conceptualVideoUrl: vfxData.conceptualVideoUrl,
+        })
+        .where(eq(vfxSceneDetails.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      // Create new record
+      const validated = insertVfxSceneDetailSchema.parse(vfxData);
+      const [created] = await db
+        .insert(vfxSceneDetails)
+        .values(validated)
+        .returning();
+      return created;
+    }
+  } catch (e) {
+    if (e instanceof ZodError) {
+      throw new Error(
+        `VFX scene detail validation failed: ${e.errors
+          .map((err) => `${err.path.join(".")}: ${err.message}`)
+          .join(", ")}`
+      );
+    }
+    throw e;
+  }
+}
+
+export async function getVfxSceneDetailsBySceneId(sceneId: number): Promise<VfxSceneDetail[]> {
+  return await db
+    .select()
+    .from(vfxSceneDetails)
+    .where(eq(vfxSceneDetails.sceneId, sceneId))
+    .orderBy(asc(vfxSceneDetails.qualityTier));
 }
