@@ -1,10 +1,3 @@
-/**
- * Character Casting Pipeline Coordinator
- * 
- * This module coordinates the various specialized AI agents to implement 
- * a modular pipeline for character casting suggestions.
- */
-
 import { extractCharactersFromScript } from './extraction-agent';
 import { predictScriptGenre } from './genre-agent';
 import { estimateCharacterDetails } from './description-agent';

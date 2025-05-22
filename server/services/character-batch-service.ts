@@ -11,7 +11,7 @@ interface SuggestionCacheEntry {
 
 // Cache with character name, script ID, and criteria as the key
 const suggestionCache = new Map<string, SuggestionCacheEntry>();
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30-minute cache TTL
+const CACHE_TTL_MS = 60 * 60 * 1000; // 30-minute cache TTL
 
 // Create a cache key from character name and criteria
 function createCacheKey(

@@ -1,135 +1,3 @@
-// // server/services/script-generation-service.ts
-// import {
-//   GoogleGenerativeAI,
-//   HarmCategory,
-//   HarmBlockThreshold,
-//   GenerationConfig as SDKGenerationConfig,
-// } from "@google/generative-ai";
-// import { ScriptGenerationFormData, FilmRatingEnum, FilmRatingType } from "@shared/schema";
-
-// let genAIInstance: GoogleGenerativeAI | null = null;
-
-// function initializeGenAIClient(): GoogleGenerativeAI {
-//   if (genAIInstance) {
-//     return genAIInstance;
-//   }
-//   const apiKey = process.env.GEMINI_API_KEY;
-//   if (!apiKey) {
-//     console.error(
-//       "CRITICAL: GEMINI_API_KEY environment variable is not set for Script Generation Service",
-//     );
-//     throw new Error("GEMINI_API_KEY environment variable is not set");
-//   }
-//   genAIInstance = new GoogleGenerativeAI(apiKey);
-//   return genAIInstance;
-// }
-
-// const safetySettings = [
-//   { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-//   { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-//   { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-//   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-// ];
-
-// // Helper to provide rating descriptions
-// function getRatingDescription(ratingKey: FilmRatingType): string {
-//     const ratingValue = FilmRatingEnum[ratingKey as keyof typeof FilmRatingEnum];
-//     switch (ratingValue) {
-//         case 'G': return "General Audiences. All ages admitted. No content that would be offensive to parents for viewing by children.";
-//         case 'PG': return "Parental Guidance Suggested. Some material may not be suitable for children. Parents urged to give 'parental guidance'. May contain some material parents might not like for their young children.";
-//         case 'PG-13': return "Parents Strongly Cautioned. Some material may be inappropriate for children under 13. Parents are urged to be cautious. Some material may be inappropriate for pre-teenagers.";
-//         case 'R': return "Restricted. Children Under 17 Require Accompanying Parent or Adult Guardian. Contains some adult material. Parents are urged to learn more about the film before taking their young children with them.";
-//         case 'NC-17': return "Adults Only. No One 17 and Under Admitted. Clearly adult. Children are not admitted.";
-//         default: return "General content guidelines apply.";
-//     }
-// }
-
-
-// export async function generateScriptWithGemini(formData: ScriptGenerationFormData): Promise<string> {
-//   const logPrefix = "[Gemini Script Gen]";
-//   console.log(`${logPrefix} Starting script generation for title: ${formData.projectTitle}`);
-
-//   try {
-//     const genAI = initializeGenAIClient();
-//     const model = genAI.getGenerativeModel({
-//       model: "gemini-1.5-pro-latest", 
-//       safetySettings,
-//       generationConfig: {
-//         temperature: 0.7, 
-//         topK: 40,
-//         topP: 0.95,
-//         maxOutputTokens: 24000, 
-//         responseMimeType: "text/plain", // Ensure plain text output
-//       } as SDKGenerationConfig,
-//     });
-
-//     const ratingDescription = getRatingDescription(formData.targetedRating);
-
-//     const prompt = `
-// You are an expert Hollywood screenwriter. Your task is to write a complete, original feature film screenplay based on the provided details. The screenplay should be approximately 90-120 pages long (standard screenplay format where 1 page equals roughly 1 minute of screen time).
-
-// Project Details:
-// - Project Title: "${formData.projectTitle}"
-// - Logline: "${formData.logline}"
-// - Description/Synopsis: "${formData.description}"
-// - Genre: "${formData.genre}"
-// - Core Concept/Idea: "${formData.concept}"
-// - Targeted Rating: ${formData.targetedRating} (${ratingDescription})
-// - Primary Story Location: "${formData.storyLocation}"
-// - Special Requests (if any): "${formData.specialRequest || "None"}"
-
-// Screenplay Requirements:
-// 1.  Length: 90-120 pages. This is crucial. Approximate this length with your output.
-// 2.  Originality: The story must be an original idea. Do NOT base it on any existing movies, books, TV shows, or other copyrighted properties.
-// 3.  Formatting: Adhere strictly to standard screenplay format:
-//     *   Scene Headings: ALL CAPS (e.g., INT. COFFEE SHOP - DAY).
-//     *   Action/Description: Standard sentence case, describing visuals and character actions.
-//     *   Character Names (before dialogue): ALL CAPS, indented.
-//     *   Dialogue: Standard sentence case, indented under the character name.
-//     *   Parentheticals: (e.g., (to herself), (beat)), indented under character name, before dialogue.
-//     *   Transitions: (e.g., FADE IN:, FADE OUT., CUT TO:), ALL CAPS, typically right-aligned or on their own line.
-//     *   Page numbers are NOT required in the generated text itself.
-// 4.  Content Guidelines: Strictly adhere to the targeted rating: ${formData.targetedRating}. ${ratingDescription}.
-// 5.  Character Development: Ensure main characters are well-developed with clear motivations and arcs. Secondary characters should also be distinct.
-// 6.  Story Structure: Employ a clear three-act structure (or a suitable alternative narrative structure if appropriate for the genre and concept). Ensure a compelling plot with rising action, climax, and resolution.
-// 7.  Pacing: Maintain appropriate pacing for the genre.
-// 8.  Tone: Maintain a consistent tone throughout the script, aligned with the specified genre.
-// 9.  Location Integration: The primary story location ("${formData.storyLocation}") should be integral to the story, not just a backdrop. Use it to enhance atmosphere, plot, and character interactions.
-// 10. Dialogue: Write natural, engaging, and character-appropriate dialogue.
-// 11. Special Requests: If special requests are provided, incorporate them naturally into the story.
-// 12. Completeness: The screenplay should feel like a complete narrative, from start to finish.
-
-// Begin with "FADE IN:" and end with "FADE OUT." or "THE END".
-
-// Do NOT include any pre-amble, conversation, or text other than the screenplay itself.
-
-// SCREENPLAY:
-// `;
-
-//     console.log(`${logPrefix} Sending prompt to Gemini. Title: ${formData.projectTitle}`);
-//     const result = await model.generateContent(prompt);
-//     const response = await result.response;
-//     const scriptText = response.text();
-
-//     if (!scriptText || scriptText.trim().length < 1000) { 
-//       console.warn(`${logPrefix} Gemini returned a very short or empty script for "${formData.projectTitle}". Length: ${scriptText?.length}`);
-//       throw new Error("AI failed to generate a substantial script. The response was too short.");
-//     }
-
-//     console.log(`${logPrefix} Successfully generated script for "${formData.projectTitle}". Length: ${scriptText.length}`);
-//     return scriptText;
-
-//   } catch (error: any) {
-//     console.error(`${logPrefix} Error generating script with Gemini for "${formData.projectTitle}":`, error.message || error);
-//     if (error.response && error.response.data) {
-//       console.error(`${logPrefix} Gemini API error details:`, error.response.data);
-//     }
-//     const geminiError = error.message?.includes("Google API error") ? error.message : "An error occurred during AI script generation.";
-//     throw new Error(geminiError);
-//   }
-// }
-
-
 // server/services/script-generation-service.ts
 import {
   GoogleGenAI,
@@ -143,7 +11,11 @@ import {
   type SafetySetting as SDKSafetySetting,
   FinishReason,
 } from "@google/genai";
-import { ScriptGenerationFormData, FilmRatingEnum, FilmRatingType } from "@shared/schema";
+import {
+  ScriptGenerationFormData,
+  FilmRatingEnum,
+  FilmRatingType,
+} from "@shared/schema";
 
 let genAIClientInstance: GoogleGenAI | null = null;
 const MODEL_NAME = "gemini-2.5-pro-preview-05-06";
@@ -164,24 +36,42 @@ function initializeGenAIClient(): GoogleGenAI {
 }
 
 const defaultSafetySettings: SDKSafetySetting[] = [
-  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
 ];
 
 // defaultTools might not be needed for pure text generation but kept for consistency
-const defaultTools: SDKTool[] = []; 
+const defaultTools: SDKTool[] = [];
 
 function getRatingDescription(ratingKey: FilmRatingType): string {
   const ratingValue = FilmRatingEnum[ratingKey as keyof typeof FilmRatingEnum];
   switch (ratingValue) {
-    case 'G': return "General Audiences. All ages admitted. No content that would be offensive to parents for viewing by children.";
-    case 'PG': return "Parental Guidance Suggested. Some material may not be suitable for children. Parents urged to give 'parental guidance'. May contain some material parents might not like for their young children.";
-    case 'PG-13': return "Parents Strongly Cautioned. Some material may be inappropriate for children under 13. Parents are urged to be cautious. Some material may be inappropriate for pre-teenagers.";
-    case 'R': return "Restricted. Children Under 17 Require Accompanying Parent or Adult Guardian. Contains some adult material. Parents are urged to learn more about the film before taking their young children with them.";
-    case 'NC-17': return "Adults Only. No One 17 and Under Admitted. Clearly adult. Children are not admitted.";
-    default: return "General content guidelines apply.";
+    case "G":
+      return "General Audiences. All ages admitted. No content that would be offensive to parents for viewing by children.";
+    case "PG":
+      return "Parental Guidance Suggested. Some material may not be suitable for children. Parents urged to give 'parental guidance'. May contain some material parents might not like for their young children.";
+    case "PG-13":
+      return "Parents Strongly Cautioned. Some material may be inappropriate for children under 13. Parents are urged to be cautious. Some material may be inappropriate for pre-teenagers.";
+    case "R":
+      return "Restricted. Children Under 17 Require Accompanying Parent or Adult Guardian. Contains some adult material. Parents are urged to learn more about the film before taking their young children with them.";
+    case "NC-17":
+      return "Adults Only. No One 17 and Under Admitted. Clearly adult. Children are not admitted.";
+    default:
+      return "General content guidelines apply.";
   }
 }
 
@@ -192,7 +82,9 @@ const MAX_TOTAL_TOKENS = 48000;
 const MAX_ITERATION_TOKENS = 8000; // Maximum tokens per API call
 const CONTEXT_LINES = 20; // Number of lines to provide as context from previous generation
 
-export async function generateScriptWithGemini(formData: ScriptGenerationFormData): Promise<string> {
+export async function generateScriptWithGemini(
+  formData: ScriptGenerationFormData,
+): Promise<string> {
   const logPrefix = `[Gemini Script Gen - Title: ${formData.projectTitle}]`;
   console.log(`${logPrefix} Starting single-agent looped script generation.`);
 
@@ -204,7 +96,9 @@ export async function generateScriptWithGemini(formData: ScriptGenerationFormDat
 
   while (estimatedTokensGenerated < MIN_TOTAL_TOKENS) {
     iterationCount++;
-    console.log(`${logPrefix} Starting iteration ${iterationCount}. Current token estimate: ${estimatedTokensGenerated}`);
+    console.log(
+      `${logPrefix} Starting iteration ${iterationCount}. Current token estimate: ${estimatedTokensGenerated}`,
+    );
 
     let iterationInstructions = "";
     let previousContext = "";
@@ -225,7 +119,10 @@ export async function generateScriptWithGemini(formData: ScriptGenerationFormDat
 Begin with "FADE IN:".`;
     } else {
       // Subsequent iterations - continue from previous content
-      const previousLines = fullScriptText.split('\n').slice(-CONTEXT_LINES).join('\n');
+      const previousLines = fullScriptText
+        .split("\n")
+        .slice(-CONTEXT_LINES)
+        .join("\n");
 
       previousContext = `PREVIOUS SCRIPT EXCERPT (for continuation):
 ${previousLines}`;
@@ -280,7 +177,9 @@ CONTINUE SCRIPT SEGMENT HERE:
       responseMimeType: "text/plain",
     };
 
-    const contentsForRequest: SDKContent[] = [{ role: "user", parts: [{ text: prompt }] }];
+    const contentsForRequest: SDKContent[] = [
+      { role: "user", parts: [{ text: prompt }] },
+    ];
     const request: GenerateContentRequest = {
       model: MODEL_NAME,
       contents: contentsForRequest,
@@ -290,92 +189,138 @@ CONTINUE SCRIPT SEGMENT HERE:
     };
 
     try {
-      console.log(`${logPrefix} Iteration ${iterationCount}: Sending request to Gemini.`);
-      const result: GenerateContentResult = await genAI.models.generateContent(request);
+      console.log(
+        `${logPrefix} Iteration ${iterationCount}: Sending request to Gemini.`,
+      );
+      const result: GenerateContentResult =
+        await genAI.models.generateContent(request);
 
       if (result.promptFeedback?.blockReason) {
-        throw new Error(`Request blocked by API (Iteration ${iterationCount}): ${result.promptFeedback.blockReason}`);
+        throw new Error(
+          `Request blocked by API (Iteration ${iterationCount}): ${result.promptFeedback.blockReason}`,
+        );
       }
 
-      if (!result.candidates || 
-          result.candidates.length === 0 || 
-          result.candidates[0].finishReason === FinishReason.SAFETY) {
+      if (
+        !result.candidates ||
+        result.candidates.length === 0 ||
+        result.candidates[0].finishReason === FinishReason.SAFETY
+      ) {
         const safetyRatings = result.candidates?.[0]?.safetyRatings;
-        console.error(`${logPrefix} Iteration ${iterationCount}: No valid candidates or blocked due to safety. Finish Reason: ${result.candidates?.[0]?.finishReason}. Safety: ${JSON.stringify(safetyRatings)}`);
-        throw new Error(`No valid candidates or blocked by safety filter (Iteration ${iterationCount}). Finish Reason: ${result.candidates?.[0]?.finishReason}`);
+        console.error(
+          `${logPrefix} Iteration ${iterationCount}: No valid candidates or blocked due to safety. Finish Reason: ${result.candidates?.[0]?.finishReason}. Safety: ${JSON.stringify(safetyRatings)}`,
+        );
+        throw new Error(
+          `No valid candidates or blocked by safety filter (Iteration ${iterationCount}). Finish Reason: ${result.candidates?.[0]?.finishReason}`,
+        );
       }
 
       let segmentText = "";
       if (result.candidates[0]?.content?.parts) {
-        const textPart = result.candidates[0].content.parts.find((part) => "text" in part);
+        const textPart = result.candidates[0].content.parts.find(
+          (part) => "text" in part,
+        );
         if (textPart && "text" in textPart) {
           segmentText = textPart.text;
         }
       }
 
-      if (!segmentText && typeof (result.candidates[0].content as any).text === 'string') {
+      if (
+        !segmentText &&
+        typeof (result.candidates[0].content as any).text === "string"
+      ) {
         segmentText = (result.candidates[0].content as any).text;
       }
 
       if (!segmentText) {
-        throw new Error(`Iteration ${iterationCount}: Empty response text from Gemini.`);
+        throw new Error(
+          `Iteration ${iterationCount}: Empty response text from Gemini.`,
+        );
       }
 
       // Add the segment to full script
       fullScriptText += (fullScriptText ? "\n\n" : "") + segmentText.trim();
 
       // Estimate tokens generated (rough approximation)
-      const segmentTokens = Math.ceil(segmentText.length * APPROX_TOKENS_PER_CHAR);
+      const segmentTokens = Math.ceil(
+        segmentText.length * APPROX_TOKENS_PER_CHAR,
+      );
       estimatedTokensGenerated += segmentTokens;
 
-      console.log(`${logPrefix} Iteration ${iterationCount}: Generated ~${segmentTokens} tokens. Total estimate: ${estimatedTokensGenerated}.`);
+      console.log(
+        `${logPrefix} Iteration ${iterationCount}: Generated ~${segmentTokens} tokens. Total estimate: ${estimatedTokensGenerated}.`,
+      );
 
       // Check if we've reached our target token count
       if (estimatedTokensGenerated >= MIN_TOTAL_TOKENS) {
         // If we don't have an ending yet and we're in range, let's add one more segment to wrap up
-        if (!fullScriptText.includes("FADE OUT") && 
-            !fullScriptText.includes("THE END") && 
-            estimatedTokensGenerated < MAX_TOTAL_TOKENS) {
-          console.log(`${logPrefix} Reached minimum token count. Adding final segment to wrap up.`);
+        if (
+          !fullScriptText.includes("FADE OUT") &&
+          !fullScriptText.includes("THE END") &&
+          estimatedTokensGenerated < MAX_TOTAL_TOKENS
+        ) {
+          console.log(
+            `${logPrefix} Reached minimum token count. Adding final segment to wrap up.`,
+          );
           continue; // One more iteration with conclusion instructions
         } else {
-          console.log(`${logPrefix} Script generation complete. Token estimate: ${estimatedTokensGenerated}.`);
+          console.log(
+            `${logPrefix} Script generation complete. Token estimate: ${estimatedTokensGenerated}.`,
+          );
           break; // We're done!
         }
       }
 
       // Add a small delay between iterations to avoid rate limits
       if (estimatedTokensGenerated < MIN_TOTAL_TOKENS) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
-
     } catch (error: any) {
-      console.error(`${logPrefix} Error during iteration ${iterationCount}:`, error.message || error);
+      console.error(
+        `${logPrefix} Error during iteration ${iterationCount}:`,
+        error.message || error,
+      );
 
       // If we have some content already, we can try to continue despite the error
       if (fullScriptText && estimatedTokensGenerated > MIN_TOTAL_TOKENS * 0.5) {
-        console.warn(`${logPrefix} Error occurred, but we have generated ${estimatedTokensGenerated} tokens. Attempting to continue.`);
+        console.warn(
+          `${logPrefix} Error occurred, but we have generated ${estimatedTokensGenerated} tokens. Attempting to continue.`,
+        );
         // Add a note about the error (will be visible in the output)
         fullScriptText += `\n\n[AI_NOTE: Generation encountered an issue here. The story may be disjointed.]\n\n`;
         continue;
       } else {
         // Not enough content to salvage, rethrow the error
-        throw new Error(`Failed during iteration ${iterationCount}: ${error.message}`);
+        throw new Error(
+          `Failed during iteration ${iterationCount}: ${error.message}`,
+        );
       }
     }
   }
 
   // Final validation check
-  if (fullScriptText.trim().length < MIN_TOTAL_TOKENS * APPROX_TOKENS_PER_CHAR * 0.5) {
-    console.warn(`${logPrefix} Final generated script is very short. Length: ${fullScriptText.length}. Target tokens: ${MIN_TOTAL_TOKENS}`);
-    throw new Error("AI failed to generate a substantial script. The combined output was too short.");
+  if (
+    fullScriptText.trim().length <
+    MIN_TOTAL_TOKENS * APPROX_TOKENS_PER_CHAR * 0.5
+  ) {
+    console.warn(
+      `${logPrefix} Final generated script is very short. Length: ${fullScriptText.length}. Target tokens: ${MIN_TOTAL_TOKENS}`,
+    );
+    throw new Error(
+      "AI failed to generate a substantial script. The combined output was too short.",
+    );
   }
 
   // Ensure we have a proper ending
-  if (!fullScriptText.includes("FADE OUT") && !fullScriptText.includes("THE END")) {
+  if (
+    !fullScriptText.includes("FADE OUT") &&
+    !fullScriptText.includes("THE END")
+  ) {
     fullScriptText += "\n\nFADE OUT.\n\nTHE END";
   }
 
-  console.log(`${logPrefix} Successfully generated complete script in ${iterationCount} iterations. Total script length: ${fullScriptText.length} chars, ~${estimatedTokensGenerated} tokens.`);
+  console.log(
+    `${logPrefix} Successfully generated complete script in ${iterationCount} iterations. Total script length: ${fullScriptText.length} chars, ~${estimatedTokensGenerated} tokens.`,
+  );
   return fullScriptText.trim();
 }

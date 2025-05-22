@@ -1,8 +1,3 @@
-/**
- * API routes for the character casting feature
- * Using the modular AI agent pipeline
- */
-
 import { Express, Request, Response, NextFunction } from 'express';
 import * as storage from '../storage';
 import { Actor as DbActor } from '@shared/schema';
