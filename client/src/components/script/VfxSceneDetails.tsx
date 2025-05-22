@@ -1,284 +1,253 @@
-// client/src/components/script/VfxSceneDetails.tsx
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { VfxSceneDetailsProps, ClientVfxScene } from '@/lib/types';
-import { apiRequest } from '@/lib/queryClient';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { DollarSign, Image as ImageIcon, Sparkles, AlertTriangle, Info, CheckCircle } from 'lucide-react';
-import { VfxQualityTierEnum, VfxQualityTierType, VfxSceneDetail as DbVfxSceneDetail } from "@shared/schema";
-import { cn } from '@/lib/utils';
-import ImageZoomModal from './ImageZoomModal'; // Assuming you have this for zooming images
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sparkles, Info, DollarSign } from "lucide-react";
+import type { Scene, VfxQualityTierType, VfxSceneDetail } from "@shared/schema";
+import { ImageZoomModal } from "@/components/ui/image-zoom-modal";
 
-const FALLBACK_VFX_IMAGE = "https://placehold.co/1024x576/444/ccc?text=VFX+Concept";
+export interface VfxSceneDetailsProps {
+  scriptId: number;
+  activeScene: Scene | null;
+  initialSelectedVfxTier: VfxQualityTierType | null;
+  onVfxTierSelect: (sceneId: number, tier: VfxQualityTierType, cost: number) => void;
+}
 
-export default function VfxSceneDetails({
-  scriptId,
-  activeScene,
-  onVfxTierSelect,
-  selectedVfxTier: initialSelectedTier // Prop to reflect externally managed selection
+interface SceneWithVfxDetails extends Scene {
+  vfxDetails?: VfxSceneDetail[];
+}
+
+const VFX_TIER_CONFIG = {
+  LOW: {
+    name: "Low Quality VFX",
+    description: "Basic visual effects for simple scenes",
+    color: "bg-blue-50 border-blue-200 dark:bg-blue-950 dark:border-blue-800"
+  },
+  MEDIUM: {
+    name: "Medium Quality VFX", 
+    description: "Professional grade effects for standard production",
+    color: "bg-purple-50 border-purple-200 dark:bg-purple-950 dark:border-purple-800"
+  },
+  HIGH: {
+    name: "High Quality VFX",
+    description: "Premium cinematic quality effects",
+    color: "bg-amber-50 border-amber-200 dark:bg-amber-950 dark:border-amber-800"
+  }
+} as const;
+
+export function VfxSceneDetails({ 
+  scriptId, 
+  activeScene, 
+  initialSelectedVfxTier, 
+  onVfxTierSelect 
 }: VfxSceneDetailsProps) {
-  const [isZoomModalOpen, setIsZoomModalOpen] = useState(false);
-  const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
-  const [localSelectedTier, setLocalSelectedTier] = useState<VfxQualityTierType | null>(initialSelectedTier || VfxQualityTierEnum.MEDIUM);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  
+  // Only display if scene is provided and is a VFX scene
+  if (!activeScene || !activeScene.isVfxScene) {
+    return null;
+  }
 
+  const sceneWithDetails = activeScene as SceneWithVfxDetails;
+  const vfxDetails = sceneWithDetails.vfxDetails || [];
+  const isLoading = vfxDetails.length === 0;
 
-  // Fetch all VFX scenes and their details for the current script
-  // We will then filter for the activeScene client-side.
-  const { data: allVfxScenesData, isLoading, isError, error } = useQuery<ClientVfxScene[]>({
-    queryKey: [`/api/scripts/${scriptId}/vfx-scenes`, scriptId],
-    queryFn: async () => {
-      if (!scriptId) return [];
-      const response = await apiRequest("GET", `/api/scripts/${scriptId}/vfx-scenes`);
-      return response.json();
-    },
-    enabled: !!scriptId && !!activeScene && activeScene.is_vfx_scene, // Only fetch if it's a VFX scene
-    refetchOnWindowFocus: false,
-  });
-
-  // Effect to update localSelectedTier if the prop changes (e.g. loaded from saved state)
-  useEffect(() => {
-    setLocalSelectedTier(initialSelectedTier || VfxQualityTierEnum.MEDIUM);
-  }, [initialSelectedTier]);
-
-
-  const currentVfxSceneData = activeScene && allVfxScenesData?.find(s => s.id === activeScene.id);
-  const vfxDetailsForActiveScene = currentVfxSceneData?.vfxDetails || [];
-
-  const handleTierButtonClick = (tier: VfxQualityTierType) => {
-    setLocalSelectedTier(tier);
-    if (onVfxTierSelect && activeScene) {
-      const tierDetail = vfxDetailsForActiveScene.find(d => d.qualityTier === tier);
-      onVfxTierSelect(activeScene.id, tier, tierDetail?.estimatedVfxCost || 0);
-    }
+  // Get the conceptual image URL (prefer MEDIUM tier, fallback to first available)
+  const getConceptualImageUrl = (): string | null => {
+    const mediumTier = vfxDetails.find(detail => detail.qualityTier === 'MEDIUM');
+    if (mediumTier?.conceptualImageUrl) return mediumTier.conceptualImageUrl;
+    
+    const firstWithImage = vfxDetails.find(detail => detail.conceptualImageUrl);
+    return firstWithImage?.conceptualImageUrl || null;
   };
 
-  const openZoomModal = (url: string | null) => {
-    if (url) {
-      setZoomImageUrl(url);
-      setIsZoomModalOpen(true);
-    }
+  const conceptualImageUrl = getConceptualImageUrl();
+
+  // Format cost as currency
+  const formatCost = (cost: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(cost);
   };
 
-  // Find the conceptual image URL (e.g., from medium tier or first available)
-  let conceptualImageUrl = FALLBACK_VFX_IMAGE;
-  if (vfxDetailsForActiveScene && vfxDetailsForActiveScene.length > 0) {
-    const mediumTierDetail = vfxDetailsForActiveScene.find(d => d.qualityTier === VfxQualityTierEnum.MEDIUM && d.conceptualImageUrl);
-    if (mediumTierDetail) {
-      conceptualImageUrl = mediumTierDetail.conceptualImageUrl!;
-    } else {
-      const firstDetailWithImage = vfxDetailsForActiveScene.find(d => d.conceptualImageUrl);
-      if (firstDetailWithImage) {
-        conceptualImageUrl = firstDetailWithImage.conceptualImageUrl!;
-      }
-    }
-  }
-
-
-  if (!activeScene) {
-    return (
-      <Card className="bg-muted/30">
-        <CardContent className="pt-6 text-center text-muted-foreground">
-          <Info className="mx-auto h-8 w-8 mb-2" />
-          Select a scene to view its details.
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!activeScene.is_vfx_scene) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center"><Sparkles className="mr-2 h-5 w-5 text-purple-500" />VFX Analysis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">No significant VFX elements identified by Vadis AI for this scene.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-4 w-1/2 mt-1" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-48 w-full" />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full" />)}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isError) {
-    return (
-      <Card className="border-destructive">
-        <CardHeader>
-          <CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5" />Error Loading VFX Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>{(error as Error)?.message || "Could not load VFX details for this scene."}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!currentVfxSceneData && activeScene.is_vfx_scene) {
-      return (
-          <Card>
-              <CardHeader>
-                  <CardTitle className="flex items-center"><Sparkles className="mr-2 h-5 w-5 text-purple-500" />VFX Details for Scene {activeScene.sceneNumber}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                  <div className="text-center py-8 text-muted-foreground">
-                      <Loader2 className="mx-auto h-8 w-8 animate-spin mb-3" />
-                      <p>Fetching VFX details...</p>
-                      <p className="text-xs mt-1">If this persists, try re-analyzing VFX for the script.</p>
-                  </div>
-              </CardContent>
-          </Card>
-      );
-  }
-
+  // Parse VFX keywords
+  const vfxKeywords = Array.isArray(activeScene.vfxKeywords) 
+    ? activeScene.vfxKeywords 
+    : (typeof activeScene.vfxKeywords === 'string' 
+        ? activeScene.vfxKeywords.split(',').map(k => k.trim()).filter(Boolean)
+        : []);
 
   return (
-    <>
+    <div className="space-y-6">
+      {/* Scene VFX Overview */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Sparkles className="mr-2 h-6 w-6 text-purple-500" />
-            VFX Analysis for Scene {activeScene.sceneNumber}: {activeScene.heading}
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-purple-600" />
+            VFX Scene Details
           </CardTitle>
-          {activeScene.vfx_description && (
-            <CardDescription className="pt-1">{activeScene.vfx_description}</CardDescription>
-          )}
-           {activeScene.vfx_keywords && activeScene.vfx_keywords.length > 0 && (
-             <div className="pt-2">
-                {activeScene.vfx_keywords.map(keyword => (
-                    <Badge key={keyword} variant="secondary" className="mr-1 mb-1 bg-purple-100 text-purple-700 border-purple-300">
-                        {keyword}
-                    </Badge>
-                ))}
-            </div>
-           )}
+          <CardDescription>
+            Scene {activeScene.sceneNumber}: {activeScene.heading}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div>
-            <h3 className="text-md font-semibold mb-2">Conceptual Visual</h3>
-            {conceptualImageUrl && conceptualImageUrl !== FALLBACK_VFX_IMAGE ? (
+        <CardContent className="space-y-4">
+          {/* VFX Description */}
+          {activeScene.vfxDescription && (
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2">VFX Requirements</h4>
+              <p className="text-sm">{activeScene.vfxDescription}</p>
+            </div>
+          )}
+
+          {/* VFX Keywords */}
+          {vfxKeywords.length > 0 && (
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2">VFX Elements</h4>
+              <div className="flex flex-wrap gap-2">
+                {vfxKeywords.map((keyword, index) => (
+                  <Badge key={index} variant="secondary" className="text-xs">
+                    {keyword}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Conceptual Image */}
+          {conceptualImageUrl && (
+            <div>
+              <h4 className="font-medium text-sm text-muted-foreground mb-2">Conceptual Visualization</h4>
               <div 
-                className="aspect-video w-full bg-muted rounded-lg overflow-hidden cursor-pointer relative group"
-                onClick={() => openZoomModal(conceptualImageUrl)}
+                className="relative cursor-pointer rounded-lg overflow-hidden border hover:opacity-90 transition-opacity"
+                onClick={() => setSelectedImageUrl(conceptualImageUrl)}
               >
-                <img src={conceptualImageUrl} alt={`VFX Concept for Scene ${activeScene.sceneNumber}`} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <ZoomIn className="h-10 w-10 text-white" />
-                </div>
+                <img 
+                  src={conceptualImageUrl} 
+                  alt="VFX Concept"
+                  className="w-full h-48 object-cover"
+                />
+                <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors" />
               </div>
-            ) : (
-              <div className="aspect-video w-full bg-muted rounded-lg flex items-center justify-center">
-                <ImageIcon className="h-12 w-12 text-muted-foreground" />
-              </div>
-            )}
-            {/* Placeholder for video if/when implemented */}
-            {/* {vfxDetailsForActiveScene.find(d => d.conceptualVideoUrl) && <p className="text-sm mt-2">Conceptual video available.</p>} */}
-          </div>
-
-          <div>
-            <h3 className="text-md font-semibold mb-3">Estimated VFX Cost Tiers & Complexity</h3>
-            <p className="text-xs text-muted-foreground mb-3">Select a tier to see its impact on the overall project budget in the Financial Analysis.</p>
-            {vfxDetailsForActiveScene.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(Object.keys(VfxQualityTierEnum) as VfxQualityTierType[]).map((tierKey) => {
-                  const tierValue = VfxQualityTierEnum[tierKey];
-                  const detail = vfxDetailsForActiveScene.find(d => d.qualityTier === tierValue);
-                  const isSelected = localSelectedTier === tierValue;
-
-                  return (
-                    <Card 
-                        key={tierValue} 
-                        className={cn(
-                            "cursor-pointer hover:shadow-md",
-                            isSelected ? "border-primary ring-2 ring-primary" : "border-border"
-                        )}
-                        onClick={() => handleTierButtonClick(tierValue)}
-                    >
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base capitalize flex justify-between items-center">
-                          {tierValue} Tier
-                          {isSelected && <CheckCircle className="h-5 w-5 text-primary" />}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="text-sm space-y-1">
-                        <p className="flex items-center font-semibold text-lg">
-                          <DollarSign className="h-5 w-5 mr-1 text-green-600" />
-                          {detail?.estimatedVfxCost !== null && detail?.estimatedVfxCost !== undefined 
-                            ? detail.estimatedVfxCost.toLocaleString('en-US') 
-                            : 'N/A'}
-                        </p>
-                        <TooltipProvider delayDuration={100}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <p className="text-xs text-muted-foreground line-clamp-2 cursor-help">
-                                        {detail?.costEstimationNotes || "No specific notes."}
-                                    </p>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="max-w-xs">
-                                    <p className="text-xs">{detail?.costEstimationNotes || "No specific notes for this tier."}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                         {detail?.vfxElementsSummaryForTier && (
-                             <TooltipProvider delayDuration={100}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2 cursor-help">
-                                            Elements: {detail.vfxElementsSummaryForTier}
-                                        </p>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="bottom" className="max-w-xs">
-                                        <p className="text-xs font-semibold mb-1">Key elements considered for this tier:</p>
-                                        <p className="text-xs">{detail.vfxElementsSummaryForTier}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                         )}
-                      </CardContent>
-                        <CardFooter>
-                            <Button 
-                                variant={isSelected ? "default" : "outline"} 
-                                size="sm" 
-                                className="w-full"
-                                onClick={(e) => { e.stopPropagation(); handleTierButtonClick(tierValue); }}
-                            >
-                                {isSelected ? "Selected" : "Select Tier"}
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-muted-foreground">No detailed cost tiers available for this VFX scene yet. Try re-analyzing.</p>
-            )}
-          </div>
+              <p className="text-xs text-muted-foreground mt-1">Click to view full size</p>
+            </div>
+          )}
         </CardContent>
       </Card>
-      <ImageZoomModal 
-        isOpen={isZoomModalOpen}
-        onClose={() => setIsZoomModalOpen(false)}
-        imageUrl={zoomImageUrl}
-        title={`VFX Concept - Scene ${activeScene?.sceneNumber}`}
-      />
-    </>
+
+      {/* VFX Quality Tiers */}
+      <div>
+        <h3 className="text-lg font-semibold mb-4">VFX Quality Tiers</h3>
+        
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-16 w-full mb-4" />
+                  <Skeleton className="h-6 w-20 mb-2" />
+                  <Skeleton className="h-9 w-full" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(['LOW', 'MEDIUM', 'HIGH'] as VfxQualityTierType[]).map((tier) => {
+              const tierDetail = vfxDetails.find(detail => detail.qualityTier === tier);
+              const tierConfig = VFX_TIER_CONFIG[tier];
+              const isSelected = initialSelectedVfxTier === tier;
+              
+              return (
+                <Card 
+                  key={tier} 
+                  className={`${tierConfig.color} ${isSelected ? 'ring-2 ring-primary' : ''}`}
+                >
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between text-base">
+                      {tierConfig.name}
+                      {tierDetail?.estimatedVfxCost && (
+                        <div className="flex items-center gap-1 text-sm font-medium">
+                          <DollarSign className="w-4 h-4" />
+                          {formatCost(tierDetail.estimatedVfxCost)}
+                        </div>
+                      )}
+                    </CardTitle>
+                    <CardDescription>{tierConfig.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {tierDetail ? (
+                      <>
+                        {/* VFX Elements Summary */}
+                        {tierDetail.vfxElementsSummaryForTier && (
+                          <div>
+                            <p className="text-sm">{tierDetail.vfxElementsSummaryForTier}</p>
+                          </div>
+                        )}
+
+                        {/* Cost Notes with Tooltip */}
+                        {tierDetail.costEstimationNotes && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
+                                  <Info className="w-3 h-3" />
+                                  Cost breakdown details
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">{tierDetail.costEstimationNotes}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+
+                        {/* Select Tier Button */}
+                        <Button
+                          onClick={() => tierDetail.estimatedVfxCost && onVfxTierSelect(
+                            activeScene.id, 
+                            tier, 
+                            tierDetail.estimatedVfxCost
+                          )}
+                          variant={isSelected ? "default" : "outline"}
+                          className="w-full"
+                          disabled={!tierDetail.estimatedVfxCost}
+                        >
+                          {isSelected ? "Selected" : "Select Tier"}
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-center py-4">
+                        <Skeleton className="h-4 w-full mb-2" />
+                        <Skeleton className="h-4 w-3/4 mb-4" />
+                        <Skeleton className="h-9 w-full" />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Image Zoom Modal */}
+      {selectedImageUrl && (
+        <ImageZoomModal
+          imageUrl={selectedImageUrl}
+          alt="VFX Concept Visualization"
+          isOpen={!!selectedImageUrl}
+          onClose={() => setSelectedImageUrl(null)}
+        />
+      )}
+    </div>
   );
 }
