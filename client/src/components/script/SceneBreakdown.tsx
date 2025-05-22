@@ -102,6 +102,32 @@ export default function SceneBreakdown({
           </div>
         </div>
       )}
+
+      {/* VFX Scenes Summary */}
+      {scenes.length > 0 && scenes.some(scene => scene.isVfxScene) && (
+        <div className="mt-4">
+          <div className="bg-purple-50 border border-purple-200 rounded-md p-3">
+            <p className="text-sm text-purple-800 mb-2 font-medium">
+              {`VADIS AI SUGGESTED VFX SCENES`}
+            </p>
+            <p className="text-xs text-purple-600 mb-2">
+              {`There are ${scenes.filter(scene => scene.isVfxScene).length} scenes with VFX potential. Vadis AI has suggested the following scenes for their VFX potential:`}
+            </p>
+            <ul className="text-xs text-purple-700 space-y-1">
+              {scenes
+                .filter((scene) => scene.isVfxScene)
+                .map((scene) => {
+                  return (
+                    <li key={scene.id} className="flex items-center">
+                      <Sparkles className="h-4 w-4 mr-1 text-purple-600" />
+                      Scene {scene.sceneNumber}: {scene.heading.length > 30 ? scene.heading.substring(0, 30) + "..." : scene.heading}
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
