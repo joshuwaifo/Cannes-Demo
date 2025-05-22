@@ -1082,6 +1082,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
     );
 
+    // VFX Analysis endpoint - analyze existing script for VFX scenes
+    app.post(`${apiPrefix}/scripts/:scriptId/analyze-vfx`, async (req, res, next) => {
+        try {
+            const scriptId = parseInt(req.params.scriptId);
+            if (isNaN(scriptId)) {
+                return res.status(400).json({ message: "Valid Script ID is required" });
+            }
+
+            const logPrefix = `[VFX Analysis Route for Script ${scriptId}]`;
+            console.log(`${logPrefix} Starting VFX analysis`);
+
+            // Get the script
+            const script = await storage.getScriptById(scriptId);
+            if (!script) {
+                return res.status(404).json({ message: "Script not found" });
+            }
+
+            // Get all scenes for this script
+            const scenes = await storage.getScenesByScriptId(scriptId);
+            if (scenes.length === 0) {
+                return res.status(400).json({ message: "No scenes found for this script" });
+            }
+
+            console.log(`${logPrefix} Found ${scenes.length} scenes to analyze`);
+
+            // Run VFX analysis
+            await analyzeAndStoreScriptVFX(scriptId, script.content, scenes);
+
+            // Count VFX scenes after analysis
+            const updatedScenes = await storage.getScenesByScriptId(scriptId);
+            const vfxScenesCount = updatedScenes.filter(scene => scene.isVfxScene).length;
+
+            console.log(`${logPrefix} VFX analysis completed. ${vfxScenesCount} VFX scenes identified`);
+
+            res.status(200).json({
+                message: "VFX analysis completed successfully",
+                scriptId,
+                totalScenes: scenes.length,
+                vfxScenesCount,
+            });
+
+        } catch (error) {
+            console.error(`[VFX Analysis Route] Error:`, error);
+            next(error);
+        }
+    });
+
     const httpServer = createServer(app);
     return httpServer;
 }
