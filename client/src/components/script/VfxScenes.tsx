@@ -63,17 +63,23 @@ export default function VfxScenes({
 }: VfxScenesProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [isImageZoomModalOpen, setIsImageZoomModalOpen] = useState(false);
-  const [generatingImages, setGeneratingImages] = useState<Set<string>>(new Set());
-  const [generatedImages, setGeneratedImages] = useState<{[key: string]: string}>({});
 
-  // Auto-generate videos for all tiers when VFX scene is selected and has brandable images
-  useEffect(() => {
-    if (activeSceneDetails && activeSceneDetails.isVfxScene) {
-      // Check if this scene has brandable variations (images)
-      // We'll use those images to generate VFX videos
-      console.log('[VFX] Scene selected, checking for brandable images to convert to VFX videos');
+  // Get brandable scene variations (images) for this VFX scene
+  const availableImages = sceneVariations?.filter(variation => 
+    variation.sceneId === activeSceneDetails?.id && variation.imageUrl
+  ) || [];
+
+  // Generate VFX video for a specific quality tier using brandable scene image
+  const handleGenerateVfxVideo = async (tier: VfxQualityTierType) => {
+    if (!activeSceneDetails || availableImages.length === 0) return;
+    
+    const firstImage = availableImages[0]; // Use the first available brandable image
+    
+    if (firstImage?.id && onGenerateVideoRequest) {
+      console.log(`[VFX Video ${tier}] Generating VFX video for tier ${tier} using brandable image`);
+      onGenerateVideoRequest(firstImage.id);
     }
-  }, [activeSceneDetails?.id, activeSceneDetails?.isVfxScene]);
+  };
 
   if (!activeSceneDetails || !activeSceneDetails.isVfxScene) {
     return null;
@@ -220,34 +226,33 @@ export default function VfxScenes({
                     >
                       <CardContent className="p-4">
                         <div className="space-y-3">
-                          {/* Concept Image */}
-                          {tierDetail?.conceptualImageUrl ? (
+                          {/* Use brandable scene image for VFX */}
+                          {availableImages.length > 0 ? (
                             <div 
                               className="h-32 w-full rounded overflow-hidden cursor-pointer group relative"
-                              onClick={() => handleImageClick(tierDetail.conceptualImageUrl!, `${config.name} - Scene ${activeSceneDetails.sceneNumber}`)}
+                              onClick={() => {
+                                if (onImageZoom && availableImages[0]?.imageUrl) {
+                                  onImageZoom(availableImages[0].imageUrl, `VFX ${config.name} - Scene ${activeSceneDetails.sceneNumber}`);
+                                }
+                              }}
                             >
                               <img 
-                                src={tierDetail.conceptualImageUrl} 
-                                alt={`${config.name} concept`}
+                                src={availableImages[0].imageUrl} 
+                                alt={`VFX ${config.name} base image`}
                                 className="w-full h-full object-cover transition-transform group-hover:scale-105"
                               />
                               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <Eye className="h-6 w-6 text-white" />
                               </div>
+                              <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                                VFX {config.name}
+                              </div>
                             </div>
                           ) : (
                             <div className="h-32 w-full rounded bg-gray-100 flex flex-col items-center justify-center gap-2">
-                              {generatingImages.has(`${activeSceneDetails.id}-${tier}`) ? (
-                                <>
-                                  <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
-                                  <p className="text-xs text-gray-600">Generating VFX image...</p>
-                                </>
-                              ) : (
-                                <>
-                                  <Sparkles className="h-8 w-8 text-gray-400" />
-                                  <p className="text-xs text-gray-600">Select tier to generate image</p>
-                                </>
-                              )}
+                              <Sparkles className="h-8 w-8 text-gray-400" />
+                              <p className="text-xs text-gray-600">No brandable image available</p>
+                              <p className="text-xs text-gray-500">Generate brand placement first</p>
                             </div>
                           )}
                           
@@ -272,8 +277,6 @@ export default function VfxScenes({
                               onClick={async () => {
                                 if (tierDetail?.estimatedVfxCost) {
                                   onVfxTierSelect(activeSceneDetails.id, tier, tierDetail.estimatedVfxCost);
-                                  // Auto-generate image after selecting tier
-                                  await handleGenerateImage(tier);
                                 }
                               }}
                               disabled={!tierDetail?.estimatedVfxCost}
@@ -281,25 +284,21 @@ export default function VfxScenes({
                               {isSelected ? 'Selected' : 'Select Tier'}
                             </Button>
                             
-                            {tierDetail?.conceptualImageUrl && (
+                            {availableImages.length > 0 && (
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      onClick={() => {
-                                        if (onGenerateVideoRequest && tierDetail.id) {
-                                          onGenerateVideoRequest(tierDetail.id);
-                                        }
-                                      }}
-                                      disabled={!onGenerateVideoRequest}
+                                      onClick={() => handleGenerateVfxVideo(tier)}
+                                      disabled={!onGenerateVideoRequest || !availableImages[0]?.id}
                                     >
                                       <Play className="h-4 w-4" />
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Generate VFX Video</p>
+                                    <p>Generate VFX Video ({config.name})</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
