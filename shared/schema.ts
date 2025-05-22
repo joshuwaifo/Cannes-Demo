@@ -86,6 +86,13 @@ export const GenreEnum = {
 } as const;
 export type GenreType = keyof typeof GenreEnum;
 
+export const VfxQualityTierEnum = {
+  LOW: "LOW",
+  MEDIUM: "MEDIUM",
+  HIGH: "HIGH",
+} as const;
+export type VfxQualityTierType = keyof typeof VfxQualityTierEnum;
+
 export type ProductCategory = keyof typeof ProductCategory;
 
 export const products = pgTable("products", {
@@ -179,6 +186,11 @@ export const scenes = pgTable("scenes", {
   isBrandable: boolean("is_brandable").default(false).notNull(),
   brandableReason: text("brandable_reason"),
   suggestedCategories: jsonb("suggested_categories").$type<ProductCategory[]>(),
+  isVfxScene: boolean("is_vfx_scene").default(false).notNull(),
+  vfxDescription: text("vfx_description"),
+  vfxKeywords: jsonb("vfx_keywords").$type<string[]>(),
+  selectedVfxTier: text("selected_vfx_tier").$type<VfxQualityTierType | null>(),
+  selectedVfxCost: integer("selected_vfx_cost").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -189,6 +201,7 @@ export const scenesRelations = relations(scenes, ({ one, many }) => ({
     references: [scripts.id],
   }),
   variations: many(sceneVariations),
+  vfxDetails: many(vfxSceneDetails),
 }));
 
 export const insertSceneSchema = createInsertSchema(scenes);
@@ -240,6 +253,38 @@ export type SceneVariation = typeof sceneVariations.$inferSelect & {
   productCategory?: ProductCategory;
   productImageUrl?: string | null;
 };
+
+
+// --- VFX Scene Details ---
+export const vfxSceneDetails = pgTable("vfx_scene_details", {
+  id: serial("id").primaryKey(),
+  sceneId: integer("scene_id")
+    .references(() => scenes.id, { onDelete: "cascade" })
+    .notNull(),
+  qualityTier: text("quality_tier").$type<VfxQualityTierType>().notNull(),
+  conceptualImageUrl: text("conceptual_image_url"),
+  conceptualVideoUrl: text("conceptual_video_url"),
+  estimatedVfxCost: integer("estimated_vfx_cost"),
+  costEstimationNotes: text("cost_estimation_notes"),
+  vfxElementsSummaryForTier: text("vfx_elements_summary_for_tier"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  // Unique composite index on scene_id and quality_tier
+  uniqueSceneQualityTier: sql`UNIQUE (${table.sceneId}, ${table.qualityTier})`,
+}));
+
+export const vfxSceneDetailsRelations = relations(vfxSceneDetails, ({ one }) => ({
+  scene: one(scenes, {
+    fields: [vfxSceneDetails.sceneId],
+    references: [scenes.id],
+  }),
+}));
+
+export const insertVfxSceneDetailSchema = createInsertSchema(vfxSceneDetails);
+
+export type InsertVfxSceneDetail = z.infer<typeof insertVfxSceneDetailSchema>;
+export type VfxSceneDetail = typeof vfxSceneDetails.$inferSelect;
 
 
 // --- Actors ---

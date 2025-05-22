@@ -19,7 +19,7 @@ import {
 
 // --- Gemini Client Initialization ---
 let genAIClientInstance: GoogleGenAI | null = null;
-const MODEL_NAME = "gemini-2.5-flash-preview-04-17";
+const MODEL_NAME = "gemini-1.5-flash-8b";
 
 function initializeGenAIClient(): GoogleGenAI {
     if (genAIClientInstance) {

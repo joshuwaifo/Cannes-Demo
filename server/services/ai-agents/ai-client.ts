@@ -15,7 +15,7 @@ import {
 
 // --- Client Singleton ---
 let genAIInstance: GoogleGenerativeAI | null = null;
-const MODEL_NAME = "gemini-2.5-flash-preview-04-17"; // Use consistent model version
+const MODEL_NAME = "gemini-1.5-flash-8b"; // Use consistent model version
 
 // Standard safety settings to use across all agents
 const safetySettings: SafetySetting[] = [
