@@ -23,6 +23,63 @@ function extractJsonFromString(str: string): string | null {
     if (jsonMatch) {
       let jsonStr = jsonMatch[0];
       
+      // Fix various array formatting issues in vfxKeywords
+      jsonStr = jsonStr.replace(/"vfxKeywords":\s*"?\[([^\]]*)\]"?/g, (match, content) => {
+        try {
+          // Extract individual items from the array content
+          const items = [];
+          let current = '';
+          let inQuotes = false;
+          let escapeNext = false;
+          
+          for (let i = 0; i < content.length; i++) {
+            const char = content[i];
+            
+            if (escapeNext) {
+              current += char;
+              escapeNext = false;
+              continue;
+            }
+            
+            if (char === '\\') {
+              escapeNext = true;
+              continue;
+            }
+            
+            if (char === '"') {
+              inQuotes = !inQuotes;
+              continue;
+            }
+            
+            if (char === ',' && !inQuotes) {
+              if (current.trim()) {
+                items.push(current.trim());
+              }
+              current = '';
+              continue;
+            }
+            
+            current += char;
+          }
+          
+          // Add the last item
+          if (current.trim()) {
+            items.push(current.trim());
+          }
+          
+          // Clean and quote the items
+          const cleanItems = items.map(item => {
+            const cleaned = item.replace(/^["']+|["']+$/g, '').trim();
+            return `"${cleaned}"`;
+          });
+          
+          return `"vfxKeywords": [${cleanItems.join(', ')}]`;
+        } catch (error) {
+          // Fallback to empty array if parsing fails
+          return `"vfxKeywords": []`;
+        }
+      });
+      
       // Clean up common JSON formatting issues
       jsonStr = jsonStr
         .replace(/,\s*}/g, '}')  // Remove trailing commas before }
