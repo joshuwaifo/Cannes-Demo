@@ -5,9 +5,9 @@ import { updateScene } from "../storage";
 
 // Initialize Gemini AI client
 function initializeGenAIClient(): GoogleGenerativeAI {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
-    throw new Error("GOOGLE_AI_API_KEY environment variable is required");
+    throw new Error("GEMINI_API_KEY or GOOGLE_API_KEY environment variable is required");
   }
   return new GoogleGenerativeAI(apiKey);
 }
