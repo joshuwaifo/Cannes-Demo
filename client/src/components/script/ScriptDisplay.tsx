@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import React, { useState, useEffect } from "react"; // Ensure React is imported
 import { Skeleton } from "@/components/ui/skeleton";
 import { Scene } from "@shared/schema"; // Import Scene if it's used for activeScene type
+import { Sparkles, Loader2 } from "lucide-react";
 
 export default function ScriptDisplay({
   script,
@@ -119,7 +120,22 @@ export default function ScriptDisplay({
             : script?.title || "Script Editor" } {/* Display script title if no active scene */}
         </h2>
         <div className="flex space-x-2">
-            {/* Removed buttons from here as they are in ScriptEditor.tsx now */}
+          {onAnalyzeVfx && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAnalyzeVfx}
+              disabled={!script || isAnalyzingVfx}
+              className="flex items-center gap-2"
+            >
+              {isAnalyzingVfx ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {isAnalyzingVfx ? "Analyzing..." : "Analyze VFX"}
+            </Button>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 // client/src/components/script/SceneBreakdown.tsx
 import { SceneBreakdownProps } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Star } from "lucide-react"; // Changed from Info to Star
+import { Star, Sparkles } from "lucide-react"; // Added Sparkles for VFX scenes
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -57,9 +57,14 @@ export default function SceneBreakdown({
                     </span>
                     <p className="text-xs text-gray-600">{scene.heading}</p>
                   </div>
-                  {brandableSceneIds.includes(scene.id) && (
-                    <Star className="h-5 w-5 text-green-500 brandable-indicator" /> // Changed icon and color
-                  )}
+                  <div className="flex items-center gap-2">
+                    {scene.isVfxScene && (
+                      <Sparkles className="h-4 w-4 text-purple-500" title="VFX Scene" />
+                    )}
+                    {brandableSceneIds.includes(scene.id) && (
+                      <Star className="h-5 w-5 text-green-500 brandable-indicator" title="Brandable Scene" />
+                    )}
+                  </div>
                 </div>
               </li>
             ))}
