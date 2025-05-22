@@ -296,11 +296,30 @@ IMPORTANT: Return ONLY the JSON array, no additional text or formatting.`;
     // Extract and parse JSON
     const jsonStr = extractJsonFromString(responseText);
     if (!jsonStr) {
+      console.error(`${logPrefix} Failed to extract JSON. Raw response preview:`, responseText.substring(0, 500));
       throw new Error("Could not extract JSON from Gemini response");
     }
 
-    const analysisResults: VfxSceneAnalysis[] = JSON.parse(jsonStr);
-    console.log(`${logPrefix} Successfully parsed ${analysisResults.length} scene analyses`);
+    console.log(`${logPrefix} Extracted JSON length: ${jsonStr.length}`);
+
+    let analysisResults: VfxSceneAnalysis[];
+    try {
+      analysisResults = JSON.parse(jsonStr);
+      console.log(`${logPrefix} Successfully parsed ${analysisResults.length} scene analyses`);
+    } catch (parseError: any) {
+      console.error(`${logPrefix} JSON Parse Error:`, parseError.message);
+      
+      // Show context around the error
+      const errorPos = parseError.message.match(/position (\d+)/)?.[1];
+      if (errorPos) {
+        const pos = parseInt(errorPos);
+        const start = Math.max(0, pos - 100);
+        const end = Math.min(jsonStr.length, pos + 100);
+        console.error(`${logPrefix} Error context:`, jsonStr.substring(start, end));
+      }
+      
+      throw new Error(`Failed to parse VFX analysis response: ${parseError.message}`);
+    }
 
     // Update scenes in database
     let updatedCount = 0;
