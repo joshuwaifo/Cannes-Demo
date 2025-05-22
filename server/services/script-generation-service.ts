@@ -18,7 +18,7 @@ import {
 } from "@shared/schema";
 
 let genAIClientInstance: GoogleGenAI | null = null;
-const MODEL_NAME = "gemini-2.5-pro-preview-05-06";
+const MODEL_NAME = "gemini-1.5-flash-8b";
 
 function initializeGenAIClient(): GoogleGenAI {
   if (genAIClientInstance) {
