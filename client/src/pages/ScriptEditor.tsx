@@ -1415,6 +1415,16 @@ export default function ScriptEditor() {
     });
     const brandableSceneIds = brandableSceneObjects.map((scene) => scene.id);
 
+    // VFX scenes query
+    const {
+        data: vfxScenesWithDetails = [],
+        isLoading: isLoadingVfxScenes,
+        refetch: refetchVfxScenes,
+    } = useQuery<any[]>({
+        queryKey: ["/api/scripts/vfx-scenes", script?.id],
+        enabled: !!script?.id,
+    });
+
     const {
         data: sceneVariations = [],
         isLoading: isLoadingVariations,
