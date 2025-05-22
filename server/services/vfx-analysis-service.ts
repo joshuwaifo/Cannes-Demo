@@ -12,21 +12,40 @@ function initializeGenAIClient(): GoogleGenerativeAI {
   return new GoogleGenerativeAI(apiKey);
 }
 
-// Extract JSON from AI response string
+// Extract and clean JSON from AI response string
 function extractJsonFromString(str: string): string | null {
   try {
+    // Remove markdown code blocks and extra formatting
+    let cleanStr = str.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+    
     // Look for JSON array pattern
-    const jsonMatch = str.match(/\[[\s\S]*\]/);
+    const jsonMatch = cleanStr.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      return jsonMatch[0];
+      let jsonStr = jsonMatch[0];
+      
+      // Clean up common JSON formatting issues
+      jsonStr = jsonStr
+        .replace(/,\s*}/g, '}')  // Remove trailing commas before }
+        .replace(/,\s*]/g, ']')  // Remove trailing commas before ]
+        .replace(/([{,]\s*)(\w+):/g, '$1"$2":')  // Quote unquoted keys
+        .replace(/:\s*([^"\d\[\{][^,\]\}]*)/g, (match, value) => {
+          // Quote unquoted string values
+          const trimmed = value.trim();
+          if (trimmed !== 'true' && trimmed !== 'false' && trimmed !== 'null') {
+            return `: "${trimmed.replace(/"/g, '\\"')}"`;
+          }
+          return match;
+        });
+      
+      return jsonStr;
     }
     
     // Try to find JSON starting with array bracket
-    const startIndex = str.indexOf('[');
-    const endIndex = str.lastIndexOf(']');
+    const startIndex = cleanStr.indexOf('[');
+    const endIndex = cleanStr.lastIndexOf(']');
     
     if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-      return str.substring(startIndex, endIndex + 1);
+      return cleanStr.substring(startIndex, endIndex + 1);
     }
     
     return null;
@@ -75,7 +94,7 @@ export async function generateAndStoreVFXTierDetailsForScene(scene: Scene): Prom
     console.log(`${logPrefix} Starting VFX tier detail generation`);
     
     const genAI = initializeGenAIClient();
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
     
     // Import VFX quality tiers and services
     const { VfxQualityTierEnum } = await import("@shared/schema");
