@@ -59,7 +59,8 @@ export default function VfxScenes({
   onGenerateVideoRequest,
   videoGenerationStates = {},
   onViewVideo,
-  onImageZoom
+  onImageZoom,
+  sceneVariations
 }: VfxScenesProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [isImageZoomModalOpen, setIsImageZoomModalOpen] = useState(false);
