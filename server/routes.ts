@@ -1129,6 +1129,177 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
     });
 
+    // Initiate full VFX analysis for script (alternative endpoint)
+    app.post(`${apiPrefix}/scripts/:scriptId/initiate-vfx-analysis`, async (req, res, next) => {
+        try {
+            const scriptId = parseInt(req.params.scriptId);
+            if (isNaN(scriptId)) {
+                return res.status(400).json({ message: "Valid Script ID is required" });
+            }
+
+            const logPrefix = `[VFX Initiate Route for Script ${scriptId}]`;
+            console.log(`${logPrefix} Starting full VFX re-analysis`);
+
+            // Get the script
+            const script = await storage.getScriptById(scriptId);
+            if (!script) {
+                return res.status(404).json({ message: "Script not found" });
+            }
+
+            // Get all scenes for this script
+            const scenes = await storage.getScenesByScriptId(scriptId);
+            if (scenes.length === 0) {
+                return res.status(400).json({ message: "No scenes found for this script" });
+            }
+
+            console.log(`${logPrefix} Found ${scenes.length} scenes to re-analyze`);
+
+            // Run VFX analysis
+            await analyzeAndStoreScriptVFX(scriptId, script.content, scenes);
+
+            // Count VFX scenes after analysis
+            const updatedScenes = await storage.getScenesByScriptId(scriptId);
+            const vfxScenesCount = updatedScenes.filter(scene => scene.isVfxScene).length;
+
+            console.log(`${logPrefix} Full VFX re-analysis completed. ${vfxScenesCount} VFX scenes identified`);
+
+            res.status(200).json({
+                message: "Full VFX analysis initiated and completed successfully",
+                scriptId,
+                totalScenes: scenes.length,
+                vfxScenesCount,
+            });
+
+        } catch (error) {
+            console.error(`[VFX Initiate Route] Error:`, error);
+            next(error);
+        }
+    });
+
+    // Get VFX scenes with tier details (on-demand generation)
+    app.get(`${apiPrefix}/scripts/:scriptId/vfx-scenes`, async (req, res, next) => {
+        try {
+            const scriptId = parseInt(req.params.scriptId);
+            if (isNaN(scriptId)) {
+                return res.status(400).json({ message: "Valid Script ID is required" });
+            }
+
+            const logPrefix = `[VFX Scenes Route for Script ${scriptId}]`;
+            console.log(`${logPrefix} Fetching VFX scenes with tier details`);
+
+            // Get all scenes for this script
+            const allScenes = await storage.getScenesByScriptId(scriptId);
+            if (allScenes.length === 0) {
+                return res.status(404).json({ message: "No scenes found for this script" });
+            }
+
+            // Filter VFX scenes
+            const vfxScenes = allScenes.filter(scene => scene.isVfxScene);
+            console.log(`${logPrefix} Found ${vfxScenes.length} VFX scenes out of ${allScenes.length} total scenes`);
+
+            const vfxScenesWithDetails = [];
+
+            for (const scene of vfxScenes) {
+                try {
+                    // Get existing VFX tier details
+                    let vfxDetails = await storage.getVfxSceneDetailsBySceneId(scene.id);
+
+                    // If no tier details exist, generate them on-demand
+                    if (vfxDetails.length === 0) {
+                        console.log(`${logPrefix} No tier details found for scene ${scene.id}, generating on-demand`);
+                        
+                        const { generateAndStoreVFXTierDetailsForScene } = await import("./services/vfx-analysis-service");
+                        await generateAndStoreVFXTierDetailsForScene(scene);
+                        
+                        // Re-fetch the newly generated details
+                        vfxDetails = await storage.getVfxSceneDetailsBySceneId(scene.id);
+                        console.log(`${logPrefix} Generated ${vfxDetails.length} tier details for scene ${scene.id}`);
+                    }
+
+                    // Add the scene with its VFX details
+                    vfxScenesWithDetails.push({
+                        ...scene,
+                        vfxDetails: vfxDetails
+                    });
+
+                } catch (sceneError) {
+                    console.error(`${logPrefix} Error processing scene ${scene.id}:`, sceneError);
+                    // Include scene without details if generation fails
+                    vfxScenesWithDetails.push({
+                        ...scene,
+                        vfxDetails: []
+                    });
+                }
+            }
+
+            console.log(`${logPrefix} Returning ${vfxScenesWithDetails.length} VFX scenes with tier details`);
+
+            res.status(200).json(vfxScenesWithDetails);
+
+        } catch (error) {
+            console.error(`[VFX Scenes Route] Error:`, error);
+            next(error);
+        }
+    });
+
+    // Select VFX tier for a scene
+    app.put(`${apiPrefix}/scenes/:sceneId/select-vfx-tier`, async (req, res, next) => {
+        try {
+            const sceneId = parseInt(req.params.sceneId);
+            if (isNaN(sceneId)) {
+                return res.status(400).json({ message: "Valid Scene ID is required" });
+            }
+
+            const { qualityTier } = req.body;
+            if (!qualityTier || !['LOW', 'MEDIUM', 'HIGH'].includes(qualityTier)) {
+                return res.status(400).json({ message: "Valid qualityTier (LOW, MEDIUM, HIGH) is required" });
+            }
+
+            const logPrefix = `[VFX Tier Select Scene ${sceneId}]`;
+            console.log(`${logPrefix} Selecting ${qualityTier} tier`);
+
+            // Get the scene
+            const scene = await storage.getSceneById(sceneId);
+            if (!scene) {
+                return res.status(404).json({ message: "Scene not found" });
+            }
+
+            if (!scene.isVfxScene) {
+                return res.status(400).json({ message: "Scene is not marked as a VFX scene" });
+            }
+
+            // Get VFX tier details for the selected tier
+            const vfxDetails = await storage.getVfxSceneDetailsBySceneId(sceneId);
+            const selectedTierDetail = vfxDetails.find(detail => detail.qualityTier === qualityTier);
+
+            if (!selectedTierDetail) {
+                return res.status(404).json({ 
+                    message: `VFX tier details for ${qualityTier} not found. Please generate tier details first.` 
+                });
+            }
+
+            // Update scene with selected tier and cost
+            const updatedScene = await storage.updateScene(sceneId, {
+                selectedVfxTier: qualityTier,
+                selectedVfxCost: selectedTierDetail.estimatedVfxCost || 0
+            });
+
+            console.log(`${logPrefix} Selected ${qualityTier} tier with cost $${selectedTierDetail.estimatedVfxCost}`);
+
+            res.status(200).json({
+                message: "VFX tier selected successfully",
+                sceneId,
+                selectedTier: qualityTier,
+                selectedCost: selectedTierDetail.estimatedVfxCost,
+                scene: updatedScene
+            });
+
+        } catch (error) {
+            console.error(`[VFX Tier Select Route] Error:`, error);
+            next(error);
+        }
+    });
+
     const httpServer = createServer(app);
     return httpServer;
 }
