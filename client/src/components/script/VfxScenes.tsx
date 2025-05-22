@@ -234,14 +234,8 @@ export default function VfxScenes({
                                 </>
                               ) : (
                                 <>
-                                  <p className="text-xs text-gray-600 mb-2">No image generated</p>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleGenerateImage(tier)}
-                                    className="bg-purple-600 hover:bg-purple-700"
-                                  >
-                                    Generate Image
-                                  </Button>
+                                  <Sparkles className="h-8 w-8 text-gray-400" />
+                                  <p className="text-xs text-gray-600">Select tier to generate image</p>
                                 </>
                               )}
                             </div>
@@ -265,9 +259,11 @@ export default function VfxScenes({
                               size="sm"
                               variant={isSelected ? "default" : "outline"}
                               className="flex-1"
-                              onClick={() => {
+                              onClick={async () => {
                                 if (tierDetail?.estimatedVfxCost) {
                                   onVfxTierSelect(activeSceneDetails.id, tier, tierDetail.estimatedVfxCost);
+                                  // Auto-generate image after selecting tier
+                                  await handleGenerateImage(tier);
                                 }
                               }}
                               disabled={!tierDetail?.estimatedVfxCost}
