@@ -470,25 +470,48 @@ interface VFXGenerationResult {
   error?: string;
 }
 
-export async function generateVFXConceptualImage(
-  request: VFXGenerationRequest
-): Promise<VFXGenerationResult> {
-  const logPrefix = `[VFX Concept Gen ${request.qualityTier}]`;
+// --- VFX Image Generation (uses same model as brandable scenes) ---
+interface VFXImageGenerationRequest {
+  scene: Scene;
+  vfxDescription: string;
+  vfxKeywords: string[];
+  qualityTier: string;
+  brandableImageUrl?: string; // If scene is also brandable, use this image
+}
+
+interface VFXImageGenerationResult {
+  imageUrl: string;
+  success: boolean;
+  error?: string;
+}
+
+export async function generateVFXImage(
+  request: VFXImageGenerationRequest
+): Promise<VFXImageGenerationResult> {
+  const { scene, vfxDescription, vfxKeywords, qualityTier, brandableImageUrl } = request;
+  const logPrefix = `[VFX IMG S${scene.sceneNumber} ${qualityTier}]`;
   
   try {
-    console.log(`${logPrefix} Starting VFX concept image generation`);
+    console.log(`${logPrefix} Starting VFX image generation`);
     
     const replicate = getReplicateClient();
     
-    // Create a detailed prompt for VFX concept art
-    const prompt = `Professional VFX concept art, ${request.qualityTier.toLowerCase()} quality: ${request.vfxElementsSummary}. Scene: ${request.vfxDescription}. Keywords: ${request.vfxKeywords.join(', ')}. Cinematic lighting, detailed, realistic, production quality, visual effects breakdown style`;
+    // Build VFX prompt
+    let prompt = `Cinematic VFX scene: ${vfxDescription}. VFX elements: ${vfxKeywords.join(', ')}. ${qualityTier} quality visual effects, professional film production, detailed, realistic lighting`;
+    
+    // If scene is also brandable and has a brand image, include it in the prompt
+    if (brandableImageUrl) {
+      prompt += `. Incorporate branded elements from reference image`;
+      console.log(`${logPrefix} Using brandable scene reference image: ${brandableImageUrl.substring(0, 50)}...`);
+    }
     
     const finalPrompt = prompt.length > MAX_PROMPT_LENGTH 
       ? prompt.substring(0, MAX_PROMPT_LENGTH) + "..." 
       : prompt;
     
-    console.log(`${logPrefix} Using prompt (${finalPrompt.length} chars): ${finalPrompt.substring(0, 100)}...`);
+    console.log(`${logPrefix} Prompt (${finalPrompt.length} chars): ${finalPrompt.substring(0, 100)}...`);
     
+    // Use same model and settings as brandable scenes
     const input = {
       prompt: finalPrompt,
       negative_prompt: "nsfw, nude, naked, offensive, violence, gore, explicit language, text, words, letters, watermark, signature, blurry, low quality, distorted, deformed, bad anatomy, extra limbs, disfigured, multiple views",
@@ -500,11 +523,11 @@ export async function generateVFXConceptualImage(
       guidance_scale: 2.5,
     };
     
-    console.log(`${logPrefix} Calling Replicate for VFX concept image...`);
+    console.log(`${logPrefix} Calling Replicate with exact same model as brandable scenes...`);
     
     const output: any = await safeReplicateCall(
-      () => replicate.run(`${REPLICATE_IMAGE_MODEL}`, { input }),
-      `VFX Concept Image ${request.qualityTier}`
+      () => replicate.run(`${REPLICATE_IMAGE_MODEL}:${REPLICATE_IMAGE_VERSION}`, { input }),
+      `VFX Image Generation ${qualityTier}`
     );
     
     if (!output || !Array.isArray(output) || output.length === 0) {
@@ -519,7 +542,7 @@ export async function generateVFXConceptualImage(
     const sanitizedUrl = getSanitizedImageUrl(imageUrl);
     const success = sanitizedUrl !== FALLBACK_IMAGE_URL;
     
-    console.log(`${logPrefix} VFX concept image generation completed. Success: ${success}`);
+    console.log(`${logPrefix} VFX image generation completed. Success: ${success}, URL: ${sanitizedUrl.substring(0, 50)}...`);
     
     return {
       imageUrl: sanitizedUrl,
@@ -527,11 +550,64 @@ export async function generateVFXConceptualImage(
     };
     
   } catch (error: any) {
-    console.error(`${logPrefix} Error generating VFX concept image:`, error.message || error);
+    console.error(`${logPrefix} Error generating VFX image:`, error.message || error);
     return {
       imageUrl: FALLBACK_IMAGE_URL,
       success: false,
       error: error.message || "Unknown error",
+    };
+  }
+}
+
+// --- VFX Video Generation (uses VFX image as input, same model as brandable scenes) ---
+export async function generateVFXVideoFromImage(
+  imageUrl: string,
+  scene: Scene,
+  qualityTier: string
+): Promise<VideoGenerationResult> {
+  const logPrefix = `[VFX VIDEO S${scene.sceneNumber} ${qualityTier}]`;
+  
+  try {
+    console.log(`${logPrefix} Starting VFX video generation from image: ${imageUrl.substring(0, 50)}...`);
+    
+    const replicate = getReplicateClient();
+    
+    // Use same video model and settings as brandable scenes
+    const input = {
+      image: imageUrl,
+      motion_amount: 6, // Medium motion for VFX scenes
+      fps: 24,
+      duration: 3,
+      aspect_ratio: "16:9"
+    };
+    
+    console.log(`${logPrefix} Using same video model as brandable scenes: ${REPLICATE_VIDEO_MODEL}:${REPLICATE_VIDEO_VERSION}`);
+    
+    const prediction: any = await safeReplicateCall(
+      () => replicate.predictions.create({
+        version: REPLICATE_VIDEO_VERSION,
+        input: input,
+      }),
+      `VFX Video Generation ${qualityTier}`
+    );
+    
+    if (!prediction || !prediction.id) {
+      throw new Error("Failed to create VFX video prediction");
+    }
+    
+    console.log(`${logPrefix} VFX video generation started. Prediction ID: ${prediction.id}`);
+    
+    return {
+      predictionId: prediction.id,
+      status: prediction.status || "starting",
+    };
+    
+  } catch (error: any) {
+    console.error(`${logPrefix} Error generating VFX video:`, error.message || error);
+    return {
+      predictionId: null,
+      error: error.message || "Unknown error",
+      status: "failed",
     };
   }
 }

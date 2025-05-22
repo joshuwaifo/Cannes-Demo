@@ -155,7 +155,7 @@ export async function generateAndStoreVFXTierDetailsForScene(scene: Scene): Prom
     
     // Import VFX quality tiers and services
     const { VfxQualityTierEnum } = await import("@shared/schema");
-    const { generateVFXConceptualImage } = await import("./replicate-service");
+    const { generateVFXImage } = await import("./replicate-service");
     const { createOrUpdateVfxSceneDetail } = await import("../storage");
     
     const vfxKeywords = scene.vfxKeywords || [];
