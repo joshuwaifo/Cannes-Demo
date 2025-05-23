@@ -1278,7 +1278,7 @@ import CharacterCasting from "@/components/script/CharacterCasting";
 // --- BEGIN MODIFICATION (Task 1.4) ---
 import FinancialAnalysisModal from "@/components/script/FinancialAnalysisModal";
 // --- END MODIFICATION (Task 1.4) ---
-import VfxScenes from "@/components/script/VfxScenes";
+
 import {
     Script,
     Scene,
@@ -1846,22 +1846,7 @@ export default function ScriptEditor() {
                                 />
                             </div>
                             
-                            {/* VFX Scenes Component */}
-                            <div className="bg-white rounded-lg shadow p-4">
-                                <VfxScenes
-                                    activeSceneDetails={activeSceneObject}
-                                    projectTitle={script?.title}
-                                    scenes={scenes}
-                                    vfxScenes={[]} 
-                                    isLoading={false}
-                                    selectedSceneId={activeSceneId}
-                                    onVfxTierSelect={handleVfxTierSelect}
-                                    onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
-                                    videoGenerationStates={videoGenerationStates}
-                                    onViewVideo={handleViewVideo}
-                                    onImageZoom={handleImageZoom}
-                                />
-                            </div>
+
                         </>
                     ) : (
                         activeSceneId === null && scenes.length > 0 && (
