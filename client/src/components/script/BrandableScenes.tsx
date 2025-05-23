@@ -286,25 +286,75 @@ export default function BrandableScenes({
 
   return (
     <div>
-      <h3 className="text-sm sm:text-md font-semibold text-foreground mb-2 sm:mb-3 line-clamp-2">
-        {projectTitle ? `Placement Options for "${projectTitle}" - ` : ""}
-        Scene {currentSceneToDisplay?.sceneNumber || selectedSceneId}
-      </h3>
+      {/* Mode Toggle */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm sm:text-md font-semibold text-foreground line-clamp-2">
+          {currentMode === 'brand' 
+            ? `${projectTitle ? `Placement Options for "${projectTitle}" - ` : ""}Scene ${currentSceneToDisplay?.sceneNumber || selectedSceneId}`
+            : `VFX Options for Scene ${currentSceneToDisplay?.sceneNumber || selectedSceneId}`
+          }
+        </h3>
+        
+        <div className="flex rounded-lg border p-1 bg-gray-50">
+          <Button
+            variant={currentMode === 'brand' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setCurrentMode('brand')}
+            className={`px-2 py-1 text-xs ${
+              currentMode === 'brand' 
+                ? 'bg-green-600 text-white hover:bg-green-700' 
+                : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+            }`}
+          >
+            <ShoppingBag className="w-3 h-3 mr-1" />
+            Brand
+          </Button>
+          <Button
+            variant={currentMode === 'vfx' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setCurrentMode('vfx')}
+            className={`px-2 py-1 text-xs ${
+              currentMode === 'vfx' 
+                ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
+            }`}
+          >
+            <Sparkles className="w-3 h-3 mr-1" />
+            VFX
+          </Button>
+        </div>
+      </div>
       {currentSceneToDisplay && (
         <>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1 line-clamp-2">
-            <span className="font-medium">Reason:</span>{" "}
-            {currentSceneToDisplay.brandableReason ||
-              (currentSceneToDisplay.isBrandable
-                ? "Suitable for placement."
-                : "Not initially identified as brandable by Vadis AI; categories generated on demand.")}
-          </p>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
-            <span className="font-medium">Categories:</span>{" "}
-            {currentSceneToDisplay.suggestedCategories?.join(", ") ||
-              (isLoading ? "Loading categories..." : "None suggested yet")}
-          </p>
-
+          {currentMode === 'brand' ? (
+            <>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-1 line-clamp-2">
+                <span className="font-medium">Reason:</span>{" "}
+                {currentSceneToDisplay.brandableReason ||
+                  (currentSceneToDisplay.isBrandable
+                    ? "Suitable for placement."
+                    : "Not initially identified as brandable by Vadis AI; categories generated on demand.")}
+              </p>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
+                <span className="font-medium">Categories:</span>{" "}
+                {currentSceneToDisplay.suggestedCategories?.join(", ") ||
+                  (isLoading ? "Loading categories..." : "None suggested yet")}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-1 line-clamp-2">
+                <span className="font-medium">VFX Requirements:</span>{" "}
+                {currentSceneToDisplay.vfxDescription ||
+                  (isLoading ? "Loading VFX requirements..." : "None specified yet")}
+              </p>
+              <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 line-clamp-2">
+                <span className="font-medium">VFX Elements:</span>{" "}
+                {currentSceneToDisplay.vfxKeywords?.join(", ") ||
+                  (isLoading ? "Loading VFX elements..." : "None specified yet")}
+              </p>
+            </>
+          )}
         </>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -494,41 +544,68 @@ export default function BrandableScenes({
               </CardContent>
 
               <CardFooter className="p-2 sm:p-3 pt-1 sm:pt-2 grid grid-cols-2 gap-1 sm:gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => openChangeProductModal(variation.id)}
-                  disabled={
-                    showImageOverlay || handleChangeProductMutation.isPending
-                  }
-                  className="text-xs sm:text-sm h-auto py-1 px-2 sm:px-3"
-                >
-                  <Replace className="mr-1 h-3.5 w-3.5 flex-shrink-0" />{" "}
-                  <span className="whitespace-nowrap">Change Product</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleUpdateAssets(variation.id)}
-                  disabled={
-                    showImageOverlay ||
-                    isPromptUnchangedOrEmpty ||
-                    updateAssetsMutation.isPending
-                  }
-                  className="text-xs sm:text-sm h-auto py-1 px-2 sm:px-3"
-                >
-                  {isUpdatingThisAsset ? (
-                    <>
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin flex-shrink-0" />{" "}
-                      <span className="whitespace-nowrap">Updating...</span>
-                    </>
-                  ) : (
-                    <>
+                {currentMode === 'brand' ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openChangeProductModal(variation.id)}
+                      disabled={
+                        showImageOverlay || handleChangeProductMutation.isPending
+                      }
+                      className="text-xs sm:text-sm h-auto py-1 px-2 sm:px-3"
+                    >
+                      <Replace className="mr-1 h-3.5 w-3.5 flex-shrink-0" />{" "}
+                      <span className="whitespace-nowrap">Change Product</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleUpdateAssets(variation.id)}
+                      disabled={
+                        showImageOverlay ||
+                        isPromptUnchangedOrEmpty ||
+                        updateAssetsMutation.isPending
+                      }
+                      className="text-xs sm:text-sm h-auto py-1 px-2 sm:px-3"
+                    >
+                      {isUpdatingThisAsset ? (
+                        <>
+                          <Loader2 className="mr-1 h-4 w-4 animate-spin flex-shrink-0" />{" "}
+                          <span className="whitespace-nowrap">Updating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCcw className="mr-1 h-4 w-4 flex-shrink-0" />{" "}
+                          <span className="whitespace-nowrap">Update Assets</span>
+                        </>
+                      )}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toast({ title: "VFX Tier Selection", description: "VFX tier selection functionality coming soon!" })}
+                      disabled={showImageOverlay}
+                      className="text-xs sm:text-sm h-auto py-1 px-2 sm:px-3"
+                    >
+                      <Sparkles className="mr-1 h-3.5 w-3.5 flex-shrink-0" />{" "}
+                      <span className="whitespace-nowrap">Select VFX Tier</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toast({ title: "VFX Update", description: "VFX asset update functionality coming soon!" })}
+                      disabled={showImageOverlay}
+                      className="text-xs sm:text-sm h-auto py-1 px-2 sm:px-3"
+                    >
                       <RefreshCcw className="mr-1 h-4 w-4 flex-shrink-0" />{" "}
-                      <span className="whitespace-nowrap">Update Assets</span>
-                    </>
-                  )}
-                </Button>
+                      <span className="whitespace-nowrap">Update VFX</span>
+                    </Button>
+                  </>
+                )}
 
                 {videoState.status === "succeeded" && videoState.videoUrl ? (
                   <Button
@@ -569,26 +646,45 @@ export default function BrandableScenes({
                     </span>
                   </Button>
                 ) : (
-                  <Button
-                    variant={
-                      videoState.status === "failed" ? "destructive" : "outline"
-                    }
-                    size="sm"
-                    onClick={() => onGenerateVideoRequest(variation.id)}
-                    disabled={showImageOverlay || isLoading}
-                    className="col-span-2 w-full justify-center text-sm sm:text-base py-1 h-auto"
-                  >
-                    {videoState.status === "failed" ? (
-                      <AlertTriangle className="mr-1 h-4 w-4 flex-shrink-0" />
-                    ) : (
-                      <Video className="mr-1 h-4 w-4 flex-shrink-0" />
+                  <>
+                    {/* Brand Mode - Generate Video Button */}
+                    {currentMode === 'brand' && (
+                      <Button
+                        variant={
+                          videoState.status === "failed" ? "destructive" : "outline"
+                        }
+                        size="sm"
+                        onClick={() => onGenerateVideoRequest(variation.id)}
+                        disabled={showImageOverlay || isLoading}
+                        className="col-span-2 w-full justify-center text-sm sm:text-base py-1 h-auto"
+                      >
+                        {videoState.status === "failed" ? (
+                          <AlertTriangle className="mr-1 h-4 w-4 flex-shrink-0" />
+                        ) : (
+                          <Video className="mr-1 h-4 w-4 flex-shrink-0" />
+                        )}
+                        <span className="whitespace-nowrap">
+                          {videoState.status === "failed"
+                            ? "Retry Video"
+                            : "Generate Video"}
+                        </span>
+                      </Button>
                     )}
-                    <span className="whitespace-nowrap">
-                      {videoState.status === "failed"
-                        ? "Retry Video"
-                        : "Generate Video"}
-                    </span>
-                  </Button>
+                    
+                    {/* VFX Mode - Generate VFX Button */}
+                    {currentMode === 'vfx' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toast({ title: "VFX Generation", description: "VFX video generation functionality coming soon!" })}
+                        disabled={showImageOverlay || isLoading}
+                        className="col-span-2 w-full justify-center text-sm sm:text-base py-1 h-auto"
+                      >
+                        <Sparkles className="mr-1 h-4 w-4 flex-shrink-0" />
+                        <span className="whitespace-nowrap">Generate VFX</span>
+                      </Button>
+                    )}
+                  </>
                 )}
               </CardFooter>
             </Card>
