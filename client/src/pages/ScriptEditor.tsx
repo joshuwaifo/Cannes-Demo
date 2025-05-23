@@ -1270,7 +1270,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import SceneBreakdown from "@/components/script/SceneBreakdown";
 import ScriptDisplay from "@/components/script/ScriptDisplay";
-import BrandableScenes from "@/components/script/BrandableScenes";
+import UnifiedScenePane from "@/components/script/UnifiedScenePane";
 import VideoPlayerModal from "@/components/script/VideoPlayerModal";
 import ImageZoomModal from "@/components/script/ImageZoomModal";
 import SuggestedLocations from "@/components/script/SuggestedLocations";
@@ -1278,7 +1278,6 @@ import CharacterCasting from "@/components/script/CharacterCasting";
 // --- BEGIN MODIFICATION (Task 1.4) ---
 import FinancialAnalysisModal from "@/components/script/FinancialAnalysisModal";
 // --- END MODIFICATION (Task 1.4) ---
-import VfxScenes from "@/components/script/VfxScenes";
 import {
     Script,
     Scene,
@@ -1828,41 +1827,21 @@ export default function ScriptEditor() {
                         />
                     </div>
                     {scenes.length > 0 && activeSceneId !== null && activeSceneObject ? (
-                        <>
-                            <div className="bg-white rounded-lg shadow p-4">
-                                <BrandableScenes
-                                    activeSceneDetails={activeSceneObject}
-                                    projectTitle={script?.title}
-                                    scenes={scenes}
-                                    productVariations={sceneVariations}
-                                    isLoading={isLoadingCurrentVariations}
-                                    selectedSceneId={activeSceneId}
-                                    onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
-                                    videoGenerationStates={videoGenerationStates}
-                                    onViewVideo={handleViewVideo}
-                                    onImageZoom={handleImageZoom}
-                                    selectedProducts={selectedProducts}
-                                    onProductSelect={handleProductSelection}
-                                />
-                            </div>
-                            
-                            {/* VFX Scenes Component */}
-                            <div className="bg-white rounded-lg shadow p-4">
-                                <VfxScenes
-                                    activeSceneDetails={activeSceneObject}
-                                    projectTitle={script?.title}
-                                    scenes={scenes}
-                                    vfxScenes={[]} 
-                                    isLoading={false}
-                                    selectedSceneId={activeSceneId}
-                                    onVfxTierSelect={handleVfxTierSelect}
-                                    onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
-                                    videoGenerationStates={videoGenerationStates}
-                                    onViewVideo={handleViewVideo}
-                                    onImageZoom={handleImageZoom}
-                                />
-                            </div>
-                        </>
+                        <UnifiedScenePane
+                            activeSceneDetails={activeSceneObject}
+                            projectTitle={script?.title}
+                            scenes={scenes}
+                            productVariations={sceneVariations}
+                            isLoading={isLoadingCurrentVariations}
+                            selectedSceneId={activeSceneId}
+                            onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
+                            videoGenerationStates={videoGenerationStates}
+                            onViewVideo={handleViewVideo}
+                            onImageZoom={handleImageZoom}
+                            selectedProducts={selectedProducts}
+                            onProductSelect={handleProductSelection}
+                            onVfxTierSelect={handleVfxTierSelect}
+                        />
                     ) : (
                         activeSceneId === null && scenes.length > 0 && (
                             <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">

@@ -301,7 +301,14 @@ export default function BrandableScenes({
             {currentSceneToDisplay.suggestedCategories?.join(", ") ||
               (isLoading ? "Loading categories..." : "None suggested yet")}
           </p>
-
+          {scenes.length > 0 && (
+            <p className="text-xs sm:text-sm text-yellow-800 bg-yellow-100 border border-yellow-300 p-2 rounded-md mb-2 font-medium">
+              Vadis AI has initially identified{" "}
+              {scenes.filter((s) => s.isBrandable).length} of {scenes.length}{" "}
+              scenes with product placement potential. You can generate options
+              for any scene.
+            </p>
+          )}
         </>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
