@@ -94,22 +94,23 @@ export default function VfxScenes({
     [variationId: number]: string;
   }>({});
 
-  if (!activeSceneDetails || !activeSceneDetails.isVfxScene) {
-    return null;
-  }
-
+  // Move all hooks to top level before any returns
   const sceneWithDetails = activeSceneDetails as SceneWithVfxDetails;
-  const vfxDetails = sceneWithDetails.vfxDetails || [];
+  const vfxDetails = sceneWithDetails?.vfxDetails || [];
 
   useEffect(() => {
     const initialDescriptions: { [variationId: number]: string } = {};
-    if (vfxDetails && selectedSceneId) {
+    if (vfxDetails && selectedSceneId && activeSceneDetails) {
       vfxDetails.forEach((detail) => {
-        initialDescriptions[detail.id] = detail.vfxDescription || "";
+        initialDescriptions[detail.id] = detail.vfxElementsSummaryForTier || "";
       });
     }
     setEditedVfxDescriptions(initialDescriptions);
-  }, [vfxDetails, selectedSceneId]);
+  }, [vfxDetails, selectedSceneId, activeSceneDetails]);
+
+  if (!activeSceneDetails || !activeSceneDetails.isVfxScene) {
+    return null;
+  }
 
   const currentSceneToDisplay = activeSceneDetails;
 
