@@ -1789,12 +1789,12 @@ export default function ScriptEditor() {
                         {/* --- END MODIFICATION (Task 1.4) --- */}
                         <Button 
                             variant="outline" 
-                            size="icon" 
-                            className="rounded-full" 
+                            size="sm" 
                             onClick={openSelectionInfoModal}
-                            title="View selected items"
+                            className="flex items-center gap-2"
                         >
-                            <Info className="h-5 w-5" />
+                            <Info className="h-4 w-4" />
+                            Summary
                         </Button>
                     </div>
                 </div>
