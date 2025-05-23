@@ -1279,6 +1279,7 @@ import CharacterCasting from "@/components/script/CharacterCasting";
 import FinancialAnalysisModal from "@/components/script/FinancialAnalysisModal";
 // --- END MODIFICATION (Task 1.4) ---
 import VfxScenes from "@/components/script/VfxScenes";
+import UnifiedScenePane from "@/components/script/UnifiedScenePane";
 import {
     Script,
     Scene,
@@ -1830,7 +1831,7 @@ export default function ScriptEditor() {
                     {scenes.length > 0 && activeSceneId !== null && activeSceneObject ? (
                         <>
                             <div className="bg-white rounded-lg shadow p-4">
-                                <BrandableScenes
+                                <UnifiedScenePane
                                     activeSceneDetails={activeSceneObject}
                                     projectTitle={script?.title}
                                     scenes={scenes}
@@ -1843,23 +1844,7 @@ export default function ScriptEditor() {
                                     onImageZoom={handleImageZoom}
                                     selectedProducts={selectedProducts}
                                     onProductSelect={handleProductSelection}
-                                />
-                            </div>
-                            
-                            {/* VFX Scenes Component */}
-                            <div className="bg-white rounded-lg shadow p-4">
-                                <VfxScenes
-                                    activeSceneDetails={activeSceneObject}
-                                    projectTitle={script?.title}
-                                    scenes={scenes}
-                                    vfxScenes={[]} 
-                                    isLoading={false}
-                                    selectedSceneId={activeSceneId}
                                     onVfxTierSelect={handleVfxTierSelect}
-                                    onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
-                                    videoGenerationStates={videoGenerationStates}
-                                    onViewVideo={handleViewVideo}
-                                    onImageZoom={handleImageZoom}
                                 />
                             </div>
                         </>
