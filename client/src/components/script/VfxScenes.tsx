@@ -130,23 +130,129 @@ export default function VfxScenes({
             </div>
           )}
 
-          {/* VFX Quality Tiers */}
+          {/* VFX Quality Tiers Selection Grid */}
           <div>
             <h4 className="text-sm font-medium mb-3">VFX Quality Tiers</h4>
             
-            {isLoadingVfx ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(['LOW', 'MEDIUM', 'HIGH'] as const).map((tier) => (
-                  <Card key={tier} className="relative">
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <Skeleton className="h-32 w-full rounded" />
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-3 w-1/2" />
-                        <div className="flex gap-2">
-                          <Skeleton className="h-8 flex-1" />
-                          <Skeleton className="h-8 w-24" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+              {(['LOW', 'MEDIUM', 'HIGH'] as const).map((tier) => {
+                const config = VFX_TIER_CONFIG[tier];
+                const tierDetail = vfxDetails.find(detail => detail.qualityTier === tier);
+                const isSelected = tierDetail?.isSelected || false;
+                const videoState = tierDetail ? (videoGenerationStates[tierDetail.id] || { status: "idle" }) : { status: "idle" };
+                const isProcessing = videoState.status === "pending" || videoState.status === "generating";
+                
+                return (
+                  <Card
+                    key={tier}
+                    className={`border-2 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200 
+                      ${isSelected ? "border-purple-500 ring-1 ring-purple-500" : "border-gray-200"} 
+                      ${isProcessing ? "opacity-70" : ""} w-full group relative cursor-pointer`}
+                    onClick={() => !isProcessing && tierDetail && onVfxTierSelect(activeSceneDetails.id, tier, tierDetail.estimatedCost)}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-2 right-2 z-10 bg-purple-500 rounded-full p-1">
+                        <Sparkles className="h-3 w-3 text-white" />
+                      </div>
+                    )}
+                    
+                    <div className="relative aspect-video bg-gradient-to-br from-purple-100 to-purple-200 overflow-hidden">
+                      {tierDetail?.imageUrl ? (
+                        <img
+                          src={tierDetail.imageUrl}
+                          alt={`${config.name} preview for Scene ${activeSceneDetails.sceneNumber}`}
+                          className="w-full h-full object-cover transform scale-100 hover:scale-105 transition-transform duration-300 cursor-pointer"
+                          loading="lazy"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleImageClick(tierDetail.imageUrl!, `${config.name} - Scene ${activeSceneDetails.sceneNumber}`);
+                          }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = "https://placehold.co/864x480/9333ea/white?text=VFX+Preview";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-100 to-purple-200">
+                          <div className="text-center text-purple-700">
+                            <Sparkles className="h-12 w-12 mx-auto mb-2" />
+                            <p className="text-sm font-medium">{config.name}</p>
+                            <p className="text-xs">{config.costRange}</p>
+                          </div>
                         </div>
+                      )}
+                      
+                      {isProcessing && (
+                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white p-2 sm:p-4 text-center">
+                          <Loader2 className="h-6 w-6 sm:h-8 sm:w-8 animate-spin mb-1 sm:mb-2" />
+                          <p className="text-xs sm:text-sm font-medium">
+                            {videoState.stageMessage || "Processing VFX..."}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                        <span className="text-white text-xs font-semibold">
+                          {config.name}
+                        </span>
+                      </div>
+                    </div>
+
+                    <CardContent className="p-2 sm:p-3">
+                      <div className="space-y-2">
+                        <div>
+                          <p className="text-xs sm:text-sm font-medium">{config.name}</p>
+                          <p className="text-xs text-gray-600">{config.description}</p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <Badge variant="outline" className="text-xs">
+                            {config.costRange}
+                          </Badge>
+                          {tierDetail && (
+                            <span className="text-xs font-medium text-purple-600">
+                              {formatCost(tierDetail.estimatedCost)}
+                            </span>
+                          )}
+                        </div>
+
+                        {videoState.status === "succeeded" && videoState.videoUrl ? (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onViewVideo && onViewVideo(videoState.videoUrl!, `${config.name} - Scene ${activeSceneDetails.sceneNumber}`);
+                            }}
+                            className="w-full justify-center text-xs py-1 h-auto"
+                          >
+                            <Play className="mr-1 h-3 w-3" />
+                            View VFX Video
+                          </Button>
+                        ) : isProcessing ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={true}
+                            className="w-full justify-center text-xs py-1 h-auto"
+                          >
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            {videoState.status === "pending" ? "Queueing..." : "Processing..."}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              tierDetail && onGenerateVideoRequest && onGenerateVideoRequest(tierDetail.id);
+                            }}
+                            disabled={!tierDetail}
+                            className="w-full justify-center text-xs py-1 h-auto"
+                          >
+                            <Sparkles className="mr-1 h-3 w-3" />
+                            Generate VFX
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
