@@ -1860,7 +1860,6 @@ export default function ScriptEditor() {
                                     videoGenerationStates={videoGenerationStates}
                                     onViewVideo={handleViewVideo}
                                     onImageZoom={handleImageZoom}
-                                    sceneVariations={sceneVariations}
                                 />
                             </div>
                         </>
