@@ -1828,41 +1828,21 @@ export default function ScriptEditor() {
                         />
                     </div>
                     {scenes.length > 0 && activeSceneId !== null && activeSceneObject ? (
-                        <>
-                            <div className="bg-white rounded-lg shadow p-4">
-                                <BrandableScenes
-                                    activeSceneDetails={activeSceneObject}
-                                    projectTitle={script?.title}
-                                    scenes={scenes}
-                                    productVariations={sceneVariations}
-                                    isLoading={isLoadingCurrentVariations}
-                                    selectedSceneId={activeSceneId}
-                                    onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
-                                    videoGenerationStates={videoGenerationStates}
-                                    onViewVideo={handleViewVideo}
-                                    onImageZoom={handleImageZoom}
-                                    selectedProducts={selectedProducts}
-                                    onProductSelect={handleProductSelection}
-                                />
-                            </div>
-                            
-                            {/* VFX Scenes Component */}
-                            <div className="bg-white rounded-lg shadow p-4">
-                                <VfxScenes
-                                    activeSceneDetails={activeSceneObject}
-                                    projectTitle={script?.title}
-                                    scenes={scenes}
-                                    vfxScenes={[]} 
-                                    isLoading={false}
-                                    selectedSceneId={activeSceneId}
-                                    onVfxTierSelect={handleVfxTierSelect}
-                                    onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
-                                    videoGenerationStates={videoGenerationStates}
-                                    onViewVideo={handleViewVideo}
-                                    onImageZoom={handleImageZoom}
-                                />
-                            </div>
-                        </>
+                        <UnifiedScenePane
+                            activeSceneDetails={activeSceneObject}
+                            projectTitle={script?.title}
+                            scenes={scenes}
+                            productVariations={sceneVariations}
+                            isLoading={isLoadingCurrentVariations}
+                            selectedSceneId={activeSceneId}
+                            onGenerateVideoRequest={(variationId) => startVideoGenerationMutation.mutate(variationId)}
+                            videoGenerationStates={videoGenerationStates}
+                            onViewVideo={handleViewVideo}
+                            onImageZoom={handleImageZoom}
+                            selectedProducts={selectedProducts}
+                            onProductSelect={handleProductSelection}
+                            onVfxTierSelect={handleVfxTierSelect}
+                        />
                     ) : (
                         activeSceneId === null && scenes.length > 0 && (
                             <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
