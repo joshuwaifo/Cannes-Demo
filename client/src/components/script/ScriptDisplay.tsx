@@ -119,24 +119,7 @@ export default function ScriptDisplay({
             ? `Scene ${activeScene.sceneNumber}: ${activeScene.heading}`
             : script?.title || "Script Editor" } {/* Display script title if no active scene */}
         </h2>
-        <div className="flex space-x-2">
-          {onAnalyzeVfx && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onAnalyzeVfx}
-              disabled={!script || isAnalyzingVfx}
-              className="flex items-center gap-2"
-            >
-              {isAnalyzingVfx ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {isAnalyzingVfx ? "Analyzing..." : "Analyze VFX"}
-            </Button>
-          )}
-        </div>
+
       </div>
 
       <Textarea
