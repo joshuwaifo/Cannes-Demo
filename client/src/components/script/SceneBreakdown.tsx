@@ -74,9 +74,6 @@ export default function SceneBreakdown({
 
       {brandableSceneIds.length > 0 && (
         <div className="mt-6 pt-4 border-t border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">
-            Vadis AI Suggested Brandable Scenes {/* Changed AI to Vadis AI */}
-          </h3>
           <div className="bg-green-50 border border-green-200 rounded-md p-3">
             <p className="text-sm text-green-800 mb-2 font-medium">
               {`VADIS AI SUGGESTED BRANDABLE SCENES`}
