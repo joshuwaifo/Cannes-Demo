@@ -111,18 +111,20 @@ export default function SceneBreakdown({
             <p className="text-xs text-purple-600 mb-2">
               {`There are ${scenes.filter(scene => scene.isVfxScene).length} scenes with VFX potential. Vadis AI has suggested the following scenes for their VFX potential:`}
             </p>
-            <ul className="text-xs text-purple-700 space-y-1">
-              {scenes
-                .filter((scene) => scene.isVfxScene)
-                .map((scene) => {
-                  return (
-                    <li key={scene.id} className="flex items-center">
-                      <Sparkles className="h-4 w-4 mr-1 text-purple-600" />
-                      Scene {scene.sceneNumber}: {scene.heading.length > 30 ? scene.heading.substring(0, 30) + "..." : scene.heading}
-                    </li>
-                  );
-                })}
-            </ul>
+            <div className="max-h-24 overflow-y-auto">
+              <ul className="text-xs text-purple-700 space-y-1 pr-2">
+                {scenes
+                  .filter((scene) => scene.isVfxScene)
+                  .map((scene) => {
+                    return (
+                      <li key={scene.id} className="flex items-center">
+                        <Sparkles className="h-4 w-4 mr-1 text-purple-600 flex-shrink-0" />
+                        Scene {scene.sceneNumber}: {scene.heading.length > 30 ? scene.heading.substring(0, 30) + "..." : scene.heading}
+                      </li>
+                    );
+                  })}
+              </ul>
+            </div>
           </div>
         </div>
       )}
