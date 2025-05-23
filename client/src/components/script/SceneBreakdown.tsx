@@ -81,24 +81,22 @@ export default function SceneBreakdown({
             <p className="text-xs text-green-600 mb-2">
               {`There are ${scenes.filter(scene => brandableSceneIds.includes(scene.id)).length} scenes with product placement potential. Vadis AI has suggested the following scenes for their branding potential:`}
             </p>
-            <div className="max-h-24 overflow-y-auto">
-              <ul className="text-xs text-green-700 space-y-1 pr-2">
-                {scenes
-                  .filter((scene) => brandableSceneIds.includes(scene.id))
-                  .map((scene) => {
-                    const category = scene.suggestedCategories?.length
-                      ? scene.suggestedCategories[0]
-                      : "Product";
+            <ul className="text-xs text-green-700 space-y-1">
+              {scenes
+                .filter((scene) => brandableSceneIds.includes(scene.id))
+                .map((scene) => {
+                  const category = scene.suggestedCategories?.length
+                    ? scene.suggestedCategories[0]
+                    : "Product";
 
-                    return (
-                      <li key={scene.id} className="flex items-center">
-                        <Star className="h-4 w-4 mr-1 text-green-600 flex-shrink-0" />
-                        Scene {scene.sceneNumber}: {scene.heading.length > 30 ? scene.heading.substring(0, 30) + "..." : scene.heading} ({category})
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
+                  return (
+                    <li key={scene.id} className="flex items-center">
+                      <Star className="h-4 w-4 mr-1 text-green-600" />
+                      Scene {scene.sceneNumber}: {scene.heading.length > 30 ? scene.heading.substring(0, 30) + "..." : scene.heading} ({category})
+                    </li>
+                  );
+                })}
+            </ul>
           </div>
         </div>
       )}
