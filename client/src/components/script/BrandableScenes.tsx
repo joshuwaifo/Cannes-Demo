@@ -16,6 +16,8 @@ import {
   Replace,
   ZoomIn,
   Check,
+  Sparkles,
+  ShoppingBag,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Scene } from "@shared/schema";
@@ -52,6 +54,7 @@ export default function BrandableScenes({
     useState(false);
   const [changingProductForVariationId, setChangingProductForVariationId] =
     useState<number | null>(null);
+  const [currentMode, setCurrentMode] = useState<'brand' | 'vfx'>('brand');
 
   useEffect(() => {
     const initialPrompts: { [variationId: number]: string } = {};
