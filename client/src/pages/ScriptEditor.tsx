@@ -1270,7 +1270,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import SceneBreakdown from "@/components/script/SceneBreakdown";
 import ScriptDisplay from "@/components/script/ScriptDisplay";
-import BrandableScenes from "@/components/script/BrandableScenes";
+import UnifiedScenePane from "@/components/script/UnifiedScenePane";
 import VideoPlayerModal from "@/components/script/VideoPlayerModal";
 import ImageZoomModal from "@/components/script/ImageZoomModal";
 import SuggestedLocations from "@/components/script/SuggestedLocations";
@@ -1278,7 +1278,6 @@ import CharacterCasting from "@/components/script/CharacterCasting";
 // --- BEGIN MODIFICATION (Task 1.4) ---
 import FinancialAnalysisModal from "@/components/script/FinancialAnalysisModal";
 // --- END MODIFICATION (Task 1.4) ---
-import VfxScenes from "@/components/script/VfxScenes";
 import {
     Script,
     Scene,
