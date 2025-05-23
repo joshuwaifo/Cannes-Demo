@@ -12,7 +12,7 @@ export interface VfxScenesProps {
   activeSceneDetails: Scene | null;
   projectTitle?: string;
   scenes: Scene[];
-  vfxScenes: any[]; // This will now contain the placement variations
+  vfxScenes: any[];
   isLoading: boolean;
   selectedSceneId: number | null;
   onVfxTierSelect: (sceneId: number, tier: VfxQualityTierType) => void;
@@ -51,7 +51,7 @@ export default function VfxScenes({
   activeSceneDetails,
   projectTitle,
   scenes,
-  vfxScenes, // This now contains the placement variations with generated images
+  vfxScenes,
   isLoading,
   selectedSceneId,
   onVfxTierSelect,
@@ -63,20 +63,12 @@ export default function VfxScenes({
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [isImageZoomModalOpen, setIsImageZoomModalOpen] = useState(false);
 
-  if (!activeSceneDetails) {
+  if (!activeSceneDetails || !activeSceneDetails.isVfxScene) {
     return null;
   }
 
   const sceneWithDetails = activeSceneDetails as SceneWithVfxDetails;
   const vfxDetails = sceneWithDetails.vfxDetails || [];
-  
-  // Get the scene variations with generated images for this scene
-  const currentSceneVariations = Array.isArray(vfxScenes) 
-    ? vfxScenes.filter(variation => variation.sceneId === activeSceneDetails.id)
-    : [];
-    
-  // Find the selected product variation (the one that was chosen in brand placement pane)
-  const selectedVariation = currentSceneVariations.find(variation => variation.isSelected);
 
   const formatCost = (cost: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -164,22 +156,7 @@ export default function VfxScenes({
                     )}
                     
                     <div className="relative aspect-video bg-gradient-to-br from-purple-100 to-purple-200 overflow-hidden">
-                      {/* Show the selected product placement image from the brand placement pane */}
-                      {selectedVariation?.imageUrl ? (
-                        <img
-                          src={selectedVariation.imageUrl}
-                          alt={`${config.name} preview for Scene ${activeSceneDetails.sceneNumber}`}
-                          className="w-full h-full object-cover transform scale-100 hover:scale-105 transition-transform duration-300 cursor-pointer"
-                          loading="lazy"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleImageClick(selectedVariation.imageUrl!, `${config.name} - Scene ${activeSceneDetails.sceneNumber}`);
-                          }}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = "https://placehold.co/864x480/9333ea/white?text=VFX+Preview";
-                          }}
-                        />
-                      ) : tierDetail?.conceptualImageUrl ? (
+                      {tierDetail?.conceptualImageUrl ? (
                         <img
                           src={tierDetail.conceptualImageUrl}
                           alt={`${config.name} preview for Scene ${activeSceneDetails.sceneNumber}`}
