@@ -176,13 +176,6 @@ export default function UnifiedScenePane({
           videoGenerationStates={videoGenerationStates}
           onViewVideo={onViewVideo}
           onImageZoom={onImageZoom}
-          // Pass additional props to indicate VFX mode adaptations
-          isVfxMode={true}
-          keepBrandImages={isBrandableScene} // Keep brand images if scene is also brandable
-          hideSelectedBrands={true}
-          hideCategoryInfo={true}
-          showVfxPrompts={true}
-          changeButtonText="Generate VFX"
         />
       );
     }

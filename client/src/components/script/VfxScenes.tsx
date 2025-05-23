@@ -20,13 +20,6 @@ export interface VfxScenesProps {
   videoGenerationStates?: { [key: number]: any };
   onViewVideo?: (videoUrl: string, title: string) => void;
   onImageZoom?: (imageUrl: string, title: string) => void;
-  // VFX mode adaptation props
-  isVfxMode?: boolean;
-  keepBrandImages?: boolean;
-  hideSelectedBrands?: boolean;
-  hideCategoryInfo?: boolean;
-  showVfxPrompts?: boolean;
-  changeButtonText?: string;
 }
 
 interface SceneWithVfxDetails extends Scene {
@@ -65,14 +58,7 @@ export default function VfxScenes({
   onGenerateVideoRequest,
   videoGenerationStates = {},
   onViewVideo,
-  onImageZoom,
-  // VFX mode adaptation props
-  isVfxMode = false,
-  keepBrandImages = false,
-  hideSelectedBrands = false,
-  hideCategoryInfo = false,
-  showVfxPrompts = false,
-  changeButtonText = "Generate Video"
+  onImageZoom
 }: VfxScenesProps) {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [isImageZoomModalOpen, setIsImageZoomModalOpen] = useState(false);
@@ -249,7 +235,7 @@ export default function VfxScenes({
                                     </Button>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>{changeButtonText}</p>
+                                    <p>Generate VFX Video</p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>
