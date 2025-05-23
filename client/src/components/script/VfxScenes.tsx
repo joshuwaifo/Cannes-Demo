@@ -74,6 +74,9 @@ export default function VfxScenes({
   const currentSceneVariations = Array.isArray(vfxScenes) 
     ? vfxScenes.filter(variation => variation.sceneId === activeSceneDetails.id)
     : [];
+    
+  // Find the selected product variation (the one that was chosen in brand placement pane)
+  const selectedVariation = currentSceneVariations.find(variation => variation.isSelected);
 
   const formatCost = (cost: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -161,16 +164,16 @@ export default function VfxScenes({
                     )}
                     
                     <div className="relative aspect-video bg-gradient-to-br from-purple-100 to-purple-200 overflow-hidden">
-                      {/* Show generated placement images from the current scene variations */}
-                      {currentSceneVariations.length > 0 && currentSceneVariations[0]?.imageUrl ? (
+                      {/* Show the selected product placement image from the brand placement pane */}
+                      {selectedVariation?.imageUrl ? (
                         <img
-                          src={currentSceneVariations[0].imageUrl}
+                          src={selectedVariation.imageUrl}
                           alt={`${config.name} preview for Scene ${activeSceneDetails.sceneNumber}`}
                           className="w-full h-full object-cover transform scale-100 hover:scale-105 transition-transform duration-300 cursor-pointer"
                           loading="lazy"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleImageClick(currentSceneVariations[0].imageUrl!, `${config.name} - Scene ${activeSceneDetails.sceneNumber}`);
+                            handleImageClick(selectedVariation.imageUrl!, `${config.name} - Scene ${activeSceneDetails.sceneNumber}`);
                           }}
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = "https://placehold.co/864x480/9333ea/white?text=VFX+Preview";
