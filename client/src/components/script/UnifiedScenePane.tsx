@@ -104,8 +104,8 @@ export default function UnifiedScenePane({
           activeSceneDetails={activeSceneDetails}
           projectTitle={projectTitle}
           scenes={scenes}
-          vfxScenes={[]}
-          isLoading={false}
+          vfxScenes={productVariations} // Pass the generated placement images to VFX mode
+          isLoading={isLoading}
           selectedSceneId={selectedSceneId}
           onVfxTierSelect={onVfxTierSelect}
           onGenerateVideoRequest={onGenerateVideoRequest}
